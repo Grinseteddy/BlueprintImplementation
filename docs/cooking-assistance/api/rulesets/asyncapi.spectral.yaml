@@ -1,0 +1,10 @@
+# Cook Assistance AsyncAPI lint ruleset: the house style plus one documented exclusion.
+extends:
+  - ./asyncapi-house-style.spectral.yaml
+overrides:
+  # AMQP topic routing keys are dot-separated by convention (e.g. cooking-assistance.help.provided);
+  # each dot segment is kebab-case. Accepted exclusion, step 4 proposal P13 (2026-10-31).
+  - files:
+      - "../cooking-assistance.asyncapi.yaml#/channels"
+    rules:
+      house-channel-address-kebab-case: "off"

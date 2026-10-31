@@ -1,0 +1,187 @@
+@prefix dkg:  <https://w3id.org/dkg/ns#> .
+@prefix :     <https://w3id.org/dkg/graph/larder#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+:Art_QualityScenarios_CookAssistance a dkg:Artifact ; rdfs:label "Cook Assistance quality scenarios (blueprint step 5b)" ; dkg:ingestedAt "2026-10-31"^^xsd:date .
+:QG_1_Maintainability a dkg:QualityGoal ; skos:prefLabel "Maintainability" ; dkg:priority 1 ; dkg:mentions :Ctx_CookingAssistance ; dkg:source :Art_QualityScenarios_CookAssistance .
+:QG_2_Reliability a dkg:QualityGoal ; skos:prefLabel "Reliability" ; dkg:priority 2 ; dkg:mentions :Ctx_CookingAssistance ; dkg:source :Art_QualityScenarios_CookAssistance .
+:QG_3_Security a dkg:QualityGoal ; skos:prefLabel "Security" ; dkg:priority 3 ; dkg:mentions :Ctx_CookingAssistance ; dkg:source :Art_QualityScenarios_CookAssistance .
+
+:QS_01 a dkg:QualityScenario ; skos:prefLabel "QS-01" ;
+    dkg:characteristic "Maintainability / testability" ;
+    dkg:source "developer" ;
+    dkg:stimulus "changes a domain rule" ;
+    dkg:environment "development" ;
+    dkg:artifact "Cook Assistance module" ;
+    dkg:response "rule changed test-first; suite runs automatically" ;
+    dkg:responseMeasure "≥ 95 % of acceptance examples automated (AP0005); domain line coverage ≥ 90 %; fast suite < 60 s" ;
+    dkg:priority "H/M" ;
+    dkg:verifiedBy "test (12)" ;
+    dkg:mentions :Ctx_CookingAssistance ; dkg:source :Art_QualityScenarios_CookAssistance ; dkg:confidence dkg:OnArtifact .
+:QS_02 a dkg:QualityScenario ; skos:prefLabel "QS-02" ;
+    dkg:characteristic "Maintainability / modularity" ;
+    dkg:source "developer" ;
+    dkg:stimulus "adds a feature" ;
+    dkg:environment "development" ;
+    dkg:artifact "domain and application layers" ;
+    dkg:response "domain code has no framework, persistence or messaging import" ;
+    dkg:responseMeasure "0 violations of the architecture rule test" ;
+    dkg:priority "H/L" ;
+    dkg:verifiedBy "test (12)" ;
+    dkg:mentions :Ctx_CookingAssistance ; dkg:source :Art_QualityScenarios_CookAssistance ; dkg:confidence dkg:OnArtifact .
+:QS_03 a dkg:QualityScenario ; skos:prefLabel "QS-03" ;
+    dkg:characteristic "Performance / time behavior" ;
+    dkg:source "cooks and providers" ;
+    dkg:stimulus "20 HTTP req/s and 10 msg/s at peak" ;
+    dkg:environment "normal operation" ;
+    dkg:artifact "REST API, consumer" ;
+    dkg:response "requests served" ;
+    dkg:responseMeasure "commands p95 ≤ 300 ms, queries p95 ≤ 200 ms" ;
+    dkg:priority "M/L" ;
+    dkg:verifiedBy "test (12), indicative on test infrastructure; production: open verification" ;
+    dkg:mentions :Ctx_CookingAssistance ; dkg:source :Art_QualityScenarios_CookAssistance ; dkg:confidence dkg:OnArtifact .
+:QS_04 a dkg:QualityScenario ; skos:prefLabel "QS-04" ;
+    dkg:characteristic "Reliability / fault tolerance" ;
+    dkg:source "broker" ;
+    dkg:stimulus "unavailable for 10 min" ;
+    dkg:environment "normal operation" ;
+    dkg:artifact "outbox relay" ;
+    dkg:response "commands still accepted; events kept in the outbox and published after recovery, in order per help request" ;
+    dkg:responseMeasure "0 events lost; publication ≤ 5 s after the broker returns (p95)" ;
+    dkg:priority "H/M" ;
+    dkg:verifiedBy "test (12) — fault injection" ;
+    dkg:mentions :Ctx_CookingAssistance ; dkg:source :Art_QualityScenarios_CookAssistance ; dkg:confidence dkg:OnArtifact .
+:QS_05 a dkg:QualityScenario ; skos:prefLabel "QS-05" ;
+    dkg:characteristic "Reliability / fault tolerance" ;
+    dkg:source "database" ;
+    dkg:stimulus "unavailable" ;
+    dkg:environment "normal operation" ;
+    dkg:artifact "REST API" ;
+    dkg:response "commands and queries answered 503 Problem Details; no partial writes" ;
+    dkg:responseMeasure "100 % 503, no half-written state; recovers without a restart" ;
+    dkg:priority "H/M" ;
+    dkg:verifiedBy "test (12) — fault injection" ;
+    dkg:mentions :Ctx_CookingAssistance ; dkg:source :Art_QualityScenarios_CookAssistance ; dkg:confidence dkg:OnArtifact .
+:QS_06 a dkg:QualityScenario ; skos:prefLabel "QS-06" ;
+    dkg:characteristic "Reliability / availability, recoverability" ;
+    dkg:source "operations" ;
+    dkg:stimulus "outage" ;
+    dkg:environment "production" ;
+    dkg:artifact "module" ;
+    dkg:response "restored" ;
+    dkg:responseMeasure "availability 99.5 %/month; RTO 1 h; RPO 5 min" ;
+    dkg:priority "H/H" ;
+    dkg:verifiedBy "open verification (operations: backup and HA of the shared Larder DB)" ;
+    dkg:mentions :Ctx_CookingAssistance ; dkg:source :Art_QualityScenarios_CookAssistance ; dkg:confidence dkg:OnArtifact .
+:QS_07 a dkg:QualityScenario ; skos:prefLabel "QS-07" ;
+    dkg:characteristic "Reliability / consistency" ;
+    dkg:source "requester" ;
+    dkg:stimulus "changes a help request, then reads it" ;
+    dkg:environment "normal operation" ;
+    dkg:artifact "query side" ;
+    dkg:response "sees their own change" ;
+    dkg:responseMeasure "read-your-writes: 100 %" ;
+    dkg:priority "H/M" ;
+    dkg:verifiedBy "test (12)" ;
+    dkg:mentions :Ctx_CookingAssistance ; dkg:source :Art_QualityScenarios_CookAssistance ; dkg:confidence dkg:OnArtifact .
+:QS_08 a dkg:QualityScenario ; skos:prefLabel "QS-08" ;
+    dkg:characteristic "Interoperability / timeliness" ;
+    dkg:source "Help Request aggregate" ;
+    dkg:stimulus "emits an event" ;
+    dkg:environment "normal operation" ;
+    dkg:artifact "outbox relay → broker" ;
+    dkg:response "event published" ;
+    dkg:responseMeasure "≤ 5 s p95 from commit to broker" ;
+    dkg:priority "M/M" ;
+    dkg:verifiedBy "test (12)" ;
+    dkg:mentions :Ctx_CookingAssistance ; dkg:source :Art_QualityScenarios_CookAssistance ; dkg:confidence dkg:OnArtifact .
+:QS_09 a dkg:QualityScenario ; skos:prefLabel "QS-09" ;
+    dkg:characteristic "Functional correctness / timeliness" ;
+    dkg:source "clock" ;
+    dkg:stimulus "a provider's deadline passes without an answer" ;
+    dkg:environment "normal operation" ;
+    dkg:artifact "timeout scheduler" ;
+    dkg:response "Help request timed out (or that provider's side timed out)" ;
+    dkg:responseMeasure "fires ≤ 30 s after the deadline; exactly once per deadline, also with 2 instances" ;
+    dkg:priority "H/H" ;
+    dkg:verifiedBy "test (12)" ;
+    dkg:mentions :Ctx_CookingAssistance ; dkg:source :Art_QualityScenarios_CookAssistance ; dkg:confidence dkg:OnArtifact .
+:QS_10 a dkg:QualityScenario ; skos:prefLabel "QS-10" ;
+    dkg:characteristic "Reliability / contention" ;
+    dkg:source "Community and Grandma Avatar" ;
+    dkg:stimulus "answer the same request at the same time" ;
+    dkg:environment "normal operation, 2 instances" ;
+    dkg:artifact "Help Request aggregate" ;
+    dkg:response "both answers stored; no lost update" ;
+    dkg:responseMeasure "optimistic lock; one retry; 0 lost answers" ;
+    dkg:priority "H/M" ;
+    dkg:verifiedBy "test (12)" ;
+    dkg:mentions :Ctx_CookingAssistance ; dkg:source :Art_QualityScenarios_CookAssistance ; dkg:confidence dkg:OnArtifact .
+:QS_11 a dkg:QualityScenario ; skos:prefLabel "QS-11" ;
+    dkg:characteristic "Capacity" ;
+    dkg:source "cooks" ;
+    dkg:stimulus "~50,000 help requests per year" ;
+    dkg:environment "normal operation" ;
+    dkg:artifact "database" ;
+    dkg:response "queries stay within QS-03" ;
+    dkg:responseMeasure "QS-03 holds with 3 years of data (150k requests)" ;
+    dkg:priority "L/L" ;
+    dkg:verifiedBy "test (12), indicative" ;
+    dkg:mentions :Ctx_CookingAssistance ; dkg:source :Art_QualityScenarios_CookAssistance ; dkg:confidence dkg:OnArtifact .
+:QS_12 a dkg:QualityScenario ; skos:prefLabel "QS-12" ;
+    dkg:characteristic "Security / confidentiality — data protection" ;
+    dkg:source "Cook Profile" ;
+    dkg:stimulus "publishes \"Cook deregistered\"" ;
+    dkg:environment "normal operation" ;
+    dkg:artifact "help requests, read models, outbox" ;
+    dkg:response "personal data erased or anonymized (free text, notes, photo links)" ;
+    dkg:responseMeasure "≤ 30 days; cook IDs only, never names or emails; no personal data in logs" ;
+    dkg:priority "H/M" ;
+    dkg:verifiedBy "both (test 12 for erasure, review 13 for logs)" ;
+    dkg:mentions :Ctx_CookingAssistance ; dkg:source :Art_QualityScenarios_CookAssistance ; dkg:confidence dkg:OnArtifact .
+:QS_13 a dkg:QualityScenario ; skos:prefLabel "QS-13" ;
+    dkg:characteristic "Security / accountability" ;
+    dkg:source "any actor" ;
+    dkg:stimulus "changes a help request's state" ;
+    dkg:environment "normal operation" ;
+    dkg:artifact "audit trail" ;
+    dkg:response "change recorded with actor, time, command" ;
+    dkg:responseMeasure "100 % of state changes; kept 1 year" ;
+    dkg:priority "M/L" ;
+    dkg:verifiedBy "test (12)" ;
+    dkg:mentions :Ctx_CookingAssistance ; dkg:source :Art_QualityScenarios_CookAssistance ; dkg:confidence dkg:OnArtifact .
+:QS_14 a dkg:QualityScenario ; skos:prefLabel "QS-14" ;
+    dkg:characteristic "Operability / monitoring (AP0007)" ;
+    dkg:source "operations" ;
+    dkg:stimulus "outbox backlog grows" ;
+    dkg:environment "normal operation" ;
+    dkg:artifact "metrics, alerting" ;
+    dkg:response "alert raised" ;
+    dkg:responseMeasure "backlog > 100 or oldest entry > 1 min → alert; correlationId on every log line, HTTP ↔ message" ;
+    dkg:priority "M/M" ;
+    dkg:verifiedBy "test (12) for metrics and correlation; alert routing: open verification" ;
+    dkg:mentions :Ctx_CookingAssistance ; dkg:source :Art_QualityScenarios_CookAssistance ; dkg:confidence dkg:OnArtifact .
+:QS_15 a dkg:QualityScenario ; skos:prefLabel "QS-15" ;
+    dkg:characteristic "Compatibility / co-existence" ;
+    dkg:source "consumer team" ;
+    dkg:stimulus "receives a new API or event version" ;
+    dkg:environment "evolution" ;
+    dkg:artifact "OpenAPI, AsyncAPI" ;
+    dkg:response "change is additive" ;
+    dkg:responseMeasure "breaking diff fails CI (oasdiff, AsyncAPI diff); breaking change only as a new major with 6 months' deprecation" ;
+    dkg:priority "H/L" ;
+    dkg:verifiedBy "test (12) — CI gate" ;
+    dkg:mentions :Ctx_CookingAssistance ; dkg:source :Art_QualityScenarios_CookAssistance ; dkg:confidence dkg:OnArtifact .
+:QS_16 a dkg:QualityScenario ; skos:prefLabel "QS-16" ;
+    dkg:characteristic "Maintainability / build" ;
+    dkg:source "developer" ;
+    dkg:stimulus "pushes" ;
+    dkg:environment "CI" ;
+    dkg:artifact "`verify` job" ;
+    dkg:response "build, lint, all tests" ;
+    dkg:responseMeasure "< 10 min" ;
+    dkg:priority "M/L" ;
+    dkg:verifiedBy "test (12) — CI timing" ;
+    dkg:mentions :Ctx_CookingAssistance ; dkg:source :Art_QualityScenarios_CookAssistance ; dkg:confidence dkg:OnArtifact .

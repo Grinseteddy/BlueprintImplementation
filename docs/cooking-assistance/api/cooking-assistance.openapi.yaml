@@ -1,0 +1,1526 @@
+openapi: 3.1.0
+info:
+  title: Cooking Assistance API
+  description: |
+    Provides help for cooks in planning and preparation of meals and dinners.
+    Cooks create help requests and select who can answer them; help providers are the community,
+    the Grandma Avatar (AI) and chefs. A help request is answered by helps; the cook accepts one help,
+    rejects helps with a note, or cancels the request. Unanswered requests time out.
+
+    Clients must be tolerant readers: ignore unknown fields and handle unknown enum values
+    (status, type and error codes can grow in later minor versions).
+  version: 1.0.0
+  contact:
+    name: Annegret Junker
+    email: annegret.junker@larder.org
+  x-api-id: 56ee84d9-f6c0-4ad9-92a4-1a4e0a7ba82e
+  x-audience: external-public
+
+servers:
+  - url: 'https://larder.org/cooking-assistance'
+
+security:
+  - oAuth2:
+      - help:read
+      - help:write
+
+tags:
+  - name: Help Requests
+    description: Requests for help raised by cooks while planning or preparing a meal, and their lifecycle
+  - name: Helps
+    description: Answers given to a help request by the community, the Grandma Avatar or a chef
+
+paths:
+  /help-requests:
+    get:
+      operationId: listHelpRequests
+      tags:
+        - Help Requests
+      summary: List help requests
+      description: |
+        Retrieve help requests, optionally filtered by the requesting cook, by status and by type.
+        Help providers use the status filter to find open requests they can answer.
+      parameters:
+        - $ref: '#/components/parameters/RequesterParameter'
+        - $ref: '#/components/parameters/StatusParameter'
+        - $ref: '#/components/parameters/RequestTypeParameter'
+        - $ref: '#/components/parameters/LimitParameter'
+        - $ref: '#/components/parameters/CursorParameter'
+        - $ref: '#/components/parameters/VersionParameter'
+      responses:
+        '200':
+          $ref: '#/components/responses/HelpRequestPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '500':
+          $ref: '#/components/responses/ServiceNotAvailableResponse'
+        default:
+          $ref: '#/components/responses/UnexpectedErrorResponse'
+
+    post:
+      operationId: createHelpRequest
+      tags:
+        - Help Requests
+      summary: Request help
+      description: |
+        Create a help request (commands Request help Preparation step / ingredients / Catastrophe / meal plan).
+        The authenticated cook becomes the requester; the request starts in status OPEN and every
+        preferred provider gets its own deadline (12 h preparation step, 24 h ingredient,
+        15 min community / 5 min Grandma Avatar for a catastrophe, min(48 h, 24 h before the occasion) for a menu).
+        Rule violations are answered with 422 and a Problem Details code:
+        - CHEF_NOT_ALLOWED: a chef only helps with a Menu proposal, and then exclusively;
+        - MISSING_FIELD / FIELD_NOT_ALLOWED: recipe and howToStep for a preparation step, recipe and one ingredient
+          for an ingredient substitute, pictures only for a catastrophe, occasion and chef only for a menu;
+        - TOO_MANY_PICTURES: at most 10 pictures;
+        - NOT_PREMIUM: only premium cooks may ask a chef;
+        - OCCASION_TOO_CLOSE: a menu request needs at least 48 h before the occasion;
+        - CHEF_UNAVAILABLE: the chef cannot answer before the deadline.
+      security:
+        - oAuth2:
+            - help:write
+      parameters:
+        - $ref: '#/components/parameters/VersionParameter'
+      requestBody:
+        $ref: '#/components/requestBodies/HelpRequestCreateRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/HelpRequestLinkResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '422':
+          $ref: '#/components/responses/RuleViolationResponse'
+        '500':
+          $ref: '#/components/responses/ServiceNotAvailableResponse'
+        default:
+          $ref: '#/components/responses/UnexpectedErrorResponse'
+
+  /help-requests/{helpRequestId}:
+    get:
+      operationId: getHelpRequestById
+      tags:
+        - Help Requests
+      summary: Get help request by ID
+      description: |
+        Retrieve a single help request with its status, the deadline and state per asked provider,
+        its notes and the notes of earlier requests about the same step or dish.
+      parameters:
+        - $ref: '#/components/parameters/HelpRequestIdParameter'
+        - $ref: '#/components/parameters/VersionParameter'
+      responses:
+        '200':
+          $ref: '#/components/responses/HelpRequestResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+        '500':
+          $ref: '#/components/responses/ServiceNotAvailableResponse'
+        default:
+          $ref: '#/components/responses/UnexpectedErrorResponse'
+
+  /help-requests/{helpRequestId}/cancellation:
+    post:
+      operationId: cancelHelpRequest
+      tags:
+        - Help Requests
+      summary: Cancel a help request
+      description: |
+        The requester cancels an OPEN or ANSWERED help request at any time, with an optional note
+        the providers can see. The request becomes CANCELLED.
+        Only the requester may cancel (403 NOT_REQUESTER); a CLOSED or CANCELLED request cannot be cancelled (409 INVALID_STATE).
+      security:
+        - oAuth2:
+            - help:write
+      parameters:
+        - $ref: '#/components/parameters/HelpRequestIdParameter'
+        - $ref: '#/components/parameters/VersionParameter'
+      requestBody:
+        $ref: '#/components/requestBodies/CancellationRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/HelpRequestLinkResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '500':
+          $ref: '#/components/responses/ServiceNotAvailableResponse'
+        default:
+          $ref: '#/components/responses/UnexpectedErrorResponse'
+
+  /help-requests/{helpRequestId}/helps:
+    get:
+      operationId: listHelpsOfHelpRequest
+      tags:
+        - Helps
+      summary: List the helps of a help request
+      description: |
+        Retrieve the helps given to one help request.
+        If the help provider is a chef, only the original requester can see the help;
+        such helps are left out of the list for every other caller.
+      parameters:
+        - $ref: '#/components/parameters/HelpRequestIdParameter'
+        - $ref: '#/components/parameters/LimitParameter'
+        - $ref: '#/components/parameters/CursorParameter'
+        - $ref: '#/components/parameters/VersionParameter'
+      responses:
+        '200':
+          $ref: '#/components/responses/HelpPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+        '500':
+          $ref: '#/components/responses/ServiceNotAvailableResponse'
+        default:
+          $ref: '#/components/responses/UnexpectedErrorResponse'
+
+    post:
+      operationId: provideHelp
+      tags:
+        - Helps
+      summary: Provide help
+      description: |
+        Answer a help request (command Provide Help). The help provider is taken from the authenticated caller.
+        The Grandma Avatar answers through messaging, not through this operation.
+        The request becomes ANSWERED and can still be answered by other asked providers.
+        Rule violations:
+        - 403 OWN_REQUEST: a cook never answers their own request;
+        - 403 PROVIDER_NOT_ASKED: the caller's provider type is not a preferred provider of the request;
+        - 409 INVALID_STATE: the request is CLOSED or CANCELLED, or the caller's side has timed out;
+        - 422 ANSWER_DOES_NOT_MATCH_REQUEST: answerType, recipe, howToStep or ingredient differ from the request;
+        - 422 SUBSTITUTE_REJECTED_BEFORE: a substitute the cook rejected earlier is proposed again;
+        - 422 TOO_MANY_PICTURES: at most 10 images.
+      security:
+        - oAuth2:
+            - help:write
+      parameters:
+        - $ref: '#/components/parameters/HelpRequestIdParameter'
+        - $ref: '#/components/parameters/VersionParameter'
+      requestBody:
+        $ref: '#/components/requestBodies/HelpCreateRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/HelpLinkResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '422':
+          $ref: '#/components/responses/RuleViolationResponse'
+        '500':
+          $ref: '#/components/responses/ServiceNotAvailableResponse'
+        default:
+          $ref: '#/components/responses/UnexpectedErrorResponse'
+
+  /help-requests/{helpRequestId}/helps/{helpId}:
+    get:
+      operationId: getHelpOfHelpRequest
+      tags:
+        - Helps
+      summary: Get a help of a help request
+      description: |
+        Retrieve a single help of a help request.
+        If the help provider is a chef, only the original requester can see the help (403 otherwise).
+      parameters:
+        - $ref: '#/components/parameters/HelpRequestIdParameter'
+        - $ref: '#/components/parameters/HelpIdParameter'
+        - $ref: '#/components/parameters/VersionParameter'
+      responses:
+        '200':
+          $ref: '#/components/responses/HelpResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+        '500':
+          $ref: '#/components/responses/ServiceNotAvailableResponse'
+        default:
+          $ref: '#/components/responses/UnexpectedErrorResponse'
+
+  /help-requests/{helpRequestId}/helps/{helpId}/acceptance:
+    post:
+      operationId: acceptHelp
+      tags:
+        - Helps
+      summary: Accept a help
+      description: |
+        The requester accepts one help (command Accept help). Accepting closes the whole request for every
+        provider; the request becomes CLOSED and the help is marked accepted.
+        Only the requester may accept (403 NOT_REQUESTER); the request must be ANSWERED (409 INVALID_STATE).
+      security:
+        - oAuth2:
+            - help:write
+      parameters:
+        - $ref: '#/components/parameters/HelpRequestIdParameter'
+        - $ref: '#/components/parameters/HelpIdParameter'
+        - $ref: '#/components/parameters/VersionParameter'
+      responses:
+        '200':
+          $ref: '#/components/responses/HelpRequestLinkResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '500':
+          $ref: '#/components/responses/ServiceNotAvailableResponse'
+        default:
+          $ref: '#/components/responses/UnexpectedErrorResponse'
+
+  /help-requests/{helpRequestId}/helps/{helpId}/rejection:
+    post:
+      operationId: rejectHelp
+      tags:
+        - Helps
+      summary: Reject a help
+      description: |
+        The requester rejects a help with a note on what didn't work (command Reject help).
+        The request stays or becomes OPEN, is sent again to the same providers with the note,
+        and every asked provider gets a new deadline (12 h, 24 h, 15 / 5 min, 48 h for a menu).
+        For a menu request the requester may pass the request on to another available chef (nextChef),
+        who does not see the rejected menu.
+        Only the requester may reject (403 NOT_REQUESTER); the request must be ANSWERED (409 INVALID_STATE).
+      security:
+        - oAuth2:
+            - help:write
+      parameters:
+        - $ref: '#/components/parameters/HelpRequestIdParameter'
+        - $ref: '#/components/parameters/HelpIdParameter'
+        - $ref: '#/components/parameters/VersionParameter'
+      requestBody:
+        $ref: '#/components/requestBodies/RejectionRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/HelpRequestLinkResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '422':
+          $ref: '#/components/responses/RuleViolationResponse'
+        '500':
+          $ref: '#/components/responses/ServiceNotAvailableResponse'
+        default:
+          $ref: '#/components/responses/UnexpectedErrorResponse'
+
+  /helps:
+    get:
+      operationId: listHelps
+      tags:
+        - Helps
+      summary: List helps across help requests
+      description: |
+        Retrieve helps across help requests, optionally filtered by help provider and by type
+        (e.g. a provider looking up their own answers).
+        If the help provider is a chef, only the original requester can see the help;
+        such helps are left out of the list for every other caller.
+      parameters:
+        - $ref: '#/components/parameters/HelpProviderParameter'
+        - $ref: '#/components/parameters/AnswerTypeParameter'
+        - $ref: '#/components/parameters/LimitParameter'
+        - $ref: '#/components/parameters/CursorParameter'
+        - $ref: '#/components/parameters/VersionParameter'
+      responses:
+        '200':
+          $ref: '#/components/responses/HelpPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '500':
+          $ref: '#/components/responses/ServiceNotAvailableResponse'
+        default:
+          $ref: '#/components/responses/UnexpectedErrorResponse'
+
+components:
+  parameters:
+    HelpRequestIdParameter:
+      name: helpRequestId
+      in: path
+      required: true
+      description: Unique identifier of the help request.
+      schema:
+        type: string
+        format: uuid
+
+    HelpIdParameter:
+      name: helpId
+      in: path
+      required: true
+      description: Unique identifier of the help.
+      schema:
+        type: string
+        format: uuid
+
+    RequesterParameter:
+      name: requester
+      in: query
+      required: false
+      description: Return only help requests raised by this cook.
+      schema:
+        type: string
+        format: uuid
+
+    StatusParameter:
+      name: status
+      in: query
+      required: false
+      description: Return only help requests in this status.
+      schema:
+        $ref: '#/components/schemas/HelpRequestStatus'
+
+    RequestTypeParameter:
+      name: type
+      in: query
+      required: false
+      description: Return only help requests of this type.
+      schema:
+        $ref: '#/components/schemas/HelpType'
+
+    AnswerTypeParameter:
+      name: type
+      in: query
+      required: false
+      description: Return only helps whose answer is of this type.
+      schema:
+        $ref: '#/components/schemas/HelpType'
+
+    HelpProviderParameter:
+      name: helpProvider
+      in: query
+      required: false
+      description: Return only helps given by this help provider.
+      schema:
+        type: string
+        format: uuid
+
+    LimitParameter:
+      name: limit
+      in: query
+      required: false
+      description: Maximum number of items in one page.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+    CursorParameter:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque cursor from the nextCursor of the previous page; omitted for the first page.
+      schema:
+        type: string
+        maxLength: 500
+
+    VersionParameter:
+      name: version
+      in: header
+      required: true
+      description: Version of the API the client was built against.
+      schema:
+        type: string
+        default: "1.0.0"
+        enum: ["1.0.0"]
+
+  schemas:
+    HelpType:
+      description: |
+        Kind of help a cook asks for; a help answers with the same kind (answerType).
+      type: string
+      enum:
+        - INGREDIENT_SUBSTITUTE
+        - PREPARATION_STEP_EXPLANATION
+        - STEPS_TO_MITIGATE_CATASTROPHE
+        - MENU_PROPOSAL
+
+    HelpProviderType:
+      description: Kind of help provider - a chef, the Grandma Avatar (AI) or the community.
+      type: string
+      enum:
+        - CHEF
+        - GRANDMA_AVATAR
+        - COMMUNITY
+
+    HelpRequestStatus:
+      description: |
+        Status of a help request: OPEN when created or after a rejection; ANSWERED once a help is given
+        (it can still be answered); CLOSED when the requester accepted a help; CANCELLED when the requester
+        cancelled it or every asked provider timed out. CLOSED and CANCELLED are final.
+        The list may grow; treat unknown values as final.
+      type: string
+      enum:
+        - OPEN
+        - ANSWERED
+        - CLOSED
+        - CANCELLED
+
+    ProviderState:
+      description: |
+        State of one asked provider: ASKED (waiting until its deadline), ANSWERED, TIMED_OUT.
+        The list may grow.
+      type: string
+      enum:
+        - ASKED
+        - ANSWERED
+        - TIMED_OUT
+
+    PreferredProviders:
+      description: |
+        The help providers the requester selects to answer the request (1..2).
+        A chef helps only with a Menu proposal, and then exclusively.
+      type: array
+      items:
+        $ref: '#/components/schemas/HelpProviderType'
+      minItems: 1
+      maxItems: 2
+      uniqueItems: true
+
+    Pictures:
+      description: Links to pictures (0..10).
+      type: array
+      items:
+        type: string
+        format: uri
+      maxItems: 10
+      examples:
+        - - https://larder.org/media/images/b009a5d1-0205-4b0c-af82-822229cf243a
+
+    AskedProvider:
+      description: One provider the request was sent to, with its own deadline.
+      type: object
+      required:
+        - providerType
+        - deadline
+        - state
+      properties:
+        providerType:
+          description: The kind of provider asked.
+          $ref: '#/components/schemas/HelpProviderType'
+        provider:
+          description: The individual provider asked, if one was picked by name (a chef).
+          type: string
+          format: uuid
+        deadline:
+          description: Time until which this provider's answer counts; reset whenever the request is sent again.
+          type: string
+          format: date-time
+        state:
+          description: Whether this provider is still asked, has answered or has timed out.
+          $ref: '#/components/schemas/ProviderState'
+
+    Note:
+      description: A note the requester wrote when rejecting a help or cancelling the request; shown to providers and on future requests.
+      type: object
+      required:
+        - kind
+        - text
+        - writtenAt
+      properties:
+        kind:
+          description: Why the note was written. The list may grow.
+          type: string
+          enum:
+            - REJECTION
+            - CANCELLATION
+        text:
+          description: What didn't work, or why the request was cancelled.
+          type: string
+          minLength: 1
+          maxLength: 2000
+          examples:
+            - warm water didn't help
+        writtenAt:
+          description: When the note was written.
+          type: string
+          format: date-time
+        helpRequestLink:
+          description: Link to the help request the note was written on.
+          type: string
+          format: uri
+
+    Occasion:
+      description: Why and when the cook is cooking - date, guests, dietary needs, budget, tastes (Menu proposal only).
+      type: object
+      required:
+        - dateTime
+        - guests
+      properties:
+        name:
+          description: Short name of the occasion.
+          type: string
+          maxLength: 200
+          examples:
+            - Mother-in-law visiting
+        dateTime:
+          description: When the meal is served.
+          type: string
+          format: date-time
+          examples:
+            - '2026-11-07T19:00:00+01:00'
+        guests:
+          description: Number of guests.
+          type: integer
+          minimum: 1
+          examples:
+            - 4
+        dietaryNeeds:
+          description: Dietary needs of the guests.
+          type: array
+          items:
+            type: string
+            maxLength: 100
+          maxItems: 20
+          examples:
+            - - vegetarian
+        budget:
+          description: Budget for the meal, in euro.
+          type: number
+          minimum: 0
+          examples:
+            - 60
+        tastes:
+          description: Tastes and preferences of the guests.
+          type: string
+          maxLength: 2000
+
+    HelpRequestInvariants:
+      description: |
+        Type-dependent invariants of a help request, applied to the read and the create model.
+      allOf:
+        - if:
+            required:
+              - type
+            properties:
+              type:
+                description: Applies to the type PREPARATION_STEP_EXPLANATION.
+                const: PREPARATION_STEP_EXPLANATION
+          then:
+            description: A preparation step names a recipe and exactly one step; text only.
+            required:
+              - recipe
+              - howToStep
+            not:
+              anyOf:
+                - required:
+                    - ingredient
+                - required:
+                    - pictures
+        - if:
+            required:
+              - type
+            properties:
+              type:
+                description: Applies to the type INGREDIENT_SUBSTITUTE.
+                const: INGREDIENT_SUBSTITUTE
+          then:
+            description: An ingredient substitute names a recipe and exactly one ingredient.
+            required:
+              - recipe
+              - ingredient
+            not:
+              anyOf:
+                - required:
+                    - howToStep
+                - required:
+                    - pictures
+        - if:
+            required:
+              - type
+            properties:
+              type:
+                description: Applies to the type STEPS_TO_MITIGATE_CATASTROPHE.
+                const: STEPS_TO_MITIGATE_CATASTROPHE
+          then:
+            description: A catastrophe may name a recipe and carry photos.
+            not:
+              anyOf:
+                - required:
+                    - howToStep
+                - required:
+                    - ingredient
+        - if:
+            required:
+              - type
+            properties:
+              type:
+                description: Applies to the type MENU_PROPOSAL.
+                const: MENU_PROPOSAL
+          then:
+            description: A menu request goes to exactly one chef, picked by name, for one occasion.
+            required:
+              - occasion
+              - chef
+            properties:
+              preferredProvider:
+                description: Exactly one chef.
+                maxItems: 1
+                items:
+                  const: CHEF
+            not:
+              anyOf:
+                - required:
+                    - howToStep
+                - required:
+                    - ingredient
+                - required:
+                    - pictures
+          else:
+            description: Chef support is only available for the type Menu proposal.
+            properties:
+              preferredProvider:
+                description: No chef for any other type.
+                not:
+                  contains:
+                    const: CHEF
+            not:
+              anyOf:
+                - required:
+                    - occasion
+                - required:
+                    - chef
+                - required:
+                    - reviewOf
+
+    HelpRequest:
+      type: object
+      required:
+        - helpRequestId
+        - requester
+        - title
+        - type
+        - description
+        - preferredProvider
+        - askedProviders
+        - status
+      allOf:
+        - $ref: '#/components/schemas/HelpRequestInvariants'
+      properties:
+        helpRequestId:
+          description: Unique identifier of the help request, generated by the server.
+          type: string
+          format: uuid
+          examples:
+            - 23a8eeed-35f6-460b-892e-7bb458a8fded
+        requester:
+          description: The cook who raised the help request, taken from the authenticated caller.
+          type: string
+          format: uuid
+          examples:
+            - f64e07f0-f9e7-4b7a-8695-e7a8b3ef5074
+        title:
+          description: Short headline telling help providers what the request is about.
+          type: string
+          minLength: 1
+          maxLength: 200
+          examples:
+            - Burning Catastrophe
+        type:
+          description: Kind of help the cook asks for; decides which further fields are allowed and which answer is expected.
+          $ref: '#/components/schemas/HelpType'
+        description:
+          description: The cook's own account of the situation and what went wrong.
+          type: string
+          minLength: 1
+          maxLength: 5000
+          examples:
+            - Scones are burned and mother in law is coming in 30 minutes
+        recipe:
+          description: |
+            Reference to the recipe the request is about. Mandatory for the types
+            Preparation Step Explanation and Ingredient Substitute, optional for a catastrophe.
+          type: string
+          format: uuid
+          examples:
+            - 7cf09822-77a1-46bb-812f-b7852bca0913
+        howToStep:
+          description: Reference to the one unclear step of the recipe. Only for the type Preparation Step Explanation.
+          type: string
+          format: uuid
+          examples:
+            - 65610dee-fb83-4341-a730-26a4a99a621a
+        ingredient:
+          description: Reference to the one ingredient to be substituted. Only for the type Ingredient Substitute.
+          type: string
+          format: uuid
+          examples:
+            - 8956b2e5-8d0c-470e-ae9c-6071bd7c5b0d
+        substituteRequirements:
+          description: What a substitute must meet, e.g. amount, availability or the guests' diet. Only for the type Ingredient Substitute.
+          type: string
+          maxLength: 2000
+          examples:
+            - 200 g, not available in the shop
+        pictures:
+          description: Photos of what went wrong (0..10). Only for the type Steps to Mitigate Catastrophe.
+          $ref: '#/components/schemas/Pictures'
+        preferredProvider:
+          description: Who the requester selects to answer the request.
+          $ref: '#/components/schemas/PreferredProviders'
+        chef:
+          description: The chef picked by name. Only for the type Menu proposal.
+          type: string
+          format: uuid
+          examples:
+            - 39a7aed5-2e50-48c8-8aa6-f3afa9f03f74
+        occasion:
+          description: The occasion the menu is for. Only for the type Menu proposal.
+          $ref: '#/components/schemas/Occasion'
+        reviewOf:
+          description: Link to a menu the Grandma Avatar proposed, which the chef is asked to review. Only for the type Menu proposal.
+          type: string
+          format: uri
+        askedProviders:
+          description: The providers the request was sent to, each with its own deadline and state.
+          type: array
+          items:
+            $ref: '#/components/schemas/AskedProvider'
+          minItems: 1
+          maxItems: 2
+        status:
+          description: Lifecycle status of the request.
+          $ref: '#/components/schemas/HelpRequestStatus'
+        suggestedProviders:
+          description: Providers not yet asked, suggested after the request timed out.
+          type: array
+          items:
+            $ref: '#/components/schemas/HelpProviderType'
+          maxItems: 3
+        notes:
+          description: Notes written on this request (rejections and cancellation).
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+        previousNotes:
+          description: Notes of the requester's earlier requests about the same recipe step or dish, shown so providers don't repeat what didn't work.
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+        acceptedHelpLink:
+          description: Link to the accepted help, once the request is CLOSED.
+          type: string
+          format: uri
+        helpsLink:
+          description: Link to the helps of this request.
+          type: string
+          format: uri
+        createdAt:
+          description: Timestamp of creation, set by the server.
+          type: string
+          format: date-time
+        updatedAt:
+          description: Timestamp of the last change, set by the server.
+          type: string
+          format: date-time
+
+    HelpRequestPage:
+      description: One page of help requests.
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          description: The help requests of this page.
+          type: array
+          items:
+            $ref: '#/components/schemas/HelpRequest'
+        nextCursor:
+          description: Cursor for the next page; absent on the last page.
+          type: string
+
+    HelpRequestCreate:
+      type: object
+      required:
+        - title
+        - type
+        - description
+        - preferredProvider
+      allOf:
+        - $ref: '#/components/schemas/HelpRequestInvariants'
+      properties:
+        title:
+          description: Short headline telling help providers what the request is about.
+          type: string
+          minLength: 1
+          maxLength: 200
+          examples:
+            - How do I keep the sauce from splitting?
+        type:
+          description: Kind of help the cook asks for; decides which further fields are allowed and which answer is expected.
+          $ref: '#/components/schemas/HelpType'
+        description:
+          description: The cook's own account of the situation and what went wrong.
+          type: string
+          minLength: 1
+          maxLength: 5000
+        recipe:
+          description: |
+            Reference to the recipe the request is about. Mandatory for the types
+            Preparation Step Explanation and Ingredient Substitute, optional for a catastrophe.
+          type: string
+          format: uuid
+        howToStep:
+          description: Reference to the one unclear step of the recipe. Only for the type Preparation Step Explanation.
+          type: string
+          format: uuid
+        ingredient:
+          description: Reference to the one ingredient to be substituted. Only for the type Ingredient Substitute.
+          type: string
+          format: uuid
+        substituteRequirements:
+          description: What a substitute must meet. Only for the type Ingredient Substitute.
+          type: string
+          maxLength: 2000
+        pictures:
+          description: Photos of what went wrong (0..10). Only for the type Steps to Mitigate Catastrophe.
+          $ref: '#/components/schemas/Pictures'
+        preferredProvider:
+          description: Who the requester selects to answer the request.
+          $ref: '#/components/schemas/PreferredProviders'
+        chef:
+          description: The chef picked by name. Required for the type Menu proposal.
+          type: string
+          format: uuid
+        occasion:
+          description: The occasion the menu is for. Required for the type Menu proposal.
+          $ref: '#/components/schemas/Occasion'
+        reviewOf:
+          description: Link to a Grandma Avatar menu the chef is asked to review. Only for the type Menu proposal.
+          type: string
+          format: uri
+
+    Cancellation:
+      description: Cancellation of a help request by its requester.
+      type: object
+      properties:
+        note:
+          description: Optional reason for cancelling, shown to the providers.
+          type: string
+          maxLength: 2000
+          examples:
+            - an ice cube saved it
+
+    Rejection:
+      description: Rejection of a help by the requester.
+      type: object
+      required:
+        - note
+      properties:
+        note:
+          description: What didn't work; sent to the providers with the request and kept for future requests.
+          type: string
+          minLength: 1
+          maxLength: 2000
+          examples:
+            - warm water didn't help
+        nextChef:
+          description: For a menu request, another available chef to pass the request on to.
+          type: string
+          format: uuid
+
+    Unit:
+      description: Unit of measure for the amount of a substitute ingredient.
+      type: string
+      enum:
+        - PIECE
+        - CUP
+        - TABLE_SPOON
+        - TEA_SPOON
+        - FLUID_OUNCES
+        - PINT
+        - QUART
+        - POUND
+        - KILOGRAM
+        - GRAM
+        - LITER
+        - MILLILITER
+        - PINCH
+
+    Meal:
+      description: The meal of the day a menu proposal is meant for.
+      type: string
+      enum:
+        - BREAKFAST
+        - LUNCH
+        - DINNER
+        - SUPPER
+
+    SubstituteIngredient:
+      description: An ingredient to use instead, with its amount.
+      type: object
+      required:
+        - name
+        - value
+        - unit
+      properties:
+        name:
+          description: Name of the ingredient to use instead.
+          type: string
+          minLength: 1
+          maxLength: 200
+          examples:
+            - yogurt
+        value:
+          description: Amount of the substitute ingredient, counted in the given unit.
+          type: number
+          exclusiveMinimum: 0
+          examples:
+            - 100
+        unit:
+          description: Unit in which the amount is measured.
+          $ref: '#/components/schemas/Unit'
+
+    Substitute:
+      description: One proposed replacement for the requested ingredient - a single ingredient or a mix with amounts.
+      type: object
+      required:
+        - ingredient
+        - substituteIngredients
+      properties:
+        ingredient:
+          description: Reference to the ingredient being replaced; the same ingredient as in the request.
+          type: string
+          format: uuid
+          examples:
+            - 8956b2e5-8d0c-470e-ae9c-6071bd7c5b0d
+        substituteIngredients:
+          description: What to use in place of the requested ingredient - one ingredient, or several forming a mix.
+          type: array
+          items:
+            $ref: '#/components/schemas/SubstituteIngredient'
+          minItems: 1
+          maxItems: 10
+
+    Substitutes:
+      description: Answer of type Ingredient Substitute.
+      type: object
+      required:
+        - answerType
+        - recipe
+        - substitute
+      properties:
+        answerType:
+          description: Marks this answer as an Ingredient Substitute; must be the same as the request type.
+          type: string
+          const: INGREDIENT_SUBSTITUTE
+        recipe:
+          description: Reference to the recipe the substitutes are for; same recipe as in the request.
+          type: string
+          format: uuid
+        substitute:
+          description: The proposed alternatives (1..*); the cook accepts one of them.
+          type: array
+          items:
+            $ref: '#/components/schemas/Substitute'
+          minItems: 1
+          maxItems: 20
+
+    PreparationStepExplanation:
+      description: Answer of type Preparation Step Explanation.
+      type: object
+      required:
+        - answerType
+        - recipe
+        - howToStep
+        - description
+      properties:
+        answerType:
+          description: Marks this answer as a Preparation Step Explanation; must be the same as the request type.
+          type: string
+          const: PREPARATION_STEP_EXPLANATION
+        recipe:
+          description: Reference to the recipe being explained; same recipe as in the request.
+          type: string
+          format: uuid
+        howToStep:
+          description: Reference to the step being explained; same howToStep as in the request.
+          type: string
+          format: uuid
+        description:
+          description: Explanation of how to carry out the step.
+          type: string
+          minLength: 1
+          maxLength: 5000
+          examples:
+            - butter in a thin stream
+        images:
+          description: Links to pictures illustrating the explanation (0..10).
+          $ref: '#/components/schemas/Pictures'
+
+    CatastropheMitigation:
+      description: Answer of type Steps to Mitigate Catastrophe.
+      type: object
+      required:
+        - answerType
+        - explanation
+      properties:
+        answerType:
+          description: Marks this answer as Steps to Mitigate Catastrophe; must be the same as the request type.
+          type: string
+          const: STEPS_TO_MITIGATE_CATASTROPHE
+        recipe:
+          description: Reference to the recipe that went wrong, if the request named one; same recipe as in the request.
+          type: string
+          format: uuid
+        explanation:
+          description: What the cook should do to rescue the meal.
+          type: string
+          minLength: 1
+          maxLength: 5000
+          examples:
+            - cut off the burnt part, make a fresh sauce
+        images:
+          description: Links to pictures illustrating the rescue (0..10).
+          $ref: '#/components/schemas/Pictures'
+
+    CourseMeal:
+      description: The dish served in a course.
+      type: object
+      required:
+        - recipe
+      properties:
+        dish:
+          description: Name of the dish.
+          type: string
+          maxLength: 200
+          examples:
+            - Lasagne
+        recipe:
+          description: Reference to the recipe of the dish.
+          type: string
+          format: uuid
+
+    Course:
+      description: One course of a proposed menu.
+      type: object
+      required:
+        - step
+        - meal
+      properties:
+        step:
+          description: Position of the course in the serving order; different courses can have the same step when served in parallel.
+          type: integer
+          minimum: 1
+          examples:
+            - 2
+        meal:
+          description: The dish served in this course.
+          $ref: '#/components/schemas/CourseMeal'
+
+    MenuProposal:
+      description: Answer of type Menu proposal - the complete menu.
+      type: object
+      required:
+        - answerType
+        - note
+        - servings
+        - meal
+        - course
+      properties:
+        answerType:
+          description: Marks this answer as a Menu proposal; must be the same as the request type.
+          type: string
+          const: MENU_PROPOSAL
+        note:
+          description: Advice of the chef accompanying the menu.
+          type: string
+          minLength: 1
+          maxLength: 5000
+          examples:
+            - Be careful, prepare everything
+        servings:
+          description: Number of guests the proposed menu serves.
+          type: integer
+          minimum: 1
+          examples:
+            - 6
+        meal:
+          description: Meal of the day the menu is proposed for.
+          $ref: '#/components/schemas/Meal'
+        howToServe:
+          description: Optional advice on how to serve the courses.
+          type: string
+          maxLength: 5000
+          examples:
+            - hold course 2 warm while serving soup
+        course:
+          description: The courses of the menu, each with its recipe (1..10).
+          type: array
+          items:
+            $ref: '#/components/schemas/Course'
+          minItems: 1
+          maxItems: 10
+
+    Answer:
+      description: |
+        The content of a help - exactly one of the four answer kinds, selected by answerType.
+      oneOf:
+        - $ref: '#/components/schemas/Substitutes'
+        - $ref: '#/components/schemas/PreparationStepExplanation'
+        - $ref: '#/components/schemas/CatastropheMitigation'
+        - $ref: '#/components/schemas/MenuProposal'
+      discriminator:
+        propertyName: answerType
+        mapping:
+          INGREDIENT_SUBSTITUTE: '#/components/schemas/Substitutes'
+          PREPARATION_STEP_EXPLANATION: '#/components/schemas/PreparationStepExplanation'
+          STEPS_TO_MITIGATE_CATASTROPHE: '#/components/schemas/CatastropheMitigation'
+          MENU_PROPOSAL: '#/components/schemas/MenuProposal'
+
+    Help:
+      type: object
+      required:
+        - helpId
+        - helpRequest
+        - helpRequester
+        - answerTitle
+        - helpProviderType
+        - answer
+        - isAccepted
+      properties:
+        helpId:
+          description: Unique identifier of the help, generated by the server.
+          type: string
+          format: uuid
+          examples:
+            - a9caf90d-00b4-4a66-8184-7d02152e8d6a
+        helpRequest:
+          description: Reference to the help request this help answers.
+          type: string
+          format: uuid
+          examples:
+            - 23a8eeed-35f6-460b-892e-7bb458a8fded
+        helpRequestLink:
+          description: Link to the help request this help answers.
+          type: string
+          format: uri
+        helpRequester:
+          description: Reference to the cook who raised the answered help request, copied from the request by the server.
+          type: string
+          format: uuid
+          examples:
+            - f64e07f0-f9e7-4b7a-8695-e7a8b3ef5074
+        answerTitle:
+          description: Short headline of the answer.
+          type: string
+          minLength: 1
+          maxLength: 200
+          examples:
+            - Stay calm
+        helpProviderType:
+          description: Whether a chef, the Grandma Avatar or the community gave this help.
+          $ref: '#/components/schemas/HelpProviderType'
+        helpProvider:
+          description: |
+            Reference to the person who gave the help, taken from the authenticated caller;
+            absent when the Grandma Avatar answered. Never the requester.
+          type: string
+          format: uuid
+          examples:
+            - 39a7aed5-2e50-48c8-8aa6-f3afa9f03f74
+        answer:
+          description: The content of the help; its answerType is the same as the request type.
+          $ref: '#/components/schemas/Answer'
+        isAccepted:
+          description: Whether the requester accepted this help.
+          type: boolean
+        rejectionNote:
+          description: The note the requester wrote when rejecting this help, if rejected.
+          type: string
+          maxLength: 2000
+        createdAt:
+          description: Timestamp of creation, set by the server.
+          type: string
+          format: date-time
+
+    HelpPage:
+      description: One page of helps.
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          description: The helps of this page.
+          type: array
+          items:
+            $ref: '#/components/schemas/Help'
+        nextCursor:
+          description: Cursor for the next page; absent on the last page.
+          type: string
+
+    HelpCreate:
+      type: object
+      required:
+        - answerTitle
+        - helpProviderType
+        - answer
+      properties:
+        answerTitle:
+          description: Short headline of the answer.
+          type: string
+          minLength: 1
+          maxLength: 200
+          examples:
+            - Butter in a thin stream
+        helpProviderType:
+          description: Whether a chef or the community gives this help.
+          $ref: '#/components/schemas/HelpProviderType'
+        answer:
+          description: The content of the help; its answerType must be the same as the request type.
+          $ref: '#/components/schemas/Answer'
+
+    Problem:
+      description: Error details following RFC 9457 (Problem Details for HTTP APIs), with a domain error code.
+      type: object
+      required:
+        - type
+        - title
+        - status
+        - code
+      properties:
+        type:
+          description: URI identifying the problem type.
+          type: string
+          format: uri
+          examples:
+            - https://larder.org/problems/chef-not-allowed
+        title:
+          description: Short, human-readable summary of the problem type.
+          type: string
+          examples:
+            - A chef only helps with a menu proposal
+        status:
+          description: HTTP status code of this occurrence.
+          type: integer
+          examples:
+            - 422
+        detail:
+          description: Human-readable explanation of this occurrence.
+          type: string
+        instance:
+          description: URI of the resource this occurrence refers to.
+          type: string
+          format: uri
+        code:
+          description: |
+            Machine-readable domain error code, e.g. CHEF_NOT_ALLOWED, MISSING_FIELD, FIELD_NOT_ALLOWED, TOO_MANY_PICTURES,
+            NOT_PREMIUM, OCCASION_TOO_CLOSE, CHEF_UNAVAILABLE, OWN_REQUEST, PROVIDER_NOT_ASKED, NOT_REQUESTER,
+            INVALID_STATE, ANSWER_DOES_NOT_MATCH_REQUEST, SUBSTITUTE_REJECTED_BEFORE, VALIDATION_FAILED.
+            The list may grow.
+          type: string
+          examples:
+            - CHEF_NOT_ALLOWED
+
+  responses:
+    HelpRequestResponse:
+      description: Single help request response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HelpRequest'
+
+    HelpRequestPageResponse:
+      description: Page of help requests
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HelpRequestPage'
+
+    HelpRequestLinkResponse:
+      description: Link to the created or changed help request
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - helpRequestId
+              - helpRequestLink
+            properties:
+              helpRequestId:
+                description: Unique identifier of the created or changed help request.
+                type: string
+                format: uuid
+              helpRequestLink:
+                description: Link to the created or changed help request.
+                type: string
+                format: uri
+      links:
+        GetHelpRequest:
+          operationId: getHelpRequestById
+          description: The help request just created or changed.
+          parameters:
+            helpRequestId: '$response.body#/helpRequestId'
+
+    HelpResponse:
+      description: Single help response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Help'
+
+    HelpPageResponse:
+      description: Page of helps
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HelpPage'
+
+    HelpLinkResponse:
+      description: Link to the created help
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - helpLink
+            properties:
+              helpLink:
+                description: Link to the created help.
+                type: string
+                format: uri
+
+    BadRequestResponse:
+      description: Malformed request (schema validation failed)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+    UnauthorizedResponse:
+      description: Authentication missing or invalid
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+    ForbiddenResponse:
+      description: Access forbidden, e.g. the caller is not the requester, answers their own request or was not asked
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+    NotFoundResponse:
+      description: Resource not found
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+    ConflictResponse:
+      description: The command is not allowed in the request's current status (code INVALID_STATE)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+    RuleViolationResponse:
+      description: A domain rule is violated (see the operation description for the codes)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+    ServiceNotAvailableResponse:
+      description: Service unavailable
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+    UnexpectedErrorResponse:
+      description: Unexpected error
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+  requestBodies:
+    HelpRequestCreateRequest:
+      description: Help request creation request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HelpRequestCreate'
+
+    CancellationRequest:
+      description: Cancellation with an optional note
+      required: false
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Cancellation'
+
+    RejectionRequest:
+      description: Rejection with a note
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Rejection'
+
+    HelpCreateRequest:
+      description: Help creation request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HelpCreate'
+
+  securitySchemes:
+    oAuth2:
+      type: oauth2
+      description: OAuth 2.0 Authorization Code Flow with PKCE
+      flows:
+        authorizationCode:
+          authorizationUrl: https://larder.org/auth
+          tokenUrl: https://larder.org/tokens
+          refreshUrl: https://larder.org/refresh
+          scopes:
+            help:read: Grants read access to help requests and helps
+            help:write: Grants write access to request, cancel, answer, accept and reject help
