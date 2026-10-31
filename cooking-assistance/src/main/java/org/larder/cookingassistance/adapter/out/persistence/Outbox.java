@@ -19,7 +19,7 @@ class Outbox {
     this.jdbc = jdbc;
   }
 
-  void append(String aggregateType, UUID aggregateId, OutboxEventMapper.OutboxEvent event) {
+  void append(String aggregateType, UUID aggregateId, OutboxEvent event) {
     jdbc.sql(
             "insert into outbox (aggregate_type, aggregate_id, event_type, payload, occurred_at)"
                 + " values (:aggregateType, :aggregateId, :eventType, cast(:payload as jsonb),"

@@ -1,8 +1,6 @@
 package org.larder.cookingassistance.adapter.out.persistence;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
@@ -13,13 +11,11 @@ import org.larder.cookingassistance.domain.helprequest.RecipeId;
 /** Writes and reads a Help's answer as JSON under the AsyncAPI field names. */
 final class AnswerJsonMapper {
 
-  private static final ObjectMapper JSON = JsonMapper.builder().build();
-
   private AnswerJsonMapper() {}
 
   static AnswerJson toJson(PreparationStepExplanation answer) {
     try {
-      return new AnswerJson(JSON.writeValueAsString(toPayload(answer)));
+      return new AnswerJson(AsyncApiJson.MAPPER.writeValueAsString(toPayload(answer)));
     } catch (JsonProcessingException e) {
       throw new IllegalStateException("Cannot write the answer as JSON", e);
     }
@@ -38,7 +34,7 @@ final class AnswerJsonMapper {
   static PreparationStepExplanation toAnswer(AnswerJson json) {
     try {
       PreparationStepExplanationJson stored =
-          JSON.readValue(json.value(), PreparationStepExplanationJson.class);
+          AsyncApiJson.MAPPER.readValue(json.value(), PreparationStepExplanationJson.class);
       return new PreparationStepExplanation(
           new RecipeId(stored.recipe()),
           new HowToStepId(stored.howToStep()),

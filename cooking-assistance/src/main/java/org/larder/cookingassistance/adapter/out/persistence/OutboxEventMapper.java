@@ -1,14 +1,10 @@
 package org.larder.cookingassistance.adapter.out.persistence;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import org.larder.cookingassistance.domain.helprequest.CookId;
 import org.larder.cookingassistance.domain.helprequest.HelpProvided;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestEvent;
@@ -16,12 +12,6 @@ import org.larder.cookingassistance.domain.helprequest.HelpRequested;
 
 /** Turns domain events into outbox rows under their AsyncAPI message names and field names. */
 final class OutboxEventMapper {
-
-  private static final ObjectMapper JSON =
-      JsonMapper.builder()
-          .addModule(new JavaTimeModule())
-          .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-          .build();
 
   private OutboxEventMapper() {}
 
@@ -76,14 +66,11 @@ final class OutboxEventMapper {
 
   private static String json(Object payload) {
     try {
-      return JSON.writeValueAsString(payload);
+      return AsyncApiJson.MAPPER.writeValueAsString(payload);
     } catch (JsonProcessingException e) {
       throw new IllegalStateException("Cannot write the event payload as JSON", e);
     }
   }
-
-  /** An event as the outbox stores it. */
-  record OutboxEvent(String eventType, String payload, Instant occurredAt) {}
 
   /** AsyncAPI HelpRequestCreatedPayload. */
   record HelpRequestCreatedPayload(
