@@ -66,9 +66,8 @@ public final class HelpRequest {
       Clock clock) {
     ensureProvidersMayBeAsked(preferredProviders);
     ensureOneStepOfOneRecipe(recipe, howToStep);
-    Instant deadline = clock.instant().plus(PREPARATION_STEP_ANSWER_TIME);
-    List<AskedProvider> asked =
-        preferredProviders.stream().map(type -> new AskedProvider(type, deadline)).toList();
+    Instant requestedAt = clock.instant();
+    List<AskedProvider> asked = askPreferredProviders(preferredProviders, requestedAt);
     HelpRequest request =
         new HelpRequest(
             id,
@@ -93,7 +92,7 @@ public final class HelpRequest {
             request.howToStep,
             request.askedProviders,
             request.status,
-            clock.instant()));
+            requestedAt));
     return request;
   }
 
@@ -139,6 +138,13 @@ public final class HelpRequest {
     }
   }
 
+  // INV-09: each asked provider's deadline is the request time + 12 h (US-CA-03 R8)
+  private static List<AskedProvider> askPreferredProviders(
+      Set<HelpProviderType> preferredProviders, Instant requestedAt) {
+    Instant deadline = requestedAt.plus(PREPARATION_STEP_ANSWER_TIME);
+    return preferredProviders.stream().map(type -> new AskedProvider(type, deadline)).toList();
+  }
+
   // slice: B3-S02, story: US-CA-03, cmd: Provide Help
   public void provideHelp(
       HelpId helpId,
@@ -153,10 +159,7 @@ public final class HelpRequest {
     ensureAnswerMatchesRequest(answer);
     helps.add(new Help(helpId, provider, answerTitle, answer));
     status = HelpRequestStatus.ANSWERED;
-    askedProviders =
-        askedProviders.stream()
-            .map(asked -> asked.providerType() == provider.type() ? asked.answered() : asked)
-            .toList();
+    markSideAnswered(provider);
     // evt: Help provided
     pendingEvents.add(
         new HelpProvided(
@@ -169,6 +172,14 @@ public final class HelpRequest {
             answer,
             status,
             clock.instant()));
+  }
+
+  /** Each asked provider has its own state: only the answering provider's side is ANSWERED. */
+  private void markSideAnswered(HelpProvider provider) {
+    askedProviders =
+        askedProviders.stream()
+            .map(asked -> asked.providerType() == provider.type() ? asked.answered() : asked)
+            .toList();
   }
 
   public List<Help> helps() {
