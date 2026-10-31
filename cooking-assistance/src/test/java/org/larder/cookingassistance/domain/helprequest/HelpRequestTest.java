@@ -599,6 +599,25 @@ class HelpRequestTest {
       assertThat(request.pullEvents()).isEmpty();
     }
 
+    @DisplayName("a Help is reconstituted from stored state (id, provider Jonas, answer title, answer, accepted) without guards -- B3-S02 US-CA-03 reconstitution (step 6 r1, from step 7)")
+    @Test
+    void helpIsReconstitutedFromStoredState() {
+      Help help =
+          Help.reconstitute(
+              HELP_ID,
+              HelpProvider.community(JONAS),
+              "Butter in a thin stream",
+              BUTTER_IN_A_THIN_STREAM,
+              true);
+
+      assertThat(help.id()).isEqualTo(HELP_ID);
+      assertThat(help.providerType()).isEqualTo(HelpProviderType.COMMUNITY);
+      assertThat(help.provider()).contains(JONAS);
+      assertThat(help.answerTitle()).isEqualTo("Butter in a thin stream");
+      assertThat(help.answer()).isEqualTo(BUTTER_IN_A_THIN_STREAM);
+      assertThat(help.isAccepted()).isTrue();
+    }
+
     @DisplayName("reconstituting a stored request asked of a Chef (state not reachable through commands) succeeds without running guards -- B3-S01 US-CA-03 reconstitution, no guards")
     @Test
     void reconstitutionRunsNoGuards() {

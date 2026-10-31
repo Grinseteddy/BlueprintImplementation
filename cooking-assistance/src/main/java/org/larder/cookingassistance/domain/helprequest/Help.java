@@ -9,12 +9,33 @@ public final class Help {
   private final HelpProvider provider;
   private final String answerTitle;
   private final PreparationStepExplanation answer;
+  private final boolean accepted;
 
   Help(HelpId id, HelpProvider provider, String answerTitle, PreparationStepExplanation answer) {
+    this(id, provider, answerTitle, answer, false);
+  }
+
+  private Help(
+      HelpId id,
+      HelpProvider provider,
+      String answerTitle,
+      PreparationStepExplanation answer,
+      boolean accepted) {
     this.id = id;
     this.provider = provider;
     this.answerTitle = answerTitle;
     this.answer = answer;
+    this.accepted = accepted;
+  }
+
+  /** Rebuilds a stored Help: no guards. */
+  public static Help reconstitute(
+      HelpId id,
+      HelpProvider provider,
+      String answerTitle,
+      PreparationStepExplanation answer,
+      boolean accepted) {
+    return new Help(id, provider, answerTitle, answer, accepted);
   }
 
   public HelpId id() {
@@ -38,6 +59,6 @@ public final class Help {
   }
 
   public boolean isAccepted() {
-    return false;
+    return accepted;
   }
 }
