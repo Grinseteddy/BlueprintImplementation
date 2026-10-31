@@ -25,6 +25,17 @@ public class ProvideHelp {
   }
 
   public HelpId execute(Command command) {
+    admitCommunityAnswer(command);
+    try {
+      return provideHelpOnce(command);
+    } catch (ConcurrencyConflict conflict) {
+      // ADR0010: another writer saved first — reload and retry once
+      return provideHelpOnce(command);
+    }
+  }
+
+  /** ADR0013, deny by default: decided before the help request is loaded. */
+  private static void admitCommunityAnswer(Command command) {
     // ADR0013: through the API only the provider type COMMUNITY answers; chef answers come in
     // increment 4
     if (command.providerType() != HelpProviderType.COMMUNITY) {
@@ -32,12 +43,6 @@ public class ProvideHelp {
     }
     // ADR0013: only Community members answer through the API
     command.actor().require(Role.COMMUNITY, "Provide Help");
-    try {
-      return provideHelpOnce(command);
-    } catch (ConcurrencyConflict conflict) {
-      // ADR0010: another writer saved first — reload and retry once
-      return provideHelpOnce(command);
-    }
   }
 
   private HelpId provideHelpOnce(Command command) {
