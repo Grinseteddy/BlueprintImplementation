@@ -24,9 +24,11 @@ import org.larder.cookingassistance.domain.helprequest.RecipeId;
  */
 public class InMemoryHelpRequestRepository implements HelpRequestRepository {
 
+  private static final Runnable NO_OTHER_WRITER = () -> {};
+
   private final Map<HelpRequestId, Snapshot> snapshots = new HashMap<>();
   private final List<HelpRequestEvent> recordedEvents = new ArrayList<>();
-  private Runnable interleaved = () -> {};
+  private Runnable interleaved = NO_OTHER_WRITER;
 
   @Override
   public Optional<HelpRequest> findById(HelpRequestId id) {
@@ -35,9 +37,7 @@ public class InMemoryHelpRequestRepository implements HelpRequestRepository {
 
   @Override
   public void save(HelpRequest helpRequest) {
-    Runnable otherWriter = interleaved;
-    interleaved = () -> {};
-    otherWriter.run();
+    letOtherWriterSaveFirst();
     Snapshot stored = snapshots.get(helpRequest.id());
     long storedVersion = stored == null ? 0L : stored.version();
     if (storedVersion != helpRequest.version()) {
@@ -45,6 +45,12 @@ public class InMemoryHelpRequestRepository implements HelpRequestRepository {
     }
     snapshots.put(helpRequest.id(), Snapshot.of(helpRequest, helpRequest.version() + 1));
     recordedEvents.addAll(helpRequest.pullEvents());
+  }
+
+  private void letOtherWriterSaveFirst() {
+    Runnable otherWriter = interleaved;
+    interleaved = NO_OTHER_WRITER;
+    otherWriter.run();
   }
 
   /**
