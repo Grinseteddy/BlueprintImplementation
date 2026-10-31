@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.larder.cookingassistance.application.UnitOfWork;
+import org.larder.cookingassistance.fixtures.HelpRequests;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestRepository;
 import org.springframework.beans.factory.annotation.Autowired;

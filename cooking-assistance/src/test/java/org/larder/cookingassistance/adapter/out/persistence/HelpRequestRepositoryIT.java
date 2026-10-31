@@ -12,6 +12,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.larder.cookingassistance.fixtures.HelpRequests;
 import org.larder.cookingassistance.domain.helprequest.AskedProvider;
 import org.larder.cookingassistance.domain.helprequest.ConcurrencyConflict;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
