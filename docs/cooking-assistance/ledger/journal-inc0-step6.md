@@ -197,3 +197,9 @@
 - Trial: reconstitute runs ensureProvidersMayBeAsked. Prediction: only test 26 errors with ChefNotAllowed. **Actual: as predicted.** Restored; green (29 passed, 0 skipped).
 - Refactor (tests, mechanical): unused Disabled imports removed. Prediction green; **actual: green**.
 - All 29 tests active and green.
+
+## Revision r1 (from step 7, 2026-10-31) — Help reconstitution
+- Finding (step 7, repository test 5): no public path to rebuild a Help from stored state.
+- New test 27 `helpIsReconstitutedFromStoredState` (B3-S02 US-CA-03). Scaffold: public `Help.reconstitute(id, provider, answerTitle, answer, accepted)` delegating to the constructor, ignoring accepted.
+- Prediction (Red): fails on isAccepted "Expecting value to be true but was false"; other fast tests green. **Actual: as predicted.**
+- Green: Help keeps `accepted` (false for new Helps, stored value on reconstitute). Prediction: 30 fast tests pass. **Actual: as predicted.** Refactor: no change.
