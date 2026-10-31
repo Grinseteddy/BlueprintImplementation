@@ -9,7 +9,7 @@ info:
 
     Clients must be tolerant readers: ignore unknown fields and handle unknown enum values
     (status, type and error codes can grow in later minor versions).
-  version: 1.0.0
+  version: 1.0.1
   contact:
     name: Annegret Junker
     email: annegret.junker@larder.org
@@ -71,11 +71,11 @@ paths:
         The authenticated cook becomes the requester; the request starts in status OPEN and every
         preferred provider gets its own deadline (12 h preparation step, 24 h ingredient,
         15 min community / 5 min Grandma Avatar for a catastrophe, min(48 h, 24 h before the occasion) for a menu).
-        Rule violations are answered with 422 and a Problem Details code:
-        - CHEF_NOT_ALLOWED: a chef only helps with a Menu proposal, and then exclusively;
-        - MISSING_FIELD / FIELD_NOT_ALLOWED: recipe and howToStep for a preparation step, recipe and one ingredient
-          for an ingredient substitute, pictures only for a catastrophe, occasion and chef only for a menu;
-        - TOO_MANY_PICTURES: at most 10 pictures;
+        A body that breaks the schema is answered with 400 VALIDATION_FAILED. The schema includes the
+        type-dependent fields (recipe and howToStep for a preparation step, recipe and one ingredient for an
+        ingredient substitute, pictures only for a catastrophe, occasion and chef only for a menu), a chef only
+        for a Menu proposal and then exclusively, and at most 10 pictures.
+        Rule violations that depend on state are answered with 422 and a Problem Details code:
         - NOT_PREMIUM: only premium cooks may ask a chef;
         - OCCASION_TOO_CLOSE: a menu request needs at least 48 h before the occasion;
         - CHEF_UNAVAILABLE: the chef cannot answer before the deadline.
@@ -211,8 +211,8 @@ paths:
         - 403 PROVIDER_NOT_ASKED: the caller's provider type is not a preferred provider of the request;
         - 409 INVALID_STATE: the request is CLOSED or CANCELLED, or the caller's side has timed out;
         - 422 ANSWER_DOES_NOT_MATCH_REQUEST: answerType, recipe, howToStep or ingredient differ from the request;
-        - 422 SUBSTITUTE_REJECTED_BEFORE: a substitute the cook rejected earlier is proposed again;
-        - 422 TOO_MANY_PICTURES: at most 10 images.
+        - 422 SUBSTITUTE_REJECTED_BEFORE: a substitute the cook rejected earlier is proposed again.
+        A body that breaks the schema (e.g. more than 10 images) is answered with 400 VALIDATION_FAILED.
       security:
         - oAuth2:
             - help:write
@@ -467,8 +467,8 @@ components:
       description: Version of the API the client was built against.
       schema:
         type: string
-        default: "1.0.0"
-        enum: ["1.0.0"]
+        default: "1.0.1"
+        enum: ["1.0.0", "1.0.1"]
 
   schemas:
     HelpType:
@@ -1316,6 +1316,33 @@ components:
           description: The content of the help; its answerType must be the same as the request type.
           $ref: '#/components/schemas/Answer'
 
+    HelpRequestLink:
+      description: Identifier of and link to a created or changed help request.
+      type: object
+      required:
+        - helpRequestId
+        - helpRequestLink
+      properties:
+        helpRequestId:
+          description: Unique identifier of the created or changed help request.
+          type: string
+          format: uuid
+        helpRequestLink:
+          description: Link to the created or changed help request.
+          type: string
+          format: uri
+
+    HelpLink:
+      description: Link to a created help.
+      type: object
+      required:
+        - helpLink
+      properties:
+        helpLink:
+          description: Link to the created help.
+          type: string
+          format: uri
+
     Problem:
       description: Error details following RFC 9457 (Problem Details for HTTP APIs), with a domain error code.
       type: object
@@ -1352,7 +1379,9 @@ components:
           description: |
             Machine-readable domain error code, e.g. CHEF_NOT_ALLOWED, MISSING_FIELD, FIELD_NOT_ALLOWED, TOO_MANY_PICTURES,
             NOT_PREMIUM, OCCASION_TOO_CLOSE, CHEF_UNAVAILABLE, OWN_REQUEST, PROVIDER_NOT_ASKED, NOT_REQUESTER,
-            INVALID_STATE, ANSWER_DOES_NOT_MATCH_REQUEST, SUBSTITUTE_REJECTED_BEFORE, VALIDATION_FAILED.
+            INVALID_STATE, ANSWER_DOES_NOT_MATCH_REQUEST, SUBSTITUTE_REJECTED_BEFORE, VALIDATION_FAILED,
+            CONCURRENT_UPDATE, NOT_AUTHORIZED, INSUFFICIENT_SCOPE, UNAUTHENTICATED, NOT_FOUND, METHOD_NOT_ALLOWED,
+            UNSUPPORTED_MEDIA_TYPE, INTERNAL_ERROR, NOT_IMPLEMENTED.
             The list may grow.
           type: string
           examples:
@@ -1378,19 +1407,7 @@ components:
       content:
         application/json:
           schema:
-            type: object
-            required:
-              - helpRequestId
-              - helpRequestLink
-            properties:
-              helpRequestId:
-                description: Unique identifier of the created or changed help request.
-                type: string
-                format: uuid
-              helpRequestLink:
-                description: Link to the created or changed help request.
-                type: string
-                format: uri
+            $ref: '#/components/schemas/HelpRequestLink'
       links:
         GetHelpRequest:
           operationId: getHelpRequestById
@@ -1417,14 +1434,7 @@ components:
       content:
         application/json:
           schema:
-            type: object
-            required:
-              - helpLink
-            properties:
-              helpLink:
-                description: Link to the created help.
-                type: string
-                format: uri
+            $ref: '#/components/schemas/HelpLink'
 
     BadRequestResponse:
       description: Malformed request (schema validation failed)
@@ -1455,7 +1465,9 @@ components:
             $ref: '#/components/schemas/Problem'
 
     ConflictResponse:
-      description: The command is not allowed in the request's current status (code INVALID_STATE)
+      description: |
+        The command is not allowed in the request's current status (code INVALID_STATE),
+        or the request was changed concurrently (code CONCURRENT_UPDATE)
       content:
         application/problem+json:
           schema:

@@ -1,7 +1,7 @@
 asyncapi: 3.1.0
 info:
   title: Cooking Assistance
-  version: 1.0.0
+  version: 1.0.1
   description: |
     Event-driven API of the Cooking Assistance bounded context. It provides help
     for cooks in planning and preparation of meals and dinners: cooks create help
@@ -44,8 +44,7 @@ channels:
       helpRequestCreated:
         $ref: '#/components/messages/helpRequestCreated'
     bindings:
-      amqp:
-        $ref: '#/components/channelBindings/cookingAssistanceExchange'
+      $ref: '#/components/channelBindings/cookingAssistanceExchange'
 
   helpProvidedRoutingKey:
     address: "cooking-assistance.help.provided"
@@ -54,8 +53,7 @@ channels:
       helpProvided:
         $ref: '#/components/messages/helpProvided'
     bindings:
-      amqp:
-        $ref: '#/components/channelBindings/cookingAssistanceExchange'
+      $ref: '#/components/channelBindings/cookingAssistanceExchange'
 
   helpAcceptedRoutingKey:
     address: "cooking-assistance.help.accepted"
@@ -64,8 +62,7 @@ channels:
       helpAccepted:
         $ref: '#/components/messages/helpAccepted'
     bindings:
-      amqp:
-        $ref: '#/components/channelBindings/cookingAssistanceExchange'
+      $ref: '#/components/channelBindings/cookingAssistanceExchange'
 
   helpRejectedRoutingKey:
     address: "cooking-assistance.help.rejected"
@@ -74,8 +71,7 @@ channels:
       helpRejected:
         $ref: '#/components/messages/helpRejected'
     bindings:
-      amqp:
-        $ref: '#/components/channelBindings/cookingAssistanceExchange'
+      $ref: '#/components/channelBindings/cookingAssistanceExchange'
 
   helpRequestCancelledRoutingKey:
     address: "cooking-assistance.help-request.cancelled"
@@ -84,8 +80,7 @@ channels:
       helpRequestCancelled:
         $ref: '#/components/messages/helpRequestCancelled'
     bindings:
-      amqp:
-        $ref: '#/components/channelBindings/cookingAssistanceExchange'
+      $ref: '#/components/channelBindings/cookingAssistanceExchange'
 
   helpRequestTimedOutRoutingKey:
     address: "cooking-assistance.help-request.timed-out"
@@ -94,8 +89,7 @@ channels:
       helpRequestTimedOut:
         $ref: '#/components/messages/helpRequestTimedOut'
     bindings:
-      amqp:
-        $ref: '#/components/channelBindings/cookingAssistanceExchange'
+      $ref: '#/components/channelBindings/cookingAssistanceExchange'
 
   grandmaHelpProvidedQueue:
     address: "cooking-assistance.grandma-help-provided"
@@ -131,8 +125,7 @@ operations:
     messages:
       - $ref: '#/channels/helpRequestCreatedRoutingKey/messages/helpRequestCreated'
     bindings:
-      amqp:
-        $ref: '#/components/operationBindings/persistentPublish'
+      $ref: '#/components/operationBindings/persistentPublish'
 
   publishHelpProvided:
     action: send
@@ -146,8 +139,7 @@ operations:
     messages:
       - $ref: '#/channels/helpProvidedRoutingKey/messages/helpProvided'
     bindings:
-      amqp:
-        $ref: '#/components/operationBindings/persistentPublish'
+      $ref: '#/components/operationBindings/persistentPublish'
 
   publishHelpAccepted:
     action: send
@@ -160,8 +152,7 @@ operations:
     messages:
       - $ref: '#/channels/helpAcceptedRoutingKey/messages/helpAccepted'
     bindings:
-      amqp:
-        $ref: '#/components/operationBindings/persistentPublish'
+      $ref: '#/components/operationBindings/persistentPublish'
 
   publishHelpRejected:
     action: send
@@ -175,8 +166,7 @@ operations:
     messages:
       - $ref: '#/channels/helpRejectedRoutingKey/messages/helpRejected'
     bindings:
-      amqp:
-        $ref: '#/components/operationBindings/persistentPublish'
+      $ref: '#/components/operationBindings/persistentPublish'
 
   publishHelpRequestCancelled:
     action: send
@@ -189,8 +179,7 @@ operations:
     messages:
       - $ref: '#/channels/helpRequestCancelledRoutingKey/messages/helpRequestCancelled'
     bindings:
-      amqp:
-        $ref: '#/components/operationBindings/persistentPublish'
+      $ref: '#/components/operationBindings/persistentPublish'
 
   publishHelpRequestTimedOut:
     action: send
@@ -203,8 +192,7 @@ operations:
     messages:
       - $ref: '#/channels/helpRequestTimedOutRoutingKey/messages/helpRequestTimedOut'
     bindings:
-      amqp:
-        $ref: '#/components/operationBindings/persistentPublish'
+      $ref: '#/components/operationBindings/persistentPublish'
 
   consumeGrandmaHelpProvided:
     action: receive

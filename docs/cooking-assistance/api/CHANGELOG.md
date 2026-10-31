@@ -1,5 +1,24 @@
 # Cook Assistance API — changelog
 
+## 1.0.1 — 2026-10-31 (step 4 r1, from step 9 of increment 0)
+
+Wire format unchanged; no breaking change.
+
+### OpenAPI
+
+| Change | Why |
+|---|---|
+| Inline link responses named `HelpRequestLink` and `HelpLink` (component schemas) | generators invented `CreateHelpRequest201Response` / `ProvideHelp201Response` |
+| Schema violations, including the type-dependent `HelpRequestInvariants`, a chef outside a menu request and more than 10 pictures or images, answer 400 VALIDATION_FAILED; the 422 lists keep only the rules that depend on state | the descriptions promised 422 for rules the schema already rejects with 400 |
+| Problem codes added: CONCURRENT_UPDATE (409), NOT_AUTHORIZED, INSUFFICIENT_SCOPE (403), UNAUTHENTICATED (401), NOT_FOUND (404), METHOD_NOT_ALLOWED (405), UNSUPPORTED_MEDIA_TYPE (415), INTERNAL_ERROR (500), NOT_IMPLEMENTED (501) | errors the adapter produces are named |
+| `version` header accepts `1.0.0` and `1.0.1`, default `1.0.1` | additive |
+
+### AsyncAPI (1.0.1, step 4 r2)
+
+| Change | Why |
+|---|---|
+| The 12 channel and operation `bindings` reference the binding components directly (`bindings: $ref`), not under an extra `amqp:` key | the AsyncAPI parser (CLI 6.2.1) rejected the document with 17 errors; Spectral had not caught it |
+
 ## 1.0.0 — revision 2026-10-31 (step 4, before any consumer)
 
 v1.0.0 had no consumers, so it was revised in place. Sources: `SamplesDddMeetAi/Chapter12/{OpenAPIs,AsyncAPIs}/ClaudeFable51/`. Proposals: `spec-review.md`.
