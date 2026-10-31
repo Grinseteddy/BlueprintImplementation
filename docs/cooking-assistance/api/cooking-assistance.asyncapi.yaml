@@ -1,0 +1,1133 @@
+asyncapi: 3.1.0
+info:
+  title: Cooking Assistance
+  version: 1.0.0
+  description: |
+    Event-driven API of the Cooking Assistance bounded context. It provides help
+    for cooks in planning and preparation of meals and dinners: cooks create help
+    requests and select who may answer them; help providers are the community,
+    the Grandma Avatar (AI) and chefs.
+
+    The context publishes the lifecycle of a help request - HelpRequestCreated,
+    HelpProvided, HelpAccepted, HelpRejected, HelpRequestCancelled and
+    HelpRequestTimedOut - on its topic exchange `cooking-assistance`, and consumes
+    the answers of the Grandma Avatar from the Grandma Avatar's exchange.
+
+    Consumers must be tolerant readers: ignore unknown fields, unknown enum values
+    and unknown message types on the exchange.
+  contact:
+    name: Cooking Assistance Team
+    url: https://larder.org
+    email: annegret.junker@larder.org
+  license:
+    name: Proprietary
+  tags:
+    - name: cooking-assistance
+      description: Help requests and help provided within the Cooking Assistance bounded context
+
+servers:
+  production:
+    host: "larder.org:5671"
+    protocol: "amqps"
+    protocolVersion: "0.9.1"
+    description: "Production RabbitMQ broker (credentials via the user-password scheme, never in the URL)"
+    security:
+      - $ref: '#/components/securitySchemes/user-password'
+
+defaultContentType: application/json
+
+channels:
+  helpRequestCreatedRoutingKey:
+    address: "cooking-assistance.help-request.created"
+    description: Routing key on the cooking-assistance exchange used to publish HelpRequestCreated.
+    messages:
+      helpRequestCreated:
+        $ref: '#/components/messages/helpRequestCreated'
+    bindings:
+      amqp:
+        $ref: '#/components/channelBindings/cookingAssistanceExchange'
+
+  helpProvidedRoutingKey:
+    address: "cooking-assistance.help.provided"
+    description: Routing key on the cooking-assistance exchange used to publish HelpProvided.
+    messages:
+      helpProvided:
+        $ref: '#/components/messages/helpProvided'
+    bindings:
+      amqp:
+        $ref: '#/components/channelBindings/cookingAssistanceExchange'
+
+  helpAcceptedRoutingKey:
+    address: "cooking-assistance.help.accepted"
+    description: Routing key on the cooking-assistance exchange used to publish HelpAccepted.
+    messages:
+      helpAccepted:
+        $ref: '#/components/messages/helpAccepted'
+    bindings:
+      amqp:
+        $ref: '#/components/channelBindings/cookingAssistanceExchange'
+
+  helpRejectedRoutingKey:
+    address: "cooking-assistance.help.rejected"
+    description: Routing key on the cooking-assistance exchange used to publish HelpRejected.
+    messages:
+      helpRejected:
+        $ref: '#/components/messages/helpRejected'
+    bindings:
+      amqp:
+        $ref: '#/components/channelBindings/cookingAssistanceExchange'
+
+  helpRequestCancelledRoutingKey:
+    address: "cooking-assistance.help-request.cancelled"
+    description: Routing key on the cooking-assistance exchange used to publish HelpRequestCancelled.
+    messages:
+      helpRequestCancelled:
+        $ref: '#/components/messages/helpRequestCancelled'
+    bindings:
+      amqp:
+        $ref: '#/components/channelBindings/cookingAssistanceExchange'
+
+  helpRequestTimedOutRoutingKey:
+    address: "cooking-assistance.help-request.timed-out"
+    description: Routing key on the cooking-assistance exchange used to publish HelpRequestTimedOut.
+    messages:
+      helpRequestTimedOut:
+        $ref: '#/components/messages/helpRequestTimedOut'
+    bindings:
+      amqp:
+        $ref: '#/components/channelBindings/cookingAssistanceExchange'
+
+  grandmaHelpProvidedQueue:
+    address: "cooking-assistance.grandma-help-provided"
+    description: |
+      Queue owned by this context, bound to the Grandma Avatar's exchange `grandma-avatar`
+      with routing key `grandma-avatar.help.provided`, from which this context consumes the
+      Grandma Avatar's answers. It never receives this context's own HelpProvided.
+    messages:
+      grandmaHelpProvided:
+        $ref: '#/components/messages/grandmaHelpProvided'
+    bindings:
+      amqp:
+        is: queue
+        queue:
+          name: cooking-assistance.grandma-help-provided
+          durable: true
+          exclusive: false
+          autoDelete: false
+          vhost: /
+        bindingVersion: "0.3.0"
+
+operations:
+  publishHelpRequestCreated:
+    action: send
+    summary: Publish that a cook has requested help
+    description: |
+      Fires when a cook creates a Help Request (board event "Help requested"). The request is OPEN
+      and carries the type of help wanted, the situation, the referenced recipe / step / ingredient
+      where the type requires it, and the asked providers with their deadlines.
+      Notification and the Grandma Avatar react to it.
+    channel:
+      $ref: '#/channels/helpRequestCreatedRoutingKey'
+    messages:
+      - $ref: '#/channels/helpRequestCreatedRoutingKey/messages/helpRequestCreated'
+    bindings:
+      amqp:
+        $ref: '#/components/operationBindings/persistentPublish'
+
+  publishHelpProvided:
+    action: send
+    summary: Publish that help has been provided for a help request
+    description: |
+      Fires when a help provider (community, Grandma Avatar or chef) answers a Help Request.
+      The answer type equals the request type, and the request is ANSWERED.
+      Notification, Meal Planning, Meal Preparation and Sharing react to it.
+    channel:
+      $ref: '#/channels/helpProvidedRoutingKey'
+    messages:
+      - $ref: '#/channels/helpProvidedRoutingKey/messages/helpProvided'
+    bindings:
+      amqp:
+        $ref: '#/components/operationBindings/persistentPublish'
+
+  publishHelpAccepted:
+    action: send
+    summary: Publish that the requester accepted a help
+    description: |
+      Fires when the requester accepts one help. The whole request is CLOSED for every provider.
+      Notification tells the other providers; Sharing may offer thanks.
+    channel:
+      $ref: '#/channels/helpAcceptedRoutingKey'
+    messages:
+      - $ref: '#/channels/helpAcceptedRoutingKey/messages/helpAccepted'
+    bindings:
+      amqp:
+        $ref: '#/components/operationBindings/persistentPublish'
+
+  publishHelpRejected:
+    action: send
+    summary: Publish that the requester rejected a help
+    description: |
+      Fires when the requester rejects a help with a note. The request is OPEN again and sent to
+      the same providers (or, for a menu, passed on to another chef) with new deadlines.
+      Notification and the Grandma Avatar react to it.
+    channel:
+      $ref: '#/channels/helpRejectedRoutingKey'
+    messages:
+      - $ref: '#/channels/helpRejectedRoutingKey/messages/helpRejected'
+    bindings:
+      amqp:
+        $ref: '#/components/operationBindings/persistentPublish'
+
+  publishHelpRequestCancelled:
+    action: send
+    summary: Publish that the requester cancelled a help request
+    description: |
+      Fires when the requester cancels an OPEN or ANSWERED request, with an optional note
+      the providers can see. The request is CANCELLED. Notification tells the providers.
+    channel:
+      $ref: '#/channels/helpRequestCancelledRoutingKey'
+    messages:
+      - $ref: '#/channels/helpRequestCancelledRoutingKey/messages/helpRequestCancelled'
+    bindings:
+      amqp:
+        $ref: '#/components/operationBindings/persistentPublish'
+
+  publishHelpRequestTimedOut:
+    action: send
+    summary: Publish that a help request timed out
+    description: |
+      Fires when every asked provider stayed silent until its deadline. The request is CANCELLED
+      and carries providers not yet asked as suggestions. Notification tells the requester.
+    channel:
+      $ref: '#/channels/helpRequestTimedOutRoutingKey'
+    messages:
+      - $ref: '#/channels/helpRequestTimedOutRoutingKey/messages/helpRequestTimedOut'
+    bindings:
+      amqp:
+        $ref: '#/components/operationBindings/persistentPublish'
+
+  consumeGrandmaHelpProvided:
+    action: receive
+    summary: Consume the Grandma Avatar's answers
+    description: |
+      This context consumes the Grandma Avatar's answers (command Provide Help with provider type
+      GRANDMA_AVATAR). The same rules apply as for answers through the REST API. Messages are
+      acknowledged manually after the help request has been stored; a redelivered message
+      (same messageId) is acknowledged without effect.
+    channel:
+      $ref: '#/channels/grandmaHelpProvidedQueue'
+    messages:
+      - $ref: '#/channels/grandmaHelpProvidedQueue/messages/grandmaHelpProvided'
+    bindings:
+      amqp:
+        ack: true
+        bindingVersion: "0.3.0"
+
+components:
+  channelBindings:
+    cookingAssistanceExchange:
+      amqp:
+        is: routingKey
+        exchange:
+          name: cooking-assistance
+          type: topic
+          durable: true
+          autoDelete: false
+          vhost: /
+        bindingVersion: "0.3.0"
+
+  operationBindings:
+    persistentPublish:
+      amqp:
+        deliveryMode: 2
+        mandatory: true
+        bindingVersion: "0.3.0"
+
+  messages:
+    helpRequestCreated:
+      name: HelpRequestCreated
+      title: Help Request Created Event
+      summary: A cook has requested help and is waiting for an answer
+      headers:
+        $ref: '#/components/schemas/MessageHeader'
+      payload:
+        $ref: '#/components/schemas/HelpRequestCreatedPayload'
+      bindings:
+        amqp:
+          messageType: HelpRequestCreated
+          bindingVersion: "0.3.0"
+      examples:
+        - name: preparationStep
+          summary: Lena asks Grandma about step 4 of Hollandaise
+          headers:
+            correlationId: 0b8f7a52-4bfa-4d4e-9d6d-1f4b9c8f9a10
+            messageId: 6c0b8b1e-1d44-4f2e-9a8e-2f1f9a7e0c11
+            source: cooking-assistance
+          payload:
+            helpRequestId: 23a8eeed-35f6-460b-892e-7bb458a8fded
+            requester: f64e07f0-f9e7-4b7a-8695-e7a8b3ef5074
+            title: How do I keep the sauce from splitting?
+            type: PREPARATION_STEP_EXPLANATION
+            description: Step 4 of my Hollandaise keeps splitting
+            recipe: 7cf09822-77a1-46bb-812f-b7852bca0913
+            howToStep: 65610dee-fb83-4341-a730-26a4a99a621a
+            askedProviders:
+              - providerType: GRANDMA_AVATAR
+                deadline: '2026-11-07T08:00:00+01:00'
+            status: OPEN
+            occurredAt: '2026-11-06T20:00:00+01:00'
+
+    helpProvided:
+      name: HelpProvided
+      title: Help Provided Event
+      summary: A help provider has answered a help request
+      headers:
+        $ref: '#/components/schemas/MessageHeader'
+      payload:
+        $ref: '#/components/schemas/HelpProvidedPayload'
+      bindings:
+        amqp:
+          messageType: HelpProvided
+          bindingVersion: "0.3.0"
+      examples:
+        - name: grandmaExplainsStep
+          summary: Grandma explains step 4
+          headers:
+            correlationId: 0b8f7a52-4bfa-4d4e-9d6d-1f4b9c8f9a10
+            messageId: 1e7c2a90-3a5b-4b1d-8f0e-7c2d9b1a4e22
+            source: cooking-assistance
+          payload:
+            helpId: a9caf90d-00b4-4a66-8184-7d02152e8d6a
+            helpRequest: 23a8eeed-35f6-460b-892e-7bb458a8fded
+            helpRequester: f64e07f0-f9e7-4b7a-8695-e7a8b3ef5074
+            answerTitle: Butter in a thin stream
+            helpProviderType: GRANDMA_AVATAR
+            answer:
+              answerType: PREPARATION_STEP_EXPLANATION
+              recipe: 7cf09822-77a1-46bb-812f-b7852bca0913
+              howToStep: 65610dee-fb83-4341-a730-26a4a99a621a
+              description: Add the butter in a thin stream
+            helpRequestStatus: ANSWERED
+            occurredAt: '2026-11-06T20:10:00+01:00'
+
+    helpAccepted:
+      name: HelpAccepted
+      title: Help Accepted Event
+      summary: The requester accepted a help; the request is closed
+      headers:
+        $ref: '#/components/schemas/MessageHeader'
+      payload:
+        $ref: '#/components/schemas/HelpAcceptedPayload'
+      bindings:
+        amqp:
+          messageType: HelpAccepted
+          bindingVersion: "0.3.0"
+      examples:
+        - name: lenaAcceptsGrandma
+          summary: Lena accepts Grandma's answer
+          headers:
+            correlationId: 0b8f7a52-4bfa-4d4e-9d6d-1f4b9c8f9a10
+            messageId: 9a3d5e71-2b6c-4f80-a1d4-5e6f7a8b9c33
+            source: cooking-assistance
+          payload:
+            helpRequest: 23a8eeed-35f6-460b-892e-7bb458a8fded
+            helpRequester: f64e07f0-f9e7-4b7a-8695-e7a8b3ef5074
+            helpId: a9caf90d-00b4-4a66-8184-7d02152e8d6a
+            helpProviderType: GRANDMA_AVATAR
+            helpRequestStatus: CLOSED
+            occurredAt: '2026-11-06T20:15:00+01:00'
+
+    helpRejected:
+      name: HelpRejected
+      title: Help Rejected Event
+      summary: The requester rejected a help; the request is sent again with a note
+      headers:
+        $ref: '#/components/schemas/MessageHeader'
+      payload:
+        $ref: '#/components/schemas/HelpRejectedPayload'
+      bindings:
+        amqp:
+          messageType: HelpRejected
+          bindingVersion: "0.3.0"
+      examples:
+        - name: warmWaterDidNotHelp
+          summary: Lena rejects with "warm water didn't help"
+          headers:
+            correlationId: 0b8f7a52-4bfa-4d4e-9d6d-1f4b9c8f9a10
+            messageId: 4f2a6b8c-7d1e-4a3b-9c5d-6e7f8a9b0c44
+            source: cooking-assistance
+          payload:
+            helpRequest: 23a8eeed-35f6-460b-892e-7bb458a8fded
+            helpRequester: f64e07f0-f9e7-4b7a-8695-e7a8b3ef5074
+            helpId: a9caf90d-00b4-4a66-8184-7d02152e8d6a
+            note: warm water didn't help
+            askedProviders:
+              - providerType: GRANDMA_AVATAR
+                deadline: '2026-11-07T08:00:00+01:00'
+            helpRequestStatus: OPEN
+            occurredAt: '2026-11-06T20:00:00+01:00'
+
+    helpRequestCancelled:
+      name: HelpRequestCancelled
+      title: Help Request Cancelled Event
+      summary: The requester cancelled a help request
+      headers:
+        $ref: '#/components/schemas/MessageHeader'
+      payload:
+        $ref: '#/components/schemas/HelpRequestCancelledPayload'
+      bindings:
+        amqp:
+          messageType: HelpRequestCancelled
+          bindingVersion: "0.3.0"
+      examples:
+        - name: iceCubeSavedIt
+          summary: Lena cancels with "an ice cube saved it"
+          headers:
+            correlationId: 0b8f7a52-4bfa-4d4e-9d6d-1f4b9c8f9a10
+            messageId: 7b8c9d0e-1f2a-4b3c-8d4e-5f6a7b8c9d55
+            source: cooking-assistance
+          payload:
+            helpRequest: 23a8eeed-35f6-460b-892e-7bb458a8fded
+            helpRequester: f64e07f0-f9e7-4b7a-8695-e7a8b3ef5074
+            note: an ice cube saved it
+            askedProviders:
+              - providerType: GRANDMA_AVATAR
+                deadline: '2026-11-07T08:00:00+01:00'
+            helpRequestStatus: CANCELLED
+            occurredAt: '2026-11-06T20:05:00+01:00'
+
+    helpRequestTimedOut:
+      name: HelpRequestTimedOut
+      title: Help Request Timed Out Event
+      summary: Every asked provider stayed silent until its deadline
+      headers:
+        $ref: '#/components/schemas/MessageHeader'
+      payload:
+        $ref: '#/components/schemas/HelpRequestTimedOutPayload'
+      bindings:
+        amqp:
+          messageType: HelpRequestTimedOut
+          bindingVersion: "0.3.0"
+      examples:
+        - name: communitySilent
+          summary: Only the Community was asked and stayed silent for 12 h - Grandma suggested
+          headers:
+            correlationId: 0b8f7a52-4bfa-4d4e-9d6d-1f4b9c8f9a10
+            messageId: 2c3d4e5f-6a7b-4c8d-9e0f-1a2b3c4d5e66
+            source: cooking-assistance
+          payload:
+            helpRequest: 23a8eeed-35f6-460b-892e-7bb458a8fded
+            helpRequester: f64e07f0-f9e7-4b7a-8695-e7a8b3ef5074
+            timedOutProviders:
+              - COMMUNITY
+            suggestedProviders:
+              - GRANDMA_AVATAR
+            helpRequestStatus: CANCELLED
+            occurredAt: '2026-11-07T06:00:00+01:00'
+
+    grandmaHelpProvided:
+      name: GrandmaHelpProvided
+      title: Grandma Avatar Help Provided Event
+      summary: The Grandma Avatar has answered a help request
+      headers:
+        $ref: '#/components/schemas/MessageHeader'
+      payload:
+        $ref: '#/components/schemas/GrandmaHelpProvidedPayload'
+      bindings:
+        amqp:
+          messageType: HelpProvided
+          bindingVersion: "0.3.0"
+      examples:
+        - name: grandmaExplainsStep
+          summary: Grandma explains step 4
+          headers:
+            correlationId: 0b8f7a52-4bfa-4d4e-9d6d-1f4b9c8f9a10
+            messageId: 8d9e0f1a-2b3c-4d5e-8f6a-7b8c9d0e1f77
+            source: grandma-avatar
+          payload:
+            helpRequest: 23a8eeed-35f6-460b-892e-7bb458a8fded
+            answerTitle: Butter in a thin stream
+            answer:
+              answerType: PREPARATION_STEP_EXPLANATION
+              recipe: 7cf09822-77a1-46bb-812f-b7852bca0913
+              howToStep: 65610dee-fb83-4341-a730-26a4a99a621a
+              description: Add the butter in a thin stream
+
+  schemas:
+    # Shared by EVERY message — cross-cutting tracing/routing metadata.
+    MessageHeader:
+      type: object
+      required:
+        - correlationId
+        - messageId
+        - source
+      properties:
+        correlationId:
+          type: string
+          format: uuid
+          description: Identifier to trace one help journey end to end (request → help → thanks)
+        messageId:
+          type: string
+          format: uuid
+          description: Unique identifier for this message; consumers use it to drop redeliveries
+        source:
+          type: string
+          description: Source system generating the event
+          minLength: 2
+          maxLength: 20
+
+    HelpType:
+      type: string
+      description: The kind of help wanted; the answer has the same type. The list may grow.
+      enum:
+        - INGREDIENT_SUBSTITUTE
+        - PREPARATION_STEP_EXPLANATION
+        - STEPS_TO_MITIGATE_CATASTROPHE
+        - MENU_PROPOSAL
+
+    HelpProviderType:
+      type: string
+      description: Kind of help provider - a chef, the Grandma Avatar (AI) or the community. The list may grow.
+      enum:
+        - CHEF
+        - GRANDMA_AVATAR
+        - COMMUNITY
+
+    AskedProvider:
+      type: object
+      description: One provider the request was sent to, with its own deadline
+      required:
+        - providerType
+        - deadline
+      properties:
+        providerType:
+          $ref: '#/components/schemas/HelpProviderType'
+          description: The kind of provider asked
+        provider:
+          type: string
+          format: uuid
+          description: The individual provider asked, if one was picked by name (a chef)
+        deadline:
+          type: string
+          format: date-time
+          description: Time until which this provider's answer counts
+
+    Occasion:
+      type: object
+      description: Why and when the cook is cooking (Menu proposal only)
+      required:
+        - dateTime
+        - guests
+      properties:
+        name:
+          type: string
+          maxLength: 200
+          description: Short name of the occasion
+        dateTime:
+          type: string
+          format: date-time
+          description: When the meal is served
+        guests:
+          type: integer
+          minimum: 1
+          description: Number of guests
+        dietaryNeeds:
+          type: array
+          maxItems: 20
+          description: Dietary needs of the guests
+          items:
+            type: string
+            maxLength: 100
+        budget:
+          type: number
+          minimum: 0
+          description: Budget for the meal, in euro
+        tastes:
+          type: string
+          maxLength: 2000
+          description: Tastes and preferences of the guests
+
+    HelpRequestCreatedPayload:
+      type: object
+      description: |
+        The Help Request as created. Type-dependent content: recipe and howToStep for
+        PREPARATION_STEP_EXPLANATION; recipe and one ingredient for INGREDIENT_SUBSTITUTE;
+        optional recipe and pictures for STEPS_TO_MITIGATE_CATASTROPHE; chef and occasion for
+        MENU_PROPOSAL (then CHEF is the only provider).
+      required:
+        - helpRequestId
+        - requester
+        - title
+        - type
+        - description
+        - askedProviders
+        - status
+        - occurredAt
+      properties:
+        helpRequestId:
+          type: string
+          format: uuid
+          description: Identity of the Help Request aggregate
+          examples:
+            - 23a8eeed-35f6-460b-892e-7bb458a8fded
+        requester:
+          type: string
+          format: uuid
+          description: The Cook who raised the request
+          examples:
+            - f64e07f0-f9e7-4b7a-8695-e7a8b3ef5074
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Short headline telling help providers what the request is about
+          examples:
+            - Burning Catastrophe
+        type:
+          $ref: '#/components/schemas/HelpType'
+          description: Kind of help the cook asks for
+        description:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          description: What went wrong, in the cook's own words
+          examples:
+            - Scones are burned and mother in law is coming in 30 minutes
+        recipe:
+          type: string
+          format: uuid
+          description: Referenced recipe — mandatory for PREPARATION_STEP_EXPLANATION and INGREDIENT_SUBSTITUTE
+        howToStep:
+          type: string
+          format: uuid
+          description: The one referenced preparation step — only for PREPARATION_STEP_EXPLANATION
+        ingredient:
+          type: string
+          format: uuid
+          description: The one referenced ingredient to be substituted — only for INGREDIENT_SUBSTITUTE
+        substituteRequirements:
+          type: string
+          maxLength: 2000
+          description: What a substitute must meet — only for INGREDIENT_SUBSTITUTE
+        pictures:
+          type: array
+          maxItems: 10
+          description: Photos of what went wrong (0..10) — only for STEPS_TO_MITIGATE_CATASTROPHE
+          items:
+            type: string
+            format: uri
+        chef:
+          type: string
+          format: uuid
+          description: The chef picked by name — only for MENU_PROPOSAL
+        occasion:
+          $ref: '#/components/schemas/Occasion'
+          description: The occasion the menu is for — only for MENU_PROPOSAL
+        reviewOf:
+          type: string
+          format: uri
+          description: A Grandma Avatar menu the chef is asked to review — only for MENU_PROPOSAL
+        askedProviders:
+          type: array
+          minItems: 1
+          maxItems: 2
+          description: Who is asked, each with its own deadline
+          items:
+            $ref: '#/components/schemas/AskedProvider'
+        previousNotes:
+          type: array
+          description: Notes of the requester's earlier requests about the same step or dish
+          items:
+            type: string
+            maxLength: 2000
+        status:
+          type: string
+          description: A newly created request is always OPEN
+          enum: [OPEN]
+        occurredAt:
+          type: string
+          format: date-time
+          description: When the request was created
+
+    HelpProvidedPayload:
+      type: object
+      description: |
+        The Help given for a request. The answer type equals the request type; the
+        provider is never the requester; the request is ANSWERED afterwards.
+      required:
+        - helpId
+        - helpRequest
+        - helpRequester
+        - answerTitle
+        - helpProviderType
+        - answer
+        - helpRequestStatus
+        - occurredAt
+      properties:
+        helpId:
+          type: string
+          format: uuid
+          description: Identity of the Help within its Help Request
+          examples:
+            - a9caf90d-00b4-4a66-8184-7d02152e8d6a
+        helpRequest:
+          type: string
+          format: uuid
+          description: The Help Request this help answers
+        helpRequester:
+          type: string
+          format: uuid
+          description: The Cook who raised the request
+        answerTitle:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Short headline of the answer
+          examples:
+            - Stay calm
+        helpProviderType:
+          $ref: '#/components/schemas/HelpProviderType'
+          description: Whether a chef, the Grandma Avatar or the community gave this help
+        helpProvider:
+          type: string
+          format: uuid
+          description: The answering Cook or Chef; absent when the Grandma Avatar answers
+        answer:
+          $ref: '#/components/schemas/Answer'
+          description: The content of the help
+        helpRequestStatus:
+          type: string
+          description: Status of the referenced request once help is provided
+          enum: [ANSWERED]
+        occurredAt:
+          type: string
+          format: date-time
+          description: When the help was provided
+
+    HelpAcceptedPayload:
+      type: object
+      description: The requester accepted one help; the whole request is CLOSED for every provider.
+      required:
+        - helpRequest
+        - helpRequester
+        - helpId
+        - helpProviderType
+        - helpRequestStatus
+        - occurredAt
+      properties:
+        helpRequest:
+          type: string
+          format: uuid
+          description: The Help Request that is closed
+        helpRequester:
+          type: string
+          format: uuid
+          description: The Cook who accepted
+        helpId:
+          type: string
+          format: uuid
+          description: The accepted Help
+        helpProviderType:
+          $ref: '#/components/schemas/HelpProviderType'
+          description: Who gave the accepted help
+        helpProvider:
+          type: string
+          format: uuid
+          description: The individual who gave the accepted help; absent for the Grandma Avatar
+        helpRequestStatus:
+          type: string
+          description: Status of the request after accepting
+          enum: [CLOSED]
+        occurredAt:
+          type: string
+          format: date-time
+          description: When the help was accepted
+
+    HelpRejectedPayload:
+      type: object
+      description: The requester rejected a help with a note; the request is sent again with new deadlines.
+      required:
+        - helpRequest
+        - helpRequester
+        - helpId
+        - note
+        - askedProviders
+        - helpRequestStatus
+        - occurredAt
+      properties:
+        helpRequest:
+          type: string
+          format: uuid
+          description: The Help Request sent again
+        helpRequester:
+          type: string
+          format: uuid
+          description: The Cook who rejected
+        helpId:
+          type: string
+          format: uuid
+          description: The rejected Help
+        note:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: What didn't work; shown to the providers
+        askedProviders:
+          type: array
+          minItems: 1
+          maxItems: 2
+          description: Who is asked again, each with its new deadline (for a menu possibly another chef)
+          items:
+            $ref: '#/components/schemas/AskedProvider'
+        helpRequestStatus:
+          type: string
+          description: Status of the request after rejecting
+          enum: [OPEN]
+        occurredAt:
+          type: string
+          format: date-time
+          description: When the help was rejected
+
+    HelpRequestCancelledPayload:
+      type: object
+      description: The requester cancelled the request; it is CANCELLED.
+      required:
+        - helpRequest
+        - helpRequester
+        - askedProviders
+        - helpRequestStatus
+        - occurredAt
+      properties:
+        helpRequest:
+          type: string
+          format: uuid
+          description: The cancelled Help Request
+        helpRequester:
+          type: string
+          format: uuid
+          description: The Cook who cancelled
+        note:
+          type: string
+          maxLength: 2000
+          description: Optional reason for cancelling; shown to the providers
+        askedProviders:
+          type: array
+          minItems: 1
+          maxItems: 2
+          description: The providers to be told
+          items:
+            $ref: '#/components/schemas/AskedProvider'
+        helpRequestStatus:
+          type: string
+          description: Status of the request after cancelling
+          enum: [CANCELLED]
+        occurredAt:
+          type: string
+          format: date-time
+          description: When the request was cancelled
+
+    HelpRequestTimedOutPayload:
+      type: object
+      description: Every asked provider stayed silent until its deadline; the request is CANCELLED.
+      required:
+        - helpRequest
+        - helpRequester
+        - timedOutProviders
+        - helpRequestStatus
+        - occurredAt
+      properties:
+        helpRequest:
+          type: string
+          format: uuid
+          description: The timed-out Help Request
+        helpRequester:
+          type: string
+          format: uuid
+          description: The Cook to be told
+        timedOutProviders:
+          type: array
+          minItems: 1
+          maxItems: 2
+          description: The providers that stayed silent
+          items:
+            $ref: '#/components/schemas/HelpProviderType'
+        suggestedProviders:
+          type: array
+          maxItems: 3
+          description: Providers not yet asked, suggested to the requester
+          items:
+            $ref: '#/components/schemas/HelpProviderType'
+        helpRequestStatus:
+          type: string
+          description: Status of the request after the timeout
+          enum: [CANCELLED]
+        occurredAt:
+          type: string
+          format: date-time
+          description: When the last deadline passed
+
+    GrandmaHelpProvidedPayload:
+      type: object
+      description: |
+        An answer of the Grandma Avatar as this context consumes it. This context assigns the helpId
+        and applies the same rules as for every other answer.
+      required:
+        - helpRequest
+        - answerTitle
+        - answer
+      properties:
+        helpRequest:
+          type: string
+          format: uuid
+          description: The Help Request answered
+        answerTitle:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Short headline of the answer
+        answer:
+          $ref: '#/components/schemas/Answer'
+          description: The content of the help
+
+    Answer:
+      description: The content of a help - exactly one of the four answer kinds, selected by answerType.
+      oneOf:
+        - $ref: '#/components/schemas/Substitutes'
+        - $ref: '#/components/schemas/PreparationStepExplanation'
+        - $ref: '#/components/schemas/CatastropheMitigation'
+        - $ref: '#/components/schemas/MenuProposal'
+      discriminator: answerType
+
+    Substitutes:
+      type: object
+      description: Ingredient substitutes for a recipe; recipe and ingredient are the same as in the request
+      required:
+        - answerType
+        - recipe
+        - substitute
+      properties:
+        answerType:
+          type: string
+          const: INGREDIENT_SUBSTITUTE
+          description: Marks this answer as an Ingredient Substitute
+        recipe:
+          type: string
+          format: uuid
+          description: The recipe the substitutes are for
+        substitute:
+          type: array
+          minItems: 1
+          maxItems: 20
+          description: The proposed alternatives; the cook accepts one of them
+          items:
+            $ref: '#/components/schemas/Substitute'
+
+    Substitute:
+      type: object
+      description: One proposed replacement - a single ingredient or a mix with amounts
+      required:
+        - ingredient
+        - substituteIngredients
+      properties:
+        ingredient:
+          type: string
+          format: uuid
+          description: Ingredient being replaced; the same ingredient as in the request
+        substituteIngredients:
+          type: array
+          minItems: 1
+          maxItems: 10
+          description: What to use instead - one ingredient, or several forming a mix
+          items:
+            $ref: '#/components/schemas/SubstituteIngredient'
+
+    SubstituteIngredient:
+      type: object
+      description: An ingredient to use instead, with its amount
+      required:
+        - name
+        - value
+        - unit
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Name of the ingredient to use instead
+        value:
+          type: number
+          exclusiveMinimum: 0
+          description: Amount, counted in the given unit
+        unit:
+          $ref: '#/components/schemas/Unit'
+          description: Unit in which the amount is measured
+
+    Unit:
+      type: string
+      description: Unit of measure for an amount
+      enum:
+        - PIECE
+        - CUP
+        - TABLE_SPOON
+        - TEA_SPOON
+        - FLUID_OUNCES
+        - PINT
+        - QUART
+        - POUND
+        - KILOGRAM
+        - GRAM
+        - LITER
+        - MILLILITER
+        - PINCH
+
+    PreparationStepExplanation:
+      type: object
+      description: Explains a preparation step; recipe and howToStep are the same as in the request
+      required:
+        - answerType
+        - recipe
+        - howToStep
+        - description
+      properties:
+        answerType:
+          type: string
+          const: PREPARATION_STEP_EXPLANATION
+          description: Marks this answer as a Preparation Step Explanation
+        recipe:
+          type: string
+          format: uuid
+          description: The recipe being explained
+        howToStep:
+          type: string
+          format: uuid
+          description: The step being explained
+        description:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          description: How to carry out the step
+          examples:
+            - Use a cold pan
+        images:
+          type: array
+          maxItems: 10
+          description: Pictures illustrating the explanation (0..10)
+          items:
+            type: string
+            format: uri
+
+    CatastropheMitigation:
+      type: object
+      description: Steps to mitigate a catastrophe; recipe, if given, is the same as in the request
+      required:
+        - answerType
+        - explanation
+      properties:
+        answerType:
+          type: string
+          const: STEPS_TO_MITIGATE_CATASTROPHE
+          description: Marks this answer as Steps to Mitigate Catastrophe
+        recipe:
+          type: string
+          format: uuid
+          description: The recipe that went wrong, if the request named one
+        explanation:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          description: What the cook should do to rescue the meal
+          examples:
+            - use a new, cold pan
+        images:
+          type: array
+          maxItems: 10
+          description: Pictures illustrating the rescue (0..10)
+          items:
+            type: string
+            format: uri
+
+    MenuProposal:
+      type: object
+      description: The complete menu of 1..10 courses; courses served in parallel share a step
+      required:
+        - answerType
+        - note
+        - servings
+        - meal
+        - course
+      properties:
+        answerType:
+          type: string
+          const: MENU_PROPOSAL
+          description: Marks this answer as a Menu proposal
+        note:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          description: Advice of the chef accompanying the menu
+          examples:
+            - Be careful, prepare everything
+        servings:
+          type: integer
+          minimum: 1
+          description: Number of guests the menu serves
+        meal:
+          $ref: '#/components/schemas/MealType'
+          description: Meal of the day the menu is proposed for
+        howToServe:
+          type: string
+          maxLength: 5000
+          description: Optional advice on how to serve the courses
+        course:
+          type: array
+          minItems: 1
+          maxItems: 10
+          description: The courses of the menu, each with its recipe
+          items:
+            $ref: '#/components/schemas/Course'
+
+    MealType:
+      type: string
+      description: The meal of the day
+      enum:
+        - BREAKFAST
+        - LUNCH
+        - DINNER
+        - SUPPER
+
+    Course:
+      type: object
+      description: One course of a proposed menu
+      required:
+        - step
+        - meal
+      properties:
+        step:
+          type: integer
+          minimum: 1
+          description: Serving order; courses served in parallel share a step
+          examples:
+            - 2
+        meal:
+          $ref: '#/components/schemas/CourseMeal'
+          description: The dish served in this course
+
+    CourseMeal:
+      type: object
+      description: The dish served in a course
+      required:
+        - recipe
+      properties:
+        dish:
+          type: string
+          maxLength: 200
+          description: Name of the dish
+        recipe:
+          type: string
+          format: uuid
+          description: The recipe of the dish
+
+  securitySchemes:
+    user-password:
+      type: userPassword
+      description: Basic authentication for the RabbitMQ broker
