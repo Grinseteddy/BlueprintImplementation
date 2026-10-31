@@ -1,0 +1,8 @@
+# Maven build output
+target/
+
+# jqwik property-test database
+.jqwik-database
+
+# IDE settings
+.idea/
