@@ -4,6 +4,7 @@ import java.time.Clock;
 import org.larder.cookingassistance.domain.helprequest.ConcurrencyConflict;
 import org.larder.cookingassistance.domain.helprequest.HelpId;
 import org.larder.cookingassistance.domain.helprequest.HelpProvider;
+import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequest;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestRepository;
@@ -24,6 +25,11 @@ public class ProvideHelp {
   }
 
   public HelpId execute(Command command) {
+    // ADR0013: through the API only the provider type COMMUNITY answers; chef answers come in
+    // increment 4
+    if (command.providerType() != HelpProviderType.COMMUNITY) {
+      throw new NotAuthorized("Provide Help as " + command.providerType(), Role.COMMUNITY);
+    }
     // ADR0013: only Community members answer through the API
     command.actor().require(Role.COMMUNITY, "Provide Help");
     try {
@@ -53,6 +59,7 @@ public class ProvideHelp {
   /** The answer in domain types; step 9 maps the HTTP body to it. */
   public record Command(
       Actor actor,
+      HelpProviderType providerType,
       HelpRequestId helpRequestId,
       String answerTitle,
       PreparationStepExplanation answer) {}

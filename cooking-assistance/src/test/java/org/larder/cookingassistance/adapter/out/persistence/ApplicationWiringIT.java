@@ -77,6 +77,7 @@ class ApplicationWiringIT {
     provideHelp.execute(
         new ProvideHelp.Command(
             new Actor(HelpRequests.JONAS, Set.of(Role.COOK, Role.COMMUNITY), false),
+            HelpProviderType.COMMUNITY,
             HelpRequests.HELP_REQUEST_ID,
             "Warm the bowl",
             HelpRequests.BUTTER_WITH_THREE_PHOTOS));

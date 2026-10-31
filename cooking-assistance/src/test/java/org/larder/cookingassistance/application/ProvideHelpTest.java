@@ -50,6 +50,7 @@ class ProvideHelpTest {
   static ProvideHelp.Command answerFrom(Actor actor) {
     return new ProvideHelp.Command(
         actor,
+        HelpProviderType.COMMUNITY,
         HelpRequests.HELP_REQUEST_ID,
         "Warm the bowl",
         HelpRequests.BUTTER_WITH_THREE_PHOTOS);
@@ -89,6 +90,7 @@ class ProvideHelpTest {
                 useCase.execute(
                     new ProvideHelp.Command(
                         JONAS_AS_COMMUNITY,
+                        HelpProviderType.COMMUNITY,
                         unknown,
                         "Warm the bowl",
                         HelpRequests.BUTTER_WITH_THREE_PHOTOS)))
@@ -124,7 +126,11 @@ class ProvideHelpTest {
             () ->
                 useCase.execute(
                     new ProvideHelp.Command(
-                        JONAS_AS_COMMUNITY, HelpRequests.HELP_REQUEST_ID, "About step 6", aboutStep6)))
+                        JONAS_AS_COMMUNITY,
+                        HelpProviderType.COMMUNITY,
+                        HelpRequests.HELP_REQUEST_ID,
+                        "About step 6",
+                        aboutStep6)))
         .isInstanceOfSatisfying(
             AnswerDoesNotMatchRequest.class,
             rejection -> assertThat(rejection.rule()).isEqualTo("INV-37"));
@@ -146,7 +152,11 @@ class ProvideHelpTest {
             () ->
                 useCase.execute(
                     new ProvideHelp.Command(
-                        JONAS_AS_COMMUNITY, HelpRequests.HELP_REQUEST_ID, "Butter", withElevenPhotos)))
+                        JONAS_AS_COMMUNITY,
+                        HelpProviderType.COMMUNITY,
+                        HelpRequests.HELP_REQUEST_ID,
+                        "Butter",
+                        withElevenPhotos)))
         .isInstanceOfSatisfying(
             TooManyPictures.class, rejection -> assertThat(rejection.rule()).isEqualTo("INV-38"));
     assertNoHelpSaved();
@@ -251,7 +261,40 @@ class ProvideHelpTest {
             () ->
                 useCase.execute(
                     new ProvideHelp.Command(
-                        cookOnly, unknown, "Warm the bowl", HelpRequests.BUTTER_WITH_THREE_PHOTOS)))
+                        cookOnly,
+                        HelpProviderType.COMMUNITY,
+                        unknown,
+                        "Warm the bowl",
+                        HelpRequests.BUTTER_WITH_THREE_PHOTOS)))
+        .isInstanceOf(NotAuthorized.class);
+    assertNoHelpSaved();
+  }
+
+  @DisplayName("Jonas (role community) answers stating provider type GRANDMA_AVATAR -> NotAuthorized before the request is loaded, nothing saved -- B3-S02 US-CA-03 ADR0013")
+  @Test
+  void communityMemberCannotAnswerAsGrandmaAvatar() {
+    assertThatThrownBy(
+            () -> useCase.execute(answerAs(JONAS_AS_COMMUNITY, HelpProviderType.GRANDMA_AVATAR)))
+        .isInstanceOf(NotAuthorized.class);
+    assertNoHelpSaved();
+  }
+
+  static ProvideHelp.Command answerAs(Actor actor, HelpProviderType providerType) {
+    return new ProvideHelp.Command(
+        actor,
+        providerType,
+        HelpRequests.HELP_REQUEST_ID,
+        "Warm the bowl",
+        HelpRequests.BUTTER_WITH_THREE_PHOTOS);
+  }
+
+  @DisplayName("an actor with roles cook, community and chef answers stating provider type CHEF -> NotAuthorized until increment 4 builds chef answers, nothing saved -- B3-S02 US-CA-03 ADR0013")
+  @Test
+  void chefAnswersAreNotYetAuthorized() {
+    Actor jonasAsChefToo =
+        new Actor(HelpRequests.JONAS, Set.of(Role.COOK, Role.COMMUNITY, Role.CHEF), false);
+
+    assertThatThrownBy(() -> useCase.execute(answerAs(jonasAsChefToo, HelpProviderType.CHEF)))
         .isInstanceOf(NotAuthorized.class);
     assertNoHelpSaved();
   }
