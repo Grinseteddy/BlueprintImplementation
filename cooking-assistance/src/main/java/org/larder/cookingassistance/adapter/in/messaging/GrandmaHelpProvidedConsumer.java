@@ -7,6 +7,7 @@ import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.larder.cookingassistance.adapter.messaging.AsyncApiContract;
 import org.larder.cookingassistance.adapter.messaging.generated.GrandmaHelpProvidedPayload;
 import org.larder.cookingassistance.application.HelpRequestNotFound;
 import org.larder.cookingassistance.application.ProvideGrandmaAvatarHelp;
