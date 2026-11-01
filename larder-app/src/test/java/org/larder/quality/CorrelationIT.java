@@ -24,7 +24,9 @@ import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
 
 /** QS-14 short check: one help journey correlates HTTP and messages (ADR0020). */
-@SpringBootTest(classes = LarderApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+    classes = LarderApplication.class,
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import({AcceptanceInfrastructure.class, TestSigningKeys.class})
 class CorrelationIT {
 
@@ -34,7 +36,8 @@ class CorrelationIT {
   @Autowired AmqpAdmin admin;
   @Autowired RabbitTemplate rabbit;
 
-  @DisplayName("E2 POST /help-requests -> the returned helpRequestId is the correlationId header of the published HelpRequestCreated -- B3-S01 US-CA-03 QS-14 ADR0020")
+  @DisplayName(
+      "E2 POST /help-requests -> the returned helpRequestId is the correlationId header of the published HelpRequestCreated -- B3-S01 US-CA-03 QS-14 ADR0020")
   @Test
   void httpRequestAndPublishedMessageShareTheCorrelation() throws Exception {
     String queue = "quality.correlation";
@@ -49,7 +52,9 @@ class CorrelationIT {
         RestClient.create("http://localhost:" + port)
             .post()
             .uri("/help-requests")
-            .header("Authorization", TestTokens.forCook(HelpRequests.LENA).roles("cook").scope("help:write").bearer())
+            .header(
+                "Authorization",
+                TestTokens.forCook(HelpRequests.LENA).roles("cook").scope("help:write").bearer())
             .header("version", "1.0.4")
             .contentType(MediaType.APPLICATION_JSON)
             .body(
@@ -61,8 +66,25 @@ class CorrelationIT {
             .body(String.class);
     String helpRequestId = new ObjectMapper().readTree(created).get("helpRequestId").asText();
 
-    Message published = rabbit.receive(queue, 10_000);
-    assertThat(published).isNotNull();
-    assertThat(published.getMessageProperties().getHeaders()).containsEntry("correlationId", helpRequestId);
+    Message published = createdFor(queue, helpRequestId);
+    assertThat(published.getMessageProperties().getHeaders())
+        .containsEntry("correlationId", helpRequestId);
+  }
+
+  /** The HelpRequestCreated of this request; other tests' rows may still be published meanwhile. */
+  private Message createdFor(String queue, String helpRequestId) throws Exception {
+    long deadline = System.currentTimeMillis() + 10_000;
+    while (System.currentTimeMillis() < deadline) {
+      Message message = rabbit.receive(queue, 1_000);
+      if (message != null
+          && new ObjectMapper()
+              .readTree(message.getBody())
+              .get("helpRequestId")
+              .asText()
+              .equals(helpRequestId)) {
+        return message;
+      }
+    }
+    throw new AssertionError("no HelpRequestCreated for " + helpRequestId + " within 10 s");
   }
 }
