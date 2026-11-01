@@ -1,15 +1,18 @@
 package org.larder.cookingassistance.application;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.larder.cookingassistance.domain.helprequest.AskedProvider;
 import org.larder.cookingassistance.domain.helprequest.CookId;
+import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestStatus;
 import org.larder.cookingassistance.domain.helprequest.HelpType;
 import org.larder.cookingassistance.domain.helprequest.HowToStepId;
 import org.larder.cookingassistance.domain.helprequest.RecipeId;
 
-/** A help request as the read side shows it: plain values, no behavior. */
+/** A help request as the read side shows it: plain values and one derived read rule. */
 public record HelpRequestView(
     HelpRequestId id,
     CookId requester,
@@ -19,4 +22,13 @@ public record HelpRequestView(
     RecipeId recipe,
     HowToStepId howToStep,
     List<AskedProvider> askedProviders,
-    HelpRequestStatus status) {}
+    HelpRequestStatus status) {
+
+  /**
+   * The providers the cook chose: the request asks exactly the preferred providers, so they are
+   * the asked providers' types until re-sending (increment 1 stores them separately).
+   */
+  public Set<HelpProviderType> preferredProviders() {
+    return askedProviders.stream().map(AskedProvider::providerType).collect(Collectors.toSet());
+  }
+}

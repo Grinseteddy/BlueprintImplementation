@@ -30,18 +30,7 @@ class JdbcHelpRequestQueries implements HelpRequestQueries {
 
   @Override
   public Optional<HelpRequestView> byId(HelpRequestId id) {
-    List<AskedProvider> asked =
-        jdbc.sql(
-                "select provider_type, deadline, state from asked_provider"
-                    + " where help_request_id = :id order by position")
-            .param("id", id.value())
-            .query(
-                (rs, n) ->
-                    new AskedProvider(
-                        HelpProviderType.valueOf(rs.getString("provider_type")),
-                        rs.getObject("deadline", OffsetDateTime.class).toInstant(),
-                        ProviderState.valueOf(rs.getString("state"))))
-            .list();
+    List<AskedProvider> asked = askedProviders(id);
     return jdbc.sql(
             "select requester, title, type, description, recipe, how_to_step, status"
                 + " from help_request where id = :id")
@@ -59,5 +48,19 @@ class JdbcHelpRequestQueries implements HelpRequestQueries {
                     asked,
                     HelpRequestStatus.valueOf(rs.getString("status"))))
         .optional();
+  }
+
+  private List<AskedProvider> askedProviders(HelpRequestId id) {
+    return jdbc.sql(
+            "select provider_type, deadline, state from asked_provider"
+                + " where help_request_id = :id order by position")
+        .param("id", id.value())
+        .query(
+            (rs, n) ->
+                new AskedProvider(
+                    HelpProviderType.valueOf(rs.getString("provider_type")),
+                    rs.getObject("deadline", OffsetDateTime.class).toInstant(),
+                    ProviderState.valueOf(rs.getString("state"))))
+        .list();
   }
 }

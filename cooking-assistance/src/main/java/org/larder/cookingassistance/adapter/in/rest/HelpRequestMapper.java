@@ -55,8 +55,9 @@ final class HelpRequestMapper {
             org.larder.cookingassistance.adapter.in.rest.generated.model.HelpType.fromValue(
                 view.type().name()),
             view.description(),
-            // the providers the cook chose are the providers asked (until re-sending, increment 1)
-            asked.stream().map(AskedProvider::getProviderType).collect(Collectors.toSet()),
+            view.preferredProviders().stream()
+                .map(HelpRequestMapper::generatedType)
+                .collect(Collectors.toSet()),
             asked,
             HelpRequestStatus.fromValue(view.status().name()))
         .recipe(view.recipe().value())
