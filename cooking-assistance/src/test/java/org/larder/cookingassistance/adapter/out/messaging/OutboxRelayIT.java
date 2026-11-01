@@ -21,9 +21,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/**
- * The outbox relay against PostgreSQL with a fake broker behind the publisher port (ADR0015).
- */
+/** The outbox relay against PostgreSQL with a fake broker behind the publisher port (ADR0015). */
 @SpringBootTest(classes = PersistenceTestApplication.class)
 @Import(PostgresTestContainer.class)
 class OutboxRelayIT {
@@ -65,7 +63,8 @@ class OutboxRelayIT {
         .single();
   }
 
-  @DisplayName("one pending row -> published once (the fake received it) and published_at set -- B3-S01 US-CA-03 ADR0015")
+  @DisplayName(
+      "one pending row -> published once (the fake received it) and published_at set -- B3-S01 US-CA-03 ADR0015")
   @Test
   void pendingRowIsPublishedOnce() {
     long id = pending(A, "HelpRequestCreated", OutboxPayloads.helpRequestCreated(A));
@@ -91,7 +90,8 @@ class OutboxRelayIT {
     assertThat(publisher.published()).hasSize(1);
   }
 
-  @DisplayName("publisher fails after sending (confirm lost) -> row stays pending; the next run sends it again with the same messageId -- B3-S01 US-CA-03 ADR0015")
+  @DisplayName(
+      "publisher fails after sending (confirm lost) -> row stays pending; the next run sends it again with the same messageId -- B3-S01 US-CA-03 ADR0015")
   @Test
   void lostConfirmIsPublishedAgainWithTheSameMessageId() {
     long id = pending(A, "HelpRequestCreated", OutboxPayloads.helpRequestCreated(A));
@@ -108,7 +108,8 @@ class OutboxRelayIT {
     assertThat(isPublished(id)).isTrue();
   }
 
-  @DisplayName("a failing row of aggregate A holds back A's later row in that run; aggregate B goes on -- B3-S01,B3-S02 US-CA-03 ADR0015")
+  @DisplayName(
+      "a failing row of aggregate A holds back A's later row in that run; aggregate B goes on -- B3-S01,B3-S02 US-CA-03 ADR0015")
   @Test
   void failingRowHoldsBackItsAggregateOnly() {
     long a1 = pending(A, "HelpRequestCreated", OutboxPayloads.helpRequestCreated(A));
@@ -125,7 +126,8 @@ class OutboxRelayIT {
         .containsExactly(false, false, true);
   }
 
-  @DisplayName("while relay 1 publishes A1, a row A2 appended for the same help request is not published by relay 2 before A1 -- B3-S01,B3-S02 US-CA-03 ADR0015")
+  @DisplayName(
+      "while relay 1 publishes A1, a row A2 appended for the same help request is not published by relay 2 before A1 -- B3-S01,B3-S02 US-CA-03 ADR0015")
   @Test
   void laterRowDoesNotOvertakeAcrossRelays() throws Exception {
     pending(A, "HelpRequestCreated", OutboxPayloads.helpRequestCreated(A));
@@ -147,10 +149,12 @@ class OutboxRelayIT {
     assertThat(whileA1IsInFlight).isEmpty();
     assertThat(publisher.published())
         .extracting(OutgoingMessage::channel)
-        .containsExactly("cooking-assistance.help-request.created", "cooking-assistance.help.provided");
+        .containsExactly(
+            "cooking-assistance.help-request.created", "cooking-assistance.help.provided");
   }
 
-  @DisplayName("an aggregate's two pending rows both go out in one run, in order -- B3-S01,B3-S02 US-CA-03 ADR0015")
+  @DisplayName(
+      "an aggregate's two pending rows both go out in one run, in order -- B3-S01,B3-S02 US-CA-03 ADR0015")
   @Test
   void aggregateDrainsInOrderInOneRun() {
     pending(A, "HelpRequestCreated", OutboxPayloads.helpRequestCreated(A));
@@ -160,10 +164,12 @@ class OutboxRelayIT {
 
     assertThat(publisher.published())
         .extracting(OutgoingMessage::channel)
-        .containsExactly("cooking-assistance.help-request.created", "cooking-assistance.help.provided");
+        .containsExactly(
+            "cooking-assistance.help-request.created", "cooking-assistance.help.provided");
   }
 
-  @DisplayName("two relays at once, fake publisher with delay -> every row published exactly once -- B3-S01 US-CA-03 ADR0015")
+  @DisplayName(
+      "two relays at once, fake publisher with delay -> every row published exactly once -- B3-S01 US-CA-03 ADR0015")
   @Test
   void severalRelaysPublishEachRowOnce() throws Exception {
     for (int i = 0; i < 10; i++) {
@@ -175,8 +181,7 @@ class OutboxRelayIT {
     ExecutorService relays = Executors.newFixedThreadPool(2);
     List<Future<?>> runs =
         List.of(
-            relays.submit(() -> startTogether(start)),
-            relays.submit(() -> startTogether(start)));
+            relays.submit(() -> startTogether(start)), relays.submit(() -> startTogether(start)));
 
     start.countDown();
     for (Future<?> run : runs) {
@@ -185,7 +190,9 @@ class OutboxRelayIT {
     relays.shutdown();
 
     assertThat(publisher.published()).hasSize(10);
-    assertThat(publisher.published()).extracting(OutgoingMessage::messageId).doesNotHaveDuplicates();
+    assertThat(publisher.published())
+        .extracting(OutgoingMessage::messageId)
+        .doesNotHaveDuplicates();
   }
 
   private void startTogether(CountDownLatch start) {

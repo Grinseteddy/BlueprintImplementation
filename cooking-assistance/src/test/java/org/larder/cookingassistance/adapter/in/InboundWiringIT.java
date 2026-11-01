@@ -29,7 +29,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * Wiring through the real adapters and PostgreSQL: request or message in -> rows and outbox entries out.
+ * Wiring through the real adapters and PostgreSQL: request or message in -> rows and outbox entries
+ * out.
  */
 @SpringBootTest(classes = PersistenceTestApplication.class)
 @AutoConfigureMockMvc
@@ -90,15 +91,15 @@ class InboundWiringIT {
   }
 
   private int outboxRows(String eventType, UUID helpRequestId) {
-    return jdbc.sql(
-            "select count(*) from outbox where event_type = :type and aggregate_id = :id")
+    return jdbc.sql("select count(*) from outbox where event_type = :type and aggregate_id = :id")
         .param("type", eventType)
         .param("id", helpRequestId)
         .query(Integer.class)
         .single();
   }
 
-  @DisplayName("POST /help-requests with a signed token -> help_request row and outbox HelpRequestCreated -- B3-S01 US-CA-03 op createHelpRequest")
+  @DisplayName(
+      "POST /help-requests with a signed token -> help_request row and outbox HelpRequestCreated -- B3-S01 US-CA-03 op createHelpRequest")
   @Test
   void createHelpRequestStoresRowAndOutboxEntry() throws Exception {
     UUID helpRequestId = lenaRequestsHelpFrom("COMMUNITY");
@@ -107,7 +108,8 @@ class InboundWiringIT {
     assertThat(outboxRows("HelpRequestCreated", helpRequestId)).isEqualTo(1);
   }
 
-  @DisplayName("POST /help-requests/{id}/helps -> help row and outbox HelpProvided -- B3-S02 US-CA-03 op provideHelp")
+  @DisplayName(
+      "POST /help-requests/{id}/helps -> help row and outbox HelpProvided -- B3-S02 US-CA-03 op provideHelp")
   @Test
   void provideHelpStoresHelpAndOutboxEntry() throws Exception {
     UUID helpRequestId = lenaRequestsHelpFrom("COMMUNITY");
@@ -143,7 +145,8 @@ class InboundWiringIT {
     assertThat(outboxRows("HelpProvided", helpRequestId)).isEqualTo(1);
   }
 
-  @DisplayName("Grandma message -> help row, processed_message row and outbox HelpProvided -- B3-S02 US-CA-03 op consumeGrandmaHelpProvided")
+  @DisplayName(
+      "Grandma message -> help row, processed_message row and outbox HelpProvided -- B3-S02 US-CA-03 op consumeGrandmaHelpProvided")
   @Test
   void grandmaMessageStoresHelpProcessedMessageAndOutboxEntry() throws Exception {
     UUID helpRequestId = lenaRequestsHelpFrom("GRANDMA_AVATAR");
@@ -161,7 +164,8 @@ class InboundWiringIT {
           }
         }
         """
-            .formatted(helpRequestId, HelpRequests.HOLLANDAISE.value(), HelpRequests.STEP_4.value());
+            .formatted(
+                helpRequestId, HelpRequests.HOLLANDAISE.value(), HelpRequests.STEP_4.value());
 
     Outcome outcome =
         context

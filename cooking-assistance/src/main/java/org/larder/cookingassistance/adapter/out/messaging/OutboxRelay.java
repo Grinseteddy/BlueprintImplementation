@@ -20,7 +20,8 @@ public class OutboxRelay {
   private final MessagePublisher publisher;
   private final OutboxMessageMapper mapper = new OutboxMessageMapper();
 
-  public OutboxRelay(JdbcClient jdbc, TransactionTemplate transactions, MessagePublisher publisher) {
+  public OutboxRelay(
+      JdbcClient jdbc, TransactionTemplate transactions, MessagePublisher publisher) {
     this.jdbc = jdbc;
     this.transactions = transactions;
     this.publisher = publisher;

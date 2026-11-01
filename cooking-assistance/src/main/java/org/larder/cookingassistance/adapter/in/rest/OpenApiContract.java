@@ -17,8 +17,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * The approved OpenAPI spec as the edge reads it: operations by operationId and their schemas
- * (JSON Schema 2020-12 with the OpenAPI 3.1 vocabulary, formats asserted).
+ * The approved OpenAPI spec as the edge reads it: operations by operationId and their schemas (JSON
+ * Schema 2020-12 with the OpenAPI 3.1 vocabulary, formats asserted).
  */
 final class OpenApiContract {
 
@@ -63,8 +63,7 @@ final class OpenApiContract {
 
   JsonSchema schema(String pointer) {
     return schemas.computeIfAbsent(
-        pointer,
-        p -> factory.getSchema(SchemaLocation.of("classpath:" + SPEC + "#" + p), config));
+        pointer, p -> factory.getSchema(SchemaLocation.of("classpath:" + SPEC + "#" + p), config));
   }
 
   private static JsonNode readSpec() {

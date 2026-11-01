@@ -33,7 +33,8 @@ class ProcessedMessagesIT {
     jdbc.sql("delete from processed_message").update();
   }
 
-  @DisplayName("recording a message id seen for the first time returns true and stores it -- B3-S02 US-CA-03 ADR0015 consumer idempotency")
+  @DisplayName(
+      "recording a message id seen for the first time returns true and stores it -- B3-S02 US-CA-03 ADR0015 consumer idempotency")
   @Test
   void firstProcessingIsRecorded() {
     boolean first = processedMessages.recordFirstProcessing(MESSAGE_ID);
@@ -49,7 +50,8 @@ class ProcessedMessagesIT {
         .single();
   }
 
-  @DisplayName("recording the same message id again returns false (already processed), without an error -- B3-S02 US-CA-03 ADR0015 consumer idempotency")
+  @DisplayName(
+      "recording the same message id again returns false (already processed), without an error -- B3-S02 US-CA-03 ADR0015 consumer idempotency")
   @Test
   void repeatedMessageIsReportedAsAlreadyProcessed() {
     processedMessages.recordFirstProcessing(MESSAGE_ID);
@@ -60,7 +62,8 @@ class ProcessedMessagesIT {
     assertThat(storedCount(MESSAGE_ID)).isEqualTo(1);
   }
 
-  @DisplayName("a record written inside a unit of work that rolls back is not kept: the same message id later counts as first processing again -- B3-S02 US-CA-03 ADR0015 unit of work")
+  @DisplayName(
+      "a record written inside a unit of work that rolls back is not kept: the same message id later counts as first processing again -- B3-S02 US-CA-03 ADR0015 unit of work")
   @Test
   void recordIsRolledBackWithItsUnitOfWork() {
     assertThatThrownBy(

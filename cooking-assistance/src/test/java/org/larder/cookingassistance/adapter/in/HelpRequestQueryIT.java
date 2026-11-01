@@ -7,6 +7,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,8 +30,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.MockMvc;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * getHelpRequestById through the real web layer and the JDBC query adapter on PostgreSQL: the query
@@ -73,7 +73,8 @@ class HelpRequestQueryIT {
     return names;
   }
 
-  @DisplayName("Lena's stored request to COMMUNITY, read with help:read -> 200 with helpRequestId, requester, title, type PSE, description, recipe, howToStep, preferredProvider [COMMUNITY], askedProviders [{COMMUNITY, deadline = request time + 12 h, ASKED}], status OPEN; matches the HelpRequest schema, no null and no unbuilt optional field -- B3-S01 US-CA-03 op getHelpRequestById")
+  @DisplayName(
+      "Lena's stored request to COMMUNITY, read with help:read -> 200 with helpRequestId, requester, title, type PSE, description, recipe, howToStep, preferredProvider [COMMUNITY], askedProviders [{COMMUNITY, deadline = request time + 12 h, ASKED}], status OPEN; matches the HelpRequest schema, no null and no unbuilt optional field -- B3-S01 US-CA-03 op getHelpRequestById")
   @Test
   void lenasRequestIsReadBack() throws Exception {
     HelpRequest lenas = HelpRequests.lenaAsksAboutStep4(HelpProviderType.COMMUNITY);
@@ -85,14 +86,24 @@ class HelpRequestQueryIT {
     JsonNode request = new ObjectMapper().readTree(body);
     assertThat(fieldNames(request))
         .containsExactlyInAnyOrder(
-            "helpRequestId", "requester", "title", "type", "description", "recipe", "howToStep",
-            "preferredProvider", "askedProviders", "status");
-    assertThat(request.get("helpRequestId").asText()).isEqualTo(HelpRequests.HELP_REQUEST_ID.value().toString());
+            "helpRequestId",
+            "requester",
+            "title",
+            "type",
+            "description",
+            "recipe",
+            "howToStep",
+            "preferredProvider",
+            "askedProviders",
+            "status");
+    assertThat(request.get("helpRequestId").asText())
+        .isEqualTo(HelpRequests.HELP_REQUEST_ID.value().toString());
     assertThat(request.get("requester").asText()).isEqualTo(HelpRequests.LENA.value().toString());
     assertThat(request.get("title").asText()).isEqualTo(lenas.title());
     assertThat(request.get("type").asText()).isEqualTo("PREPARATION_STEP_EXPLANATION");
     assertThat(request.get("description").asText()).isEqualTo(lenas.description());
-    assertThat(request.get("recipe").asText()).isEqualTo(HelpRequests.HOLLANDAISE.value().toString());
+    assertThat(request.get("recipe").asText())
+        .isEqualTo(HelpRequests.HOLLANDAISE.value().toString());
     assertThat(request.get("howToStep").asText()).isEqualTo(HelpRequests.STEP_4.value().toString());
     assertThat(request.get("preferredProvider").toString()).isEqualTo("[\"COMMUNITY\"]");
     JsonNode asked = request.get("askedProviders").get(0);
@@ -103,7 +114,8 @@ class HelpRequestQueryIT {
     assertThat(request.get("status").asText()).isEqualTo("OPEN");
   }
 
-  @DisplayName("after Grandma's answer is stored -> status ANSWERED, GRANDMA_AVATAR state ANSWERED -- B3-S02 US-CA-03 op getHelpRequestById")
+  @DisplayName(
+      "after Grandma's answer is stored -> status ANSWERED, GRANDMA_AVATAR state ANSWERED -- B3-S02 US-CA-03 op getHelpRequestById")
   @Test
   void answeredRequestShowsGrandmasSide() throws Exception {
     HelpRequest lenas = HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR);
@@ -113,7 +125,8 @@ class HelpRequestQueryIT {
     helpRequests.save(stored);
 
     JsonNode request =
-        new ObjectMapper().readTree(read(HelpRequests.HELP_REQUEST_ID.value().toString(), JONAS_READING, 200));
+        new ObjectMapper()
+            .readTree(read(HelpRequests.HELP_REQUEST_ID.value().toString(), JONAS_READING, 200));
 
     assertThat(request.get("status").asText()).isEqualTo("ANSWERED");
     assertThat(request.get("askedProviders").get(0).get("providerType").asText())
@@ -132,7 +145,8 @@ class HelpRequestQueryIT {
         .andExpect(jsonPath("$.code").value("NOT_FOUND"));
   }
 
-  @DisplayName("helpRequestId \"not-a-uuid\" -> 400 VALIDATION_FAILED Problem -- B3-S01 US-CA-03 op getHelpRequestById")
+  @DisplayName(
+      "helpRequestId \"not-a-uuid\" -> 400 VALIDATION_FAILED Problem -- B3-S01 US-CA-03 op getHelpRequestById")
   @Test
   void idThatIsNoUuidIsABadRequest() throws Exception {
     mvc.perform(
@@ -143,7 +157,8 @@ class HelpRequestQueryIT {
         .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
   }
 
-  @DisplayName("no token -> 401 UNAUTHENTICATED; token with help:write only -> 403 INSUFFICIENT_SCOPE -- B3-S01 US-CA-03 ADR0012 ADR0013 op getHelpRequestById")
+  @DisplayName(
+      "no token -> 401 UNAUTHENTICATED; token with help:write only -> 403 INSUFFICIENT_SCOPE -- B3-S01 US-CA-03 ADR0012 ADR0013 op getHelpRequestById")
   @Test
   void readNeedsTheReadScope() throws Exception {
     String id = HelpRequests.HELP_REQUEST_ID.value().toString();
@@ -163,7 +178,8 @@ class HelpRequestQueryIT {
         .andExpect(jsonPath("$.code").value("INSUFFICIENT_SCOPE"));
   }
 
-  @DisplayName("POST /help-requests, then GET the returned helpRequestLink at once -> 200 with that request (read-your-writes) -- B3-S01 US-CA-03 QS-07 ADR0016 op createHelpRequest,getHelpRequestById")
+  @DisplayName(
+      "POST /help-requests, then GET the returned helpRequestLink at once -> 200 with that request (read-your-writes) -- B3-S01 US-CA-03 QS-07 ADR0016 op createHelpRequest,getHelpRequestById")
   @Test
   void cookReadsHerOwnWriteAtOnce() throws Exception {
     String created =
@@ -188,7 +204,8 @@ class HelpRequestQueryIT {
                           "preferredProvider": ["COMMUNITY"]
                         }
                         """
-                            .formatted(HelpRequests.HOLLANDAISE.value(), HelpRequests.STEP_4.value())))
+                            .formatted(
+                                HelpRequests.HOLLANDAISE.value(), HelpRequests.STEP_4.value())))
             .andExpect(status().isCreated())
             .andReturn()
             .getResponse()
@@ -196,8 +213,7 @@ class HelpRequestQueryIT {
     JsonNode link = new ObjectMapper().readTree(created);
 
     JsonNode request =
-        new ObjectMapper()
-            .readTree(read(link.get("helpRequestId").asText(), JONAS_READING, 200));
+        new ObjectMapper().readTree(read(link.get("helpRequestId").asText(), JONAS_READING, 200));
 
     assertThat(link.get("helpRequestLink").asText())
         .isEqualTo("http://localhost/help-requests/" + link.get("helpRequestId").asText());

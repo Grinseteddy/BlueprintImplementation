@@ -16,7 +16,9 @@ final class OutboxPayloads {
         "askedProviders":[{"providerType":"COMMUNITY","deadline":"2026-11-07T06:00:00Z"}],\
         "status":"OPEN","occurredAt":"2026-11-06T18:00:00Z"}"""
         .formatted(
-            helpRequestId, HelpRequests.LENA.value(), HelpRequests.HOLLANDAISE.value(),
+            helpRequestId,
+            HelpRequests.LENA.value(),
+            HelpRequests.HOLLANDAISE.value(),
             HelpRequests.STEP_4.value());
   }
 
@@ -27,7 +29,10 @@ final class OutboxPayloads {
         "recipe":"%s","howToStep":"%s","description":"Add the butter in a thin stream","images":[]},\
         "helpRequestStatus":"ANSWERED","occurredAt":"2026-11-06T18:10:00Z"}"""
         .formatted(
-            HelpRequests.HELP_ID.value(), helpRequestId, HelpRequests.LENA.value(),
-            HelpRequests.HOLLANDAISE.value(), HelpRequests.STEP_4.value());
+            HelpRequests.HELP_ID.value(),
+            helpRequestId,
+            HelpRequests.LENA.value(),
+            HelpRequests.HOLLANDAISE.value(),
+            HelpRequests.STEP_4.value());
   }
 }

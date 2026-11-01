@@ -53,14 +53,16 @@ public class HelpRequestSteps {
 
   @When("Lena asks Grandma Avatar about step {int} of her Hollandaise")
   public void lenaAsksGrandma(int step) {
-    lastResponse = driver.post("/help-requests", HelpRequests.LENA, "cook", request("[\"GRANDMA_AVATAR\"]"));
+    lastResponse =
+        driver.post("/help-requests", HelpRequests.LENA, "cook", request("[\"GRANDMA_AVATAR\"]"));
     assertThat(lastResponse.getStatusCode().value()).isEqualTo(201);
   }
 
   @Then("Grandma Avatar receives the request about step {int}")
   public void grandmaReceivesTheRequest(int step) {
     JsonNode created = driver.nextMessage(createdQueue, "HelpRequestCreated");
-    assertThat(created.get("askedProviders").findValuesAsText("providerType")).containsExactly("GRANDMA_AVATAR");
+    assertThat(created.get("askedProviders").findValuesAsText("providerType"))
+        .containsExactly("GRANDMA_AVATAR");
     assertThat(created.get("howToStep").asText()).isEqualTo(HelpRequests.STEP_4.value().toString());
   }
 
@@ -68,7 +70,10 @@ public class HelpRequestSteps {
   public void lenaAsksCommunityAndGrandma(int step) {
     lastResponse =
         driver.post(
-            "/help-requests", HelpRequests.LENA, "cook", request("[\"COMMUNITY\",\"GRANDMA_AVATAR\"]"));
+            "/help-requests",
+            HelpRequests.LENA,
+            "cook",
+            request("[\"COMMUNITY\",\"GRANDMA_AVATAR\"]"));
     assertThat(lastResponse.getStatusCode().value()).isEqualTo(201);
   }
 
@@ -102,7 +107,8 @@ public class HelpRequestSteps {
   public void requestIsSentToTheCommunity() {
     JsonNode created = driver.nextMessage(createdQueue, "HelpRequestCreated");
     assertThat(created.get("requester").asText()).isEqualTo(TOM.value().toString());
-    assertThat(created.get("askedProviders").findValuesAsText("providerType")).containsExactly("COMMUNITY");
+    assertThat(created.get("askedProviders").findValuesAsText("providerType"))
+        .containsExactly("COMMUNITY");
   }
 
   @When("Lena asks chef Marco about step {int} of her Hollandaise")
@@ -144,7 +150,8 @@ public class HelpRequestSteps {
   }
 
   private JsonNode readRequest(String helpRequestId) {
-    ResponseEntity<String> read = driver.get("/help-requests/" + helpRequestId, HelpRequests.JONAS, "cook,community");
+    ResponseEntity<String> read =
+        driver.get("/help-requests/" + helpRequestId, HelpRequests.JONAS, "cook,community");
     assertThat(read.getStatusCode().value()).isEqualTo(200);
     return driver.json(read);
   }
@@ -164,7 +171,8 @@ public class HelpRequestSteps {
   @Then("her request shows the Hollandaise, step {int} and her question")
   public void requestShowsRecipeStepAndQuestion(int step) {
     JsonNode request = readRequest(lenasRequests.getLast());
-    assertThat(request.get("recipe").asText()).isEqualTo(HelpRequests.HOLLANDAISE.value().toString());
+    assertThat(request.get("recipe").asText())
+        .isEqualTo(HelpRequests.HOLLANDAISE.value().toString());
     assertThat(request.get("howToStep").asText()).isEqualTo(HelpRequests.STEP_4.value().toString());
     assertThat(request.get("title").asText()).isEqualTo("How do I keep the sauce from splitting?");
   }
@@ -180,7 +188,8 @@ public class HelpRequestSteps {
     assertThat(lenasRequests).hasSize(2);
     assertThat(readRequest(lenasRequests.get(0)).get("howToStep").asText())
         .isEqualTo(HelpRequests.STEP_4.value().toString());
-    assertThat(readRequest(lenasRequests.get(1)).get("howToStep").asText()).isEqualTo(STEP_6.toString());
+    assertThat(readRequest(lenasRequests.get(1)).get("howToStep").asText())
+        .isEqualTo(STEP_6.toString());
   }
 
   @When("she tries to add step {int} to that request")
@@ -225,7 +234,8 @@ public class HelpRequestSteps {
 
   @io.cucumber.java.en.Given("Lena asked Grandma Avatar about step {int} of her Hollandaise")
   public void lenaAskedGrandma(int step) {
-    lastResponse = driver.post("/help-requests", HelpRequests.LENA, "cook", request("[\"GRANDMA_AVATAR\"]"));
+    lastResponse =
+        driver.post("/help-requests", HelpRequests.LENA, "cook", request("[\"GRANDMA_AVATAR\"]"));
     assertThat(lastResponse.getStatusCode().value()).isEqualTo(201);
     lenasRequests.add(driver.json(lastResponse).get("helpRequestId").asText());
   }
@@ -283,7 +293,9 @@ public class HelpRequestSteps {
   public void bothAnswersAreAnnounced() {
     JsonNode first = driver.nextMessage(providedQueue, "HelpProvided");
     JsonNode second = driver.nextMessage(providedQueue, "HelpProvided");
-    assertThat(java.util.List.of(first.get("helpProvider").asText(), second.get("helpProvider").asText()))
+    assertThat(
+            java.util.List.of(
+                first.get("helpProvider").asText(), second.get("helpProvider").asText()))
         .containsExactlyInAnyOrder(HelpRequests.JONAS.value().toString(), MIA.value().toString());
   }
 

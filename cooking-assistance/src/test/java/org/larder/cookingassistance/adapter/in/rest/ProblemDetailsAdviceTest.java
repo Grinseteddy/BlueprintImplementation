@@ -31,14 +31,19 @@ class ProblemDetailsAdviceTest {
         Arguments.of(new RecipeRequired(), 422, "MISSING_FIELD", "INV-02"),
         Arguments.of(new PreparationStepRequired(), 422, "MISSING_FIELD", "INV-02"),
         Arguments.of(new TooManyPictures(), 422, "TOO_MANY_PICTURES", "INV-38"),
-        Arguments.of(new AnswerDoesNotMatchRequest(), 422, "ANSWER_DOES_NOT_MATCH_REQUEST", "INV-37"),
+        Arguments.of(
+            new AnswerDoesNotMatchRequest(), 422, "ANSWER_DOES_NOT_MATCH_REQUEST", "INV-37"),
         Arguments.of(new OwnRequest(), 403, "OWN_REQUEST", "INV-36"),
         Arguments.of(new ProviderNotAsked(), 403, "PROVIDER_NOT_ASKED", "INV-01"),
         Arguments.of(
-            new InvalidHelpRequestState(HelpRequestStatus.CANCELLED), 409, "INVALID_STATE", "LIFECYCLE"));
+            new InvalidHelpRequestState(HelpRequestStatus.CANCELLED),
+            409,
+            "INVALID_STATE",
+            "LIFECYCLE"));
   }
 
-  @DisplayName("each of the 9 domain rejections -> its status (OWN_REQUEST, PROVIDER_NOT_ASKED 403; INVALID_STATE 409; the rest 422), its code and its rule -- B3-S01,B3-S02 US-CA-03 op createHelpRequest,provideHelp")
+  @DisplayName(
+      "each of the 9 domain rejections -> its status (OWN_REQUEST, PROVIDER_NOT_ASKED 403; INVALID_STATE 409; the rest 422), its code and its rule -- B3-S01,B3-S02 US-CA-03 op createHelpRequest,provideHelp")
   @ParameterizedTest(name = "{2} -> {1}")
   @MethodSource("rejections")
   void domainRejectionsMapToStatusCodeAndRule(
@@ -48,8 +53,6 @@ class ProblemDetailsAdviceTest {
     assertThat(response.getStatusCode().value()).isEqualTo(status);
     ProblemDetail problem = (ProblemDetail) response.getBody();
     assertThat(problem.getStatus()).isEqualTo(status);
-    assertThat(problem.getProperties())
-        .containsEntry("code", code)
-        .containsEntry("rule", rule);
+    assertThat(problem.getProperties()).containsEntry("code", code).containsEntry("rule", rule);
   }
 }

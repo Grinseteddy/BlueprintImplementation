@@ -18,8 +18,8 @@ import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.fixtures.HelpRequests;
 
 /**
- * Receive operation consumeGrandmaHelpProvided: the raw message as the transport hands it over -> handler
- * input in our language and the outcome for the transport (ADR0015).
+ * Receive operation consumeGrandmaHelpProvided: the raw message as the transport hands it over ->
+ * handler input in our language and the outcome for the transport (ADR0015).
  */
 class GrandmaHelpProvidedConsumerTest {
 
@@ -67,7 +67,8 @@ class GrandmaHelpProvidedConsumerTest {
     return json.getBytes(StandardCharsets.UTF_8);
   }
 
-  @DisplayName("valid message -> the handler gets GrandmaAnswer(messageId, HelpRequestId, title, PSE); Grandma's help is stored -> ACK -- B3-S02 US-CA-03 op consumeGrandmaHelpProvided")
+  @DisplayName(
+      "valid message -> the handler gets GrandmaAnswer(messageId, HelpRequestId, title, PSE); Grandma's help is stored -> ACK -- B3-S02 US-CA-03 op consumeGrandmaHelpProvided")
   @Test
   void validMessageProvidesGrandmasHelp() {
     Outcome outcome = consumer.handle(HEADERS, bytes(GRANDMAS_ANSWER));
@@ -84,10 +85,12 @@ class GrandmaHelpProvidedConsumerTest {
     assertThat(processedMessages.recordFirstProcessing(M1)).as("M1 already recorded").isFalse();
   }
 
-  @DisplayName("answerTitle missing -> DEAD_LETTER, nothing changed -- B3-S02 US-CA-03 op consumeGrandmaHelpProvided")
+  @DisplayName(
+      "answerTitle missing -> DEAD_LETTER, nothing changed -- B3-S02 US-CA-03 op consumeGrandmaHelpProvided")
   @Test
   void missingAnswerTitleIsDeadLettered() {
-    String withoutTitle = GRANDMAS_ANSWER.replace("\"answerTitle\": \"Butter in a thin stream\",", "");
+    String withoutTitle =
+        GRANDMAS_ANSWER.replace("\"answerTitle\": \"Butter in a thin stream\",", "");
 
     expectDeadLetteredWithoutEffect(HEADERS, bytes(withoutTitle));
   }
@@ -97,7 +100,8 @@ class GrandmaHelpProvidedConsumerTest {
     assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().helps()).isEmpty();
   }
 
-  @DisplayName("messageId header missing -> DEAD_LETTER, nothing changed -- B3-S02 US-CA-03 op consumeGrandmaHelpProvided")
+  @DisplayName(
+      "messageId header missing -> DEAD_LETTER, nothing changed -- B3-S02 US-CA-03 op consumeGrandmaHelpProvided")
   @Test
   void missingMessageIdIsDeadLettered() {
     Map<String, Object> withoutMessageId = new HashMap<>(HEADERS);
@@ -106,7 +110,8 @@ class GrandmaHelpProvidedConsumerTest {
     expectDeadLetteredWithoutEffect(withoutMessageId, bytes(GRANDMAS_ANSWER));
   }
 
-  @DisplayName("messageId \"abc\" -> DEAD_LETTER, nothing changed (formats checked) -- B3-S02 US-CA-03 op consumeGrandmaHelpProvided")
+  @DisplayName(
+      "messageId \"abc\" -> DEAD_LETTER, nothing changed (formats checked) -- B3-S02 US-CA-03 op consumeGrandmaHelpProvided")
   @Test
   void messageIdThatIsNoUuidIsDeadLettered() {
     Map<String, Object> withInvalidMessageId = new HashMap<>(HEADERS);
@@ -115,33 +120,39 @@ class GrandmaHelpProvidedConsumerTest {
     expectDeadLetteredWithoutEffect(withInvalidMessageId, bytes(GRANDMAS_ANSWER));
   }
 
-  @DisplayName("body is not JSON -> DEAD_LETTER, nothing changed -- B3-S02 US-CA-03 op consumeGrandmaHelpProvided")
+  @DisplayName(
+      "body is not JSON -> DEAD_LETTER, nothing changed -- B3-S02 US-CA-03 op consumeGrandmaHelpProvided")
   @Test
   void bodyThatIsNoJsonIsDeadLettered() {
     expectDeadLetteredWithoutEffect(HEADERS, bytes("{not json"));
   }
 
-  @DisplayName("the same message twice -> one help; ACK both times -- B3-S02 US-CA-03 ADR0015 op consumeGrandmaHelpProvided")
+  @DisplayName(
+      "the same message twice -> one help; ACK both times -- B3-S02 US-CA-03 ADR0015 op consumeGrandmaHelpProvided")
   @Test
   void sameMessageTwiceHasOneEffect() {
     Outcome first = consumer.handle(HEADERS, bytes(GRANDMAS_ANSWER));
     Outcome redelivery = consumer.handle(HEADERS, bytes(GRANDMAS_ANSWER));
 
     assertThat(List.of(first, redelivery)).containsOnly(Outcome.ACK);
-    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().helps()).hasSize(1);
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().helps())
+        .hasSize(1);
   }
 
-  @DisplayName("unknown help request -> DEAD_LETTER -- B3-S02 US-CA-03 ADR0015 op consumeGrandmaHelpProvided")
+  @DisplayName(
+      "unknown help request -> DEAD_LETTER -- B3-S02 US-CA-03 ADR0015 op consumeGrandmaHelpProvided")
   @Test
   void unknownHelpRequestIsDeadLettered() {
     String forUnknownRequest =
         GRANDMAS_ANSWER.replace(
-            HelpRequests.HELP_REQUEST_ID.value().toString(), "00000000-0000-7000-8000-000000000009");
+            HelpRequests.HELP_REQUEST_ID.value().toString(),
+            "00000000-0000-7000-8000-000000000009");
 
     assertThat(consumer.handle(HEADERS, bytes(forUnknownRequest))).isEqualTo(Outcome.DEAD_LETTER);
   }
 
-  @DisplayName("Grandma Avatar not asked (ProviderNotAsked) -> DEAD_LETTER -- B3-S02 US-CA-03 INV-01 ADR0015 op consumeGrandmaHelpProvided")
+  @DisplayName(
+      "Grandma Avatar not asked (ProviderNotAsked) -> DEAD_LETTER -- B3-S02 US-CA-03 INV-01 ADR0015 op consumeGrandmaHelpProvided")
   @Test
   void domainRejectionIsDeadLettered() {
     helpRequests.clear();
@@ -150,7 +161,8 @@ class GrandmaHelpProvidedConsumerTest {
     expectDeadLetteredWithoutEffect(HEADERS, bytes(GRANDMAS_ANSWER));
   }
 
-  @DisplayName("repository throws an unexpected error -> RETRY -- B3-S02 US-CA-03 ADR0015 op consumeGrandmaHelpProvided")
+  @DisplayName(
+      "repository throws an unexpected error -> RETRY -- B3-S02 US-CA-03 ADR0015 op consumeGrandmaHelpProvided")
   @Test
   void unexpectedErrorIsRetried() {
     helpRequests.interleave(
@@ -161,7 +173,8 @@ class GrandmaHelpProvidedConsumerTest {
     assertThat(consumer.handle(HEADERS, bytes(GRANDMAS_ANSWER))).isEqualTo(Outcome.RETRY);
   }
 
-  @DisplayName("answer of kind Substitutes -> DEAD_LETTER (increment 2) -- B3-S02 US-CA-03 op consumeGrandmaHelpProvided")
+  @DisplayName(
+      "answer of kind Substitutes -> DEAD_LETTER (increment 2) -- B3-S02 US-CA-03 op consumeGrandmaHelpProvided")
   @Test
   void substitutesAnswerIsDeadLettered() {
     String substitutes =

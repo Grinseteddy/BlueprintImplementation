@@ -44,7 +44,8 @@ class HelpRequestsController implements HelpRequestsApi {
     return ResponseEntity.status(HttpStatus.CREATED).body(HelpRequestMapper.toLink(id));
   }
 
-  // op: getHelpRequestById (cooking-assistance.openapi.yaml) · RM: help request (aggregate tables, ADR0016)
+  // op: getHelpRequestById (cooking-assistance.openapi.yaml) · RM: help request (aggregate tables,
+  // ADR0016)
   @Override
   public ResponseEntity<HelpRequest> getHelpRequestById(UUID helpRequestId, String version) {
     HelpRequestId id = new HelpRequestId(helpRequestId);

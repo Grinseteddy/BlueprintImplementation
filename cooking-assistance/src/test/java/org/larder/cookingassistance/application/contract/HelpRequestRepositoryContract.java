@@ -35,7 +35,8 @@ public abstract class HelpRequestRepositoryContract {
         .isEmpty();
   }
 
-  @DisplayName("a saved request is found again equal (id, requester, title, step, asked providers, status, helps) with no pending events -- B3-S01 US-CA-03 contract")
+  @DisplayName(
+      "a saved request is found again equal (id, requester, title, step, asked providers, status, helps) with no pending events -- B3-S01 US-CA-03 contract")
   @Test
   void savedRequestIsFoundEqualWithoutPendingEvents() {
     HelpRequest saved = HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR);
@@ -57,7 +58,8 @@ public abstract class HelpRequestRepositoryContract {
             });
   }
 
-  @DisplayName("saving a new request stores version 1; saving the loaded request again stores version 2 -- B3-S02 US-CA-03 ADR0010 contract")
+  @DisplayName(
+      "saving a new request stores version 1; saving the loaded request again stores version 2 -- B3-S02 US-CA-03 ADR0010 contract")
   @Test
   void savingIncrementsTheVersionByOne() {
     repository().save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR));
@@ -70,7 +72,8 @@ public abstract class HelpRequestRepositoryContract {
         .isEqualTo(2L);
   }
 
-  @DisplayName("the second of two concurrent saves of the same loaded version fails with ConcurrencyConflict -- B3-S02 US-CA-03 ADR0010 contract")
+  @DisplayName(
+      "the second of two concurrent saves of the same loaded version fails with ConcurrencyConflict -- B3-S02 US-CA-03 ADR0010 contract")
   @Test
   void secondConcurrentSaveFailsWithConcurrencyConflict() {
     repository().save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR));
@@ -81,7 +84,8 @@ public abstract class HelpRequestRepositoryContract {
     assertThatThrownBy(() -> repository().save(second)).isInstanceOf(ConcurrencyConflict.class);
   }
 
-  @DisplayName("save records the pending events: 1 after a new request, 2 after Grandma's help is saved too -- B3-S01,B3-S02 US-CA-03 ADR0015 contract")
+  @DisplayName(
+      "save records the pending events: 1 after a new request, 2 after Grandma's help is saved too -- B3-S01,B3-S02 US-CA-03 ADR0015 contract")
   @Test
   void saveRecordsThePendingEvents() {
     repository().save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR));

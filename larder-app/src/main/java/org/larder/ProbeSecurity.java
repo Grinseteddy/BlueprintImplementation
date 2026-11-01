@@ -7,7 +7,10 @@ import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 
-/** Health and readiness probes of the process are open to the platform; every module API stays protected. */
+/**
+ * Health and readiness probes of the process are open to the platform; every module API stays
+ * protected.
+ */
 @Configuration
 class ProbeSecurity {
 

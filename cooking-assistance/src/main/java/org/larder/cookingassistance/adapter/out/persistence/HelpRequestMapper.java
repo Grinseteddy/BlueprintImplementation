@@ -51,7 +51,8 @@ final class HelpRequestMapper {
   }
 
   private static AskedProviderRow toRow(AskedProvider asked) {
-    return new AskedProviderRow(asked.providerType().name(), asked.deadline(), asked.state().name());
+    return new AskedProviderRow(
+        asked.providerType().name(), asked.deadline(), asked.state().name());
   }
 
   private static HelpRow toRow(Help help) {

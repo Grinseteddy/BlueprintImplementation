@@ -94,7 +94,8 @@ public final class TestTokens {
             .expirationTime(Date.from(expiresAt))
             .build();
     SignedJWT jwt =
-        new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).keyID(KEY.getKeyID()).build(), claims);
+        new SignedJWT(
+            new JWSHeader.Builder(JWSAlgorithm.RS256).keyID(KEY.getKeyID()).build(), claims);
     try {
       jwt.sign(new RSASSASigner(KEY));
     } catch (JOSEException e) {

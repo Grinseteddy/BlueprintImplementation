@@ -31,7 +31,9 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /** Receive operations checked from their AsyncAPI examples against the running service. */
-@SpringBootTest(classes = LarderApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+    classes = LarderApplication.class,
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import({AcceptanceInfrastructure.class, TestSigningKeys.class})
 class AsyncApiContractIT {
 
@@ -43,7 +45,8 @@ class AsyncApiContractIT {
   @Autowired JdbcClient jdbc;
   @Autowired HelpRequestRepository helpRequests;
 
-  @DisplayName("D2 the GrandmaHelpProvided example is acked (nothing pending, nothing dead-lettered); without its first required field it is dead-lettered -- B3-S02 US-CA-03 op consumeGrandmaHelpProvided")
+  @DisplayName(
+      "D2 the GrandmaHelpProvided example is acked (nothing pending, nothing dead-lettered); without its first required field it is dead-lettered -- B3-S02 US-CA-03 op consumeGrandmaHelpProvided")
   @Test
   void receiveExampleIsAcceptedAndBrokenOneDeadLettered() throws Exception {
     JsonNode spec = asyncApi();
@@ -58,7 +61,9 @@ class AsyncApiContractIT {
 
     Eventually.within(
         Duration.ofSeconds(10),
-        () -> assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().helps()).hasSize(1));
+        () ->
+            assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().helps())
+                .hasSize(1));
     assertThat(messageCount(QUEUE)).isZero();
     assertThat(messageCount(DEAD_LETTERS)).isZero();
 
@@ -68,7 +73,8 @@ class AsyncApiContractIT {
     otherMessage.put("messageId", "7182a3b4-b5c6-4d7e-8f01-6c7d8e9fa0b1");
     publish(otherMessage, broken);
 
-    Eventually.within(Duration.ofSeconds(10), () -> assertThat(messageCount(DEAD_LETTERS)).isEqualTo(1));
+    Eventually.within(
+        Duration.ofSeconds(10), () -> assertThat(messageCount(DEAD_LETTERS)).isEqualTo(1));
   }
 
   private void theRequestTheExampleAnswersIsStored() {
@@ -85,7 +91,10 @@ class AsyncApiContractIT {
     admin.declareExchange(new TopicExchange("grandma-avatar", true, false));
     MessageProperties properties = new MessageProperties();
     properties.setContentType("application/json");
-    headers.fields().forEachRemaining(header -> properties.setHeader(header.getKey(), header.getValue().asText()));
+    headers
+        .fields()
+        .forEachRemaining(
+            header -> properties.setHeader(header.getKey(), header.getValue().asText()));
     rabbit.send(
         "grandma-avatar",
         "grandma-avatar.help.provided",
@@ -99,7 +108,9 @@ class AsyncApiContractIT {
 
   private static JsonNode asyncApi() throws Exception {
     try (InputStream in =
-        AsyncApiContractIT.class.getClassLoader().getResourceAsStream("api/cooking-assistance.asyncapi.yaml")) {
+        AsyncApiContractIT.class
+            .getClassLoader()
+            .getResourceAsStream("api/cooking-assistance.asyncapi.yaml")) {
       return new ObjectMapper(new YAMLFactory()).readTree(in);
     }
   }

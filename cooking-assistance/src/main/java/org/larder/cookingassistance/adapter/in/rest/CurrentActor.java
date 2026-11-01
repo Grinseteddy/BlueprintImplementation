@@ -12,7 +12,9 @@ import org.larder.cookingassistance.domain.helprequest.CookId;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
-/** The authenticated caller as an Actor (ADR0012): sub is the cook id, roles and premium are claims. */
+/**
+ * The authenticated caller as an Actor (ADR0012): sub is the cook id, roles and premium are claims.
+ */
 final class CurrentActor {
 
   private CurrentActor() {}

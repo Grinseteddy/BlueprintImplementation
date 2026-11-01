@@ -33,13 +33,19 @@ final class OpenApiDocument {
 
   /** The example of a request body, as JSON text. */
   String requestBodyExample(String requestBody, String example) {
-    return spec.at("/components/requestBodies/" + requestBody + "/content/application~1json/examples/" + example + "/value")
+    return spec.at(
+            "/components/requestBodies/"
+                + requestBody
+                + "/content/application~1json/examples/"
+                + example
+                + "/value")
         .toString();
   }
 
   List<String> violations(String schemaName, String json) {
     return factory
-        .getSchema(SchemaLocation.of("classpath:" + SPEC + "#/components/schemas/" + schemaName), config)
+        .getSchema(
+            SchemaLocation.of("classpath:" + SPEC + "#/components/schemas/" + schemaName), config)
         .validate(json, InputFormat.JSON)
         .stream()
         .map(ValidationMessage::getMessage)

@@ -38,8 +38,8 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 /**
- * Operations of tag Helps (provideHelp) through the real web layer, real resource-server security and the
- * step 8 use cases with contract-checked fakes (no database).
+ * Operations of tag Helps (provideHelp) through the real web layer, real resource-server security
+ * and the step 8 use cases with contract-checked fakes (no database).
  */
 @WebMvcTest
 @Import({RestTestConfiguration.class, SecurityConfiguration.class, TestSigningKeys.class})
@@ -47,7 +47,10 @@ class HelpsControllerTest {
 
   static final String REQUEST_ID = HelpRequests.HELP_REQUEST_ID.value().toString();
   static final String JONAS_AS_COMMUNITY =
-      TestTokens.forCook(HelpRequests.JONAS).roles("cook", "community").scope("help:write").bearer();
+      TestTokens.forCook(HelpRequests.JONAS)
+          .roles("cook", "community")
+          .scope("help:write")
+          .bearer();
   static final String JONAS_ANSWER =
       """
       {
@@ -73,7 +76,8 @@ class HelpsControllerTest {
     helpRequests.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.COMMUNITY));
   }
 
-  @DisplayName("Jonas (community, help:write) answers Lena's PSE request as COMMUNITY -> 201 {helpLink: .../help-requests/<id>/helps/<helpId>} matching HelpLink; the help is stored as Jonas's -- B3-S02 US-CA-03 op provideHelp")
+  @DisplayName(
+      "Jonas (community, help:write) answers Lena's PSE request as COMMUNITY -> 201 {helpLink: .../help-requests/<id>/helps/<helpId>} matching HelpLink; the help is stored as Jonas's -- B3-S02 US-CA-03 op provideHelp")
   @Test
   void jonasProvidesHelp() throws Exception {
     MvcResult result =
@@ -99,7 +103,8 @@ class HelpsControllerTest {
         .satisfies(help -> assertThat(help.provider()).contains(HelpRequests.JONAS));
   }
 
-  @DisplayName("answer without images -> 201; the help has no pictures -- B3-S02 US-CA-03 op provideHelp")
+  @DisplayName(
+      "answer without images -> 201; the help has no pictures -- B3-S02 US-CA-03 op provideHelp")
   @Test
   void answerWithoutImagesHasNoPictures() throws Exception {
     mvc.perform(
@@ -138,25 +143,32 @@ class HelpsControllerTest {
     assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().helps()).isEmpty();
   }
 
-  @DisplayName("answerTitle missing -> 400 VALIDATION_FAILED, nothing saved -- B3-S02 US-CA-03 op provideHelp")
+  @DisplayName(
+      "answerTitle missing -> 400 VALIDATION_FAILED, nothing saved -- B3-S02 US-CA-03 op provideHelp")
   @Test
   void missingAnswerTitleIsRejected() throws Exception {
     expectValidationFailed(JONAS_ANSWER.replace("\"answerTitle\": \"Warm the bowl\",", ""));
   }
 
-  @DisplayName("helpProviderType \"ROBOT\" -> 400 VALIDATION_FAILED, nothing saved -- B3-S02 US-CA-03 op provideHelp")
+  @DisplayName(
+      "helpProviderType \"ROBOT\" -> 400 VALIDATION_FAILED, nothing saved -- B3-S02 US-CA-03 op provideHelp")
   @Test
   void invalidProviderTypeIsRejected() throws Exception {
-    expectValidationFailed(JONAS_ANSWER.replace("\"helpProviderType\": \"COMMUNITY\"", "\"helpProviderType\": \"ROBOT\""));
+    expectValidationFailed(
+        JONAS_ANSWER.replace(
+            "\"helpProviderType\": \"COMMUNITY\"", "\"helpProviderType\": \"ROBOT\""));
   }
 
-  @DisplayName("PSE answer without description -> 400 VALIDATION_FAILED, nothing saved -- B3-S02 US-CA-03 op provideHelp")
+  @DisplayName(
+      "PSE answer without description -> 400 VALIDATION_FAILED, nothing saved -- B3-S02 US-CA-03 op provideHelp")
   @Test
   void explanationWithoutDescriptionIsRejected() throws Exception {
-    expectValidationFailed(JONAS_ANSWER.replace("\"description\": \"Add the butter slowly to a warm bowl\",", ""));
+    expectValidationFailed(
+        JONAS_ANSWER.replace("\"description\": \"Add the butter slowly to a warm bowl\",", ""));
   }
 
-  @DisplayName("11 images -> 400 VALIDATION_FAILED, nothing saved (schema maxItems) -- B3-S02 US-CA-03 INV-38 op provideHelp")
+  @DisplayName(
+      "11 images -> 400 VALIDATION_FAILED, nothing saved (schema maxItems) -- B3-S02 US-CA-03 INV-38 op provideHelp")
   @Test
   void elevenImagesAreRejected() throws Exception {
     expectValidationFailed(JONAS_ANSWER.replace("\"images\": []", "\"images\": " + elevenImages()));
@@ -176,11 +188,15 @@ class HelpsControllerTest {
         .andExpect(jsonPath("$.code").value("NOT_FOUND"));
   }
 
-  @DisplayName("Lena answers her own request -> 403 OWN_REQUEST with rule INV-36 -- B3-S02 US-CA-03 INV-36 op provideHelp")
+  @DisplayName(
+      "Lena answers her own request -> 403 OWN_REQUEST with rule INV-36 -- B3-S02 US-CA-03 INV-36 op provideHelp")
   @Test
   void ownRequestIsForbidden() throws Exception {
     String lenaAsCommunity =
-        TestTokens.forCook(HelpRequests.LENA).roles("cook", "community").scope("help:write").bearer();
+        TestTokens.forCook(HelpRequests.LENA)
+            .roles("cook", "community")
+            .scope("help:write")
+            .bearer();
 
     expectRejection(lenaAsCommunity, JONAS_ANSWER, 403, "OWN_REQUEST", "INV-36");
   }
@@ -200,7 +216,8 @@ class HelpsControllerTest {
     assertNoHelpSaved();
   }
 
-  @DisplayName("request sent only to Grandma Avatar -> 403 PROVIDER_NOT_ASKED with rule INV-01 -- B3-S02 US-CA-03 INV-01 op provideHelp")
+  @DisplayName(
+      "request sent only to Grandma Avatar -> 403 PROVIDER_NOT_ASKED with rule INV-01 -- B3-S02 US-CA-03 INV-01 op provideHelp")
   @Test
   void providerNotAskedIsForbidden() throws Exception {
     helpRequests.clear();
@@ -209,7 +226,8 @@ class HelpsControllerTest {
     expectRejection(JONAS_AS_COMMUNITY, JONAS_ANSWER, 403, "PROVIDER_NOT_ASKED", "INV-01");
   }
 
-  @DisplayName("CANCELLED request -> 409 INVALID_STATE with rule LIFECYCLE -- B3-S02 US-CA-03 op provideHelp")
+  @DisplayName(
+      "CANCELLED request -> 409 INVALID_STATE with rule LIFECYCLE -- B3-S02 US-CA-03 op provideHelp")
   @Test
   void cancelledRequestIsAConflict() throws Exception {
     HelpRequest open = HelpRequests.lenaAsksAboutStep4(HelpProviderType.COMMUNITY);
@@ -231,18 +249,19 @@ class HelpsControllerTest {
     expectRejection(JONAS_AS_COMMUNITY, JONAS_ANSWER, 409, "INVALID_STATE", "LIFECYCLE");
   }
 
-  @DisplayName("answer about step 6 -> 422 ANSWER_DOES_NOT_MATCH_REQUEST with rule INV-37 -- B3-S02 US-CA-03 INV-37 op provideHelp")
+  @DisplayName(
+      "answer about step 6 -> 422 ANSWER_DOES_NOT_MATCH_REQUEST with rule INV-37 -- B3-S02 US-CA-03 INV-37 op provideHelp")
   @Test
   void answerAboutAnotherStepIsARuleViolation() throws Exception {
     String aboutStep6 =
         JONAS_ANSWER.replace(
             HelpRequests.STEP_4.value().toString(), "c3d4e5f6-a7b8-4c9d-8e0f-2a3b4c5d6e7f");
 
-    expectRejection(
-        JONAS_AS_COMMUNITY, aboutStep6, 422, "ANSWER_DOES_NOT_MATCH_REQUEST", "INV-37");
+    expectRejection(JONAS_AS_COMMUNITY, aboutStep6, 422, "ANSWER_DOES_NOT_MATCH_REQUEST", "INV-37");
   }
 
-  @DisplayName("conflict on both tries -> 409 CONCURRENT_UPDATE -- B3-S02 US-CA-03 ADR0010 op provideHelp")
+  @DisplayName(
+      "conflict on both tries -> 409 CONCURRENT_UPDATE -- B3-S02 US-CA-03 ADR0010 op provideHelp")
   @Test
   void conflictOnBothTriesIsAConcurrentUpdate() throws Exception {
     helpRequests.interleave(
@@ -274,7 +293,8 @@ class HelpsControllerTest {
     helpRequests.save(meanwhile);
   }
 
-  @DisplayName("helpProviderType GRANDMA_AVATAR, then CHEF -> 403 NOT_AUTHORIZED each -- B3-S02 US-CA-03 ADR0013 op provideHelp")
+  @DisplayName(
+      "helpProviderType GRANDMA_AVATAR, then CHEF -> 403 NOT_AUTHORIZED each -- B3-S02 US-CA-03 ADR0013 op provideHelp")
   @Test
   void grandmaAvatarOrChefThroughTheApiIsRefused() throws Exception {
     for (String providerType : List.of("GRANDMA_AVATAR", "CHEF")) {
@@ -299,7 +319,8 @@ class HelpsControllerTest {
     assertNoHelpSaved();
   }
 
-  @DisplayName("actor without role community -> 403 NOT_AUTHORIZED, nothing saved -- B3-S02 US-CA-03 ADR0013 op provideHelp")
+  @DisplayName(
+      "actor without role community -> 403 NOT_AUTHORIZED, nothing saved -- B3-S02 US-CA-03 ADR0013 op provideHelp")
   @Test
   void actorWithoutCommunityRoleIsRefused() throws Exception {
     expectNotAuthorized(
@@ -307,7 +328,8 @@ class HelpsControllerTest {
         JONAS_ANSWER);
   }
 
-  @DisplayName("valid answer of kind Substitutes -> 501 NOT_IMPLEMENTED, nothing saved (increment 2) -- B3-S02 US-CA-03 op provideHelp")
+  @DisplayName(
+      "valid answer of kind Substitutes -> 501 NOT_IMPLEMENTED, nothing saved (increment 2) -- B3-S02 US-CA-03 op provideHelp")
   @Test
   void substitutesAnswerIsNotImplementedYet() throws Exception {
     String substitutes =
@@ -341,7 +363,8 @@ class HelpsControllerTest {
     assertNoHelpSaved();
   }
 
-  @DisplayName("no token -> 401 UNAUTHENTICATED; scope help:read only -> 403 INSUFFICIENT_SCOPE -- B3-S02 US-CA-03 ADR0012 ADR0013 op provideHelp")
+  @DisplayName(
+      "no token -> 401 UNAUTHENTICATED; scope help:read only -> 403 INSUFFICIENT_SCOPE -- B3-S02 US-CA-03 ADR0012 ADR0013 op provideHelp")
   @Test
   void noTokenOrReadScopeCannotProvideHelp() throws Exception {
     mvc.perform(
@@ -367,7 +390,8 @@ class HelpsControllerTest {
     assertNoHelpSaved();
   }
 
-  @DisplayName("unexpected error -> 500 INTERNAL_ERROR without the internal message -- B3-S02 US-CA-03 op provideHelp")
+  @DisplayName(
+      "unexpected error -> 500 INTERNAL_ERROR without the internal message -- B3-S02 US-CA-03 op provideHelp")
   @Test
   void unexpectedErrorHidesItsMessage() throws Exception {
     helpRequests.interleave(
@@ -387,7 +411,8 @@ class HelpsControllerTest {
         .andExpect(content().string(not(containsString("connection refused"))));
   }
 
-  @DisplayName("each of the 7 unbuilt operations of both interfaces -> 501 NOT_IMPLEMENTED (parameterized) -- B3-S02 US-CA-03 ADR0014")
+  @DisplayName(
+      "each of the 7 unbuilt operations of both interfaces -> 501 NOT_IMPLEMENTED (parameterized) -- B3-S02 US-CA-03 ADR0014")
   @ParameterizedTest(name = "{0} {1}")
   @CsvSource(
       delimiter = '|',

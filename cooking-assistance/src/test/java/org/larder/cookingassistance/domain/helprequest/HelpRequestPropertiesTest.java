@@ -24,7 +24,8 @@ class HelpRequestPropertiesTest {
   /** Fixed seed (ADR0017); logged in the step 6 journal. */
   static final String SEED = "20261031";
 
-  @Label("for every non-empty choice of providers from {Community, Grandma Avatar} the request is created and exactly those providers are asked; every choice containing a Chef is rejected with ChefNotAllowed -- B3-S01 US-CA-03 INV-01 property")
+  @Label(
+      "for every non-empty choice of providers from {Community, Grandma Avatar} the request is created and exactly those providers are asked; every choice containing a Chef is rejected with ChefNotAllowed -- B3-S01 US-CA-03 INV-01 property")
   @Property(tries = 1000, seed = SEED)
   void providersAreExactlyTheChosenNonChefProviders(
       @ForAll @Size(min = 1) Set<HelpProviderType> providers) {
@@ -38,7 +39,8 @@ class HelpRequestPropertiesTest {
     }
   }
 
-  @Label("for any request time t, every asked provider's deadline is t + 12 h -- B3-S01 US-CA-03 INV-09 property (deadline only)")
+  @Label(
+      "for any request time t, every asked provider's deadline is t + 12 h -- B3-S01 US-CA-03 INV-09 property (deadline only)")
   @Property(tries = 1000, seed = SEED)
   void deadlineIsAlwaysTwelveHoursAfterTheRequest(
       @ForAll @LongRange(min = 1_577_836_800_000L, max = 2_208_988_800_000L) long epochMillis) {
@@ -60,12 +62,12 @@ class HelpRequestPropertiesTest {
         .containsOnly(requestedAt.plus(Duration.ofHours(12)));
   }
 
-  @Label("for any number n of pictures from 0 to 30, the answer is accepted exactly when n <= 10, otherwise TooManyPictures -- B3-S02 US-CA-03 INV-38 property")
+  @Label(
+      "for any number n of pictures from 0 to 30, the answer is accepted exactly when n <= 10, otherwise TooManyPictures -- B3-S02 US-CA-03 INV-38 property")
   @Property(tries = 1000, seed = SEED)
   void answersAreAcceptedExactlyUpToTenPictures(@ForAll @IntRange(min = 0, max = 30) int n) {
     HelpRequest request = HelpRequestTest.lenaAsksGrandmaAboutStep4();
-    PreparationStepExplanation answer =
-        HelpRequestTest.explanationWith(HelpRequestTest.photos(n));
+    PreparationStepExplanation answer = HelpRequestTest.explanationWith(HelpRequestTest.photos(n));
 
     if (n <= 10) {
       request.provideHelp(

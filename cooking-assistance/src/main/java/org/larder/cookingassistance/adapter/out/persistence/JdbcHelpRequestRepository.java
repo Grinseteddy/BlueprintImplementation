@@ -10,7 +10,9 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Help Request repository on PostgreSQL with Spring Data JDBC (ADR0009) and an outbox (ADR0015). */
+/**
+ * Help Request repository on PostgreSQL with Spring Data JDBC (ADR0009) and an outbox (ADR0015).
+ */
 @Repository
 class JdbcHelpRequestRepository implements HelpRequestRepository {
 

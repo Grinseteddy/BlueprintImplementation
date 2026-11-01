@@ -51,7 +51,8 @@ class ApplicationWiringIT {
         .single();
   }
 
-  @DisplayName("RequestHelpWithPreparationStep from the context: Lena (cook) requests help -> the request is stored in PostgreSQL with one HelpRequestCreated outbox row -- B3-S01 US-CA-03 wiring")
+  @DisplayName(
+      "RequestHelpWithPreparationStep from the context: Lena (cook) requests help -> the request is stored in PostgreSQL with one HelpRequestCreated outbox row -- B3-S01 US-CA-03 wiring")
   @Test
   void requestHelpIsWired() {
     HelpRequestId id =
@@ -69,7 +70,8 @@ class ApplicationWiringIT {
     assertThat(outboxRows("HelpRequestCreated")).isEqualTo(1);
   }
 
-  @DisplayName("ProvideHelp from the context: Jonas (community) answers a stored Community request -> his Help is stored with a HelpProvided outbox row -- B3-S02 US-CA-03 wiring")
+  @DisplayName(
+      "ProvideHelp from the context: Jonas (community) answers a stored Community request -> his Help is stored with a HelpProvided outbox row -- B3-S02 US-CA-03 wiring")
   @Test
   void provideHelpIsWired() {
     helpRequests.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.COMMUNITY));
@@ -88,7 +90,8 @@ class ApplicationWiringIT {
     assertThat(outboxRows("HelpProvided")).isEqualTo(1);
   }
 
-  @DisplayName("ProvideGrandmaAvatarHelp from the context: Grandma's message delivered twice -> one Help stored, message id recorded in processed_message -- B3-S02 US-CA-03 ADR0015 wiring")
+  @DisplayName(
+      "ProvideGrandmaAvatarHelp from the context: Grandma's message delivered twice -> one Help stored, message id recorded in processed_message -- B3-S02 US-CA-03 ADR0015 wiring")
   @Test
   void grandmaAvatarHelpIsWired() {
     helpRequests.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR));
@@ -102,7 +105,8 @@ class ApplicationWiringIT {
     provideGrandmaAvatarHelp.handle(answer);
     provideGrandmaAvatarHelp.handle(answer);
 
-    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().helps()).hasSize(1);
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().helps())
+        .hasSize(1);
     assertThat(
             jdbc.sql("select count(*) from processed_message where message_id = :id")
                 .param("id", MESSAGE_ID)

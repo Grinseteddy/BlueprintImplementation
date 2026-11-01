@@ -21,5 +21,4 @@ record HelpRequestRow(
     @Version long version,
     @MappedCollection(idColumn = "help_request_id", keyColumn = "position")
         List<AskedProviderRow> askedProviders,
-    @MappedCollection(idColumn = "help_request_id", keyColumn = "position")
-        List<HelpRow> helps) {}
+    @MappedCollection(idColumn = "help_request_id", keyColumn = "position") List<HelpRow> helps) {}

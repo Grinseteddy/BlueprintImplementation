@@ -18,9 +18,9 @@ import org.junit.jupiter.api.Test;
 /**
  * Help Request aggregate — increment 0, walking skeleton (US-CA-03, B3-S01 + B3-S02).
  * Specification: docs/cooking-assistance/design/invariants.md (INV-01..04, INV-36..38),
- * design-brief.md, api/cooking-assistance.asyncapi.yaml (HelpRequestCreated, HelpProvided).
- * Cast from the Example Map: Lena (cook), Tom (cook, free plan), Jonas and Mia (Community),
- * Grandma Avatar, Chef Marco.
+ * design-brief.md, api/cooking-assistance.asyncapi.yaml (HelpRequestCreated, HelpProvided). Cast
+ * from the Example Map: Lena (cook), Tom (cook, free plan), Jonas and Mia (Community), Grandma
+ * Avatar, Chef Marco.
  */
 class HelpRequestTest {
 
@@ -35,21 +35,28 @@ class HelpRequestTest {
       new HowToStepId(UUID.fromString("c3d4e5f6-a7b8-4c9d-8e0f-2a3b4c5d6e7f"));
   static final HelpRequestId OTHER_HELP_REQUEST_ID =
       new HelpRequestId(UUID.fromString("0b8f7a52-4bfa-4d4e-9d6d-1f4b9c8f9a10"));
+
   /** Tom, a cook on the free plan. */
   static final CookId TOM = new CookId(UUID.fromString("5d1c2b3a-4e5f-4a6b-8c7d-9e0f1a2b3c4d"));
-  static final RecipeId BREAD = new RecipeId(UUID.fromString("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"));
+
+  static final RecipeId BREAD =
+      new RecipeId(UUID.fromString("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"));
   static final HowToStepId STEP_2 =
       new HowToStepId(UUID.fromString("b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"));
   static final HelpId HELP_ID = new HelpId(UUID.fromString("a9caf90d-00b4-4a66-8184-7d02152e8d6a"));
   static final HelpId OTHER_HELP_ID =
       new HelpId(UUID.fromString("1e7c2a90-3a5b-4b1d-8f0e-7c2d9b1a4e22"));
+
   /** Jonas, a Community member. */
   static final CookId JONAS = new CookId(UUID.fromString("39a7aed5-2e50-48c8-8aa6-f3afa9f03f74"));
+
   /** Mia, a Community member. */
   static final CookId MIA = new CookId(UUID.fromString("4c5d6e7f-8a9b-4c0d-9e1f-2a3b4c5d6e70"));
+
   /** Friday 18:00 CET. */
   static final Clock FRIDAY_18_00 =
       Clock.fixed(Instant.parse("2026-11-06T17:00:00Z"), ZoneOffset.UTC);
+
   /** Friday 18:10 CET. */
   static final Clock FRIDAY_18_10 =
       Clock.fixed(Instant.parse("2026-11-06T17:10:00Z"), ZoneOffset.UTC);
@@ -86,8 +93,7 @@ class HelpRequestTest {
         HelpType.PREPARATION_STEP_EXPLANATION,
         HOLLANDAISE,
         STEP_4,
-        List.of(
-            new AskedProvider(askedProvider, Instant.parse("2026-11-07T05:00:00Z"))),
+        List.of(new AskedProvider(askedProvider, Instant.parse("2026-11-07T05:00:00Z"))),
         status,
         List.of(),
         1L);
@@ -124,7 +130,8 @@ class HelpRequestTest {
   @Nested
   class RequestHelpWithPreparationStep { // B3-S01, US-CA-03
 
-    @DisplayName("Lena asks Grandma Avatar about step 4 of Hollandaise -> request is OPEN, requester Lena, type PREPARATION_STEP_EXPLANATION, recipe Hollandaise, step 4, Grandma Avatar asked -- B3-S01 US-CA-03 INV-01 R1.E1, INV-02 R2.E1")
+    @DisplayName(
+        "Lena asks Grandma Avatar about step 4 of Hollandaise -> request is OPEN, requester Lena, type PREPARATION_STEP_EXPLANATION, recipe Hollandaise, step 4, Grandma Avatar asked -- B3-S01 US-CA-03 INV-01 R1.E1, INV-02 R2.E1")
     @Test
     void requestToGrandmaIsOpenWithItsRecipeStepAndProvider() {
       HelpRequest request = lenaAsksGrandmaAboutStep4();
@@ -137,7 +144,8 @@ class HelpRequestTest {
       assertThat(request.askedProviderTypes()).containsExactly(HelpProviderType.GRANDMA_AVATAR);
     }
 
-    @DisplayName("requesting records exactly one HelpRequested event carrying helpRequestId, requester, title, type, description, recipe, howToStep, askedProviders, status OPEN, occurredAt -- B3-S01 US-CA-03 evt HelpRequested (AsyncAPI HelpRequestCreated)")
+    @DisplayName(
+        "requesting records exactly one HelpRequested event carrying helpRequestId, requester, title, type, description, recipe, howToStep, askedProviders, status OPEN, occurredAt -- B3-S01 US-CA-03 evt HelpRequested (AsyncAPI HelpRequestCreated)")
     @Test
     void requestingRecordsOneHelpRequestedEventWithThePayload() {
       HelpRequest request = lenaAsksGrandmaAboutStep4();
@@ -161,7 +169,8 @@ class HelpRequestTest {
       assertThat(requested.occurredAt()).isEqualTo(Instant.parse("2026-11-06T17:00:00Z"));
     }
 
-    @DisplayName("Grandma Avatar asked Fri 18:00 -> Grandma's deadline Sat 06:00 (12 h) -- B3-S01 US-CA-03 INV-09 R8.E2 (deadline only; timeout in increment 1)")
+    @DisplayName(
+        "Grandma Avatar asked Fri 18:00 -> Grandma's deadline Sat 06:00 (12 h) -- B3-S01 US-CA-03 INV-09 R8.E2 (deadline only; timeout in increment 1)")
     @Test
     void askedProviderGetsADeadlineTwelveHoursAfterTheRequest() {
       HelpRequest request = lenaAsksGrandmaAboutStep4();
@@ -172,7 +181,8 @@ class HelpRequestTest {
                   HelpProviderType.GRANDMA_AVATAR, Instant.parse("2026-11-07T05:00:00Z")));
     }
 
-    @DisplayName("Lena asks the Community and Grandma Avatar together -> both are asked, both with the same deadline -- B3-S01 US-CA-03 INV-01 R1.E2")
+    @DisplayName(
+        "Lena asks the Community and Grandma Avatar together -> both are asked, both with the same deadline -- B3-S01 US-CA-03 INV-01 R1.E2")
     @Test
     void communityAndGrandmaAreAskedTogether() {
       HelpRequest request =
@@ -185,7 +195,8 @@ class HelpRequestTest {
               new AskedProvider(HelpProviderType.GRANDMA_AVATAR, saturday0600));
     }
 
-    @DisplayName("Tom (free plan) asks the Community about step 2 of his bread -> request is created, no premium needed -- B3-S01 US-CA-03 INV-01 R1.E3")
+    @DisplayName(
+        "Tom (free plan) asks the Community about step 2 of his bread -> request is created, no premium needed -- B3-S01 US-CA-03 INV-01 R1.E3")
     @Test
     void everyCookCanAskTheCommunity() {
       HelpRequest request =
@@ -206,7 +217,8 @@ class HelpRequestTest {
       assertThat(request.askedProviderTypes()).containsExactly(HelpProviderType.COMMUNITY);
     }
 
-    @DisplayName("Lena asks Chef Marco about step 4 -> rejected with ChefNotAllowed (INV-01, code CHEF_NOT_ALLOWED), no event -- B3-S01 US-CA-03 INV-01 R1.E4")
+    @DisplayName(
+        "Lena asks Chef Marco about step 4 -> rejected with ChefNotAllowed (INV-01, code CHEF_NOT_ALLOWED), no event -- B3-S01 US-CA-03 INV-01 R1.E4")
     @Test
     void askingAChefIsRejected() {
       assertThatThrownBy(() -> lenaAsksAboutStep4(HelpProviderType.CHEF))
@@ -218,7 +230,8 @@ class HelpRequestTest {
               });
     }
 
-    @DisplayName("Lena asks Chef Marco together with the Community -> rejected with ChefNotAllowed (INV-01) -- B3-S01 US-CA-03 INV-01 R1.E4")
+    @DisplayName(
+        "Lena asks Chef Marco together with the Community -> rejected with ChefNotAllowed (INV-01) -- B3-S01 US-CA-03 INV-01 R1.E4")
     @Test
     void askingAChefAlongsideTheCommunityIsRejected() {
       assertThatThrownBy(
@@ -226,7 +239,8 @@ class HelpRequestTest {
           .isInstanceOf(ChefNotAllowed.class);
     }
 
-    @DisplayName("Lena asks nobody -> rejected with NoHelpProviderChosen (INV-01, preferred Provider 1..2) -- B3-S01 US-CA-03 INV-01 glossary 1..2")
+    @DisplayName(
+        "Lena asks nobody -> rejected with NoHelpProviderChosen (INV-01, preferred Provider 1..2) -- B3-S01 US-CA-03 INV-01 glossary 1..2")
     @Test
     void askingNobodyIsRejected() {
       assertThatThrownBy(() -> lenaAsksAboutStep4())
@@ -238,7 +252,8 @@ class HelpRequestTest {
               });
     }
 
-    @DisplayName("request without a recipe -> rejected with RecipeRequired (INV-02, code MISSING_FIELD) -- B3-S01 US-CA-03 INV-02")
+    @DisplayName(
+        "request without a recipe -> rejected with RecipeRequired (INV-02, code MISSING_FIELD) -- B3-S01 US-CA-03 INV-02")
     @Test
     void requestWithoutRecipeIsRejected() {
       assertThatThrownBy(
@@ -260,7 +275,8 @@ class HelpRequestTest {
               });
     }
 
-    @DisplayName("request without a step -> rejected with PreparationStepRequired (INV-02, code MISSING_FIELD) -- B3-S01 US-CA-03 INV-02")
+    @DisplayName(
+        "request without a step -> rejected with PreparationStepRequired (INV-02, code MISSING_FIELD) -- B3-S01 US-CA-03 INV-02")
     @Test
     void requestWithoutStepIsRejected() {
       assertThatThrownBy(
@@ -282,7 +298,8 @@ class HelpRequestTest {
               });
     }
 
-    @DisplayName("unsure about steps 4 and 6 -> two requests, one with step 4 and one with step 6, different ids -- B3-S01 US-CA-03 INV-02 R2.E2")
+    @DisplayName(
+        "unsure about steps 4 and 6 -> two requests, one with step 4 and one with step 6, different ids -- B3-S01 US-CA-03 INV-02 R2.E2")
     @Test
     void twoStepsMakeTwoRequests() {
       HelpRequest aboutStep4 = lenaAsksGrandmaAboutStep4();
@@ -307,7 +324,8 @@ class HelpRequestTest {
   @Nested
   class ProvideHelp { // B3-S02, US-CA-03
 
-    @DisplayName("Grandma Avatar explains step 4 ('butter in a thin stream') -> one Help with that answer, provider type GRANDMA_AVATAR, no individual provider, not accepted; request ANSWERED; Grandma's side ANSWERED -- B3-S02 US-CA-03 INV-04 R4.E1")
+    @DisplayName(
+        "Grandma Avatar explains step 4 ('butter in a thin stream') -> one Help with that answer, provider type GRANDMA_AVATAR, no individual provider, not accepted; request ANSWERED; Grandma's side ANSWERED -- B3-S02 US-CA-03 INV-04 R4.E1")
     @Test
     void grandmaExplainsTheStepAndTheRequestIsAnswered() {
       HelpRequest request = lenaAsksGrandmaAboutStep4();
@@ -332,7 +350,8 @@ class HelpRequestTest {
           .isEqualTo(ProviderState.ANSWERED);
     }
 
-    @DisplayName("providing help records exactly one HelpProvided event carrying helpId, helpRequest, helpRequester, answerTitle, helpProviderType, helpProvider (absent for Grandma), answer, helpRequestStatus ANSWERED, occurredAt -- B3-S02 US-CA-03 evt HelpProvided")
+    @DisplayName(
+        "providing help records exactly one HelpProvided event carrying helpId, helpRequest, helpRequester, answerTitle, helpProviderType, helpProvider (absent for Grandma), answer, helpRequestStatus ANSWERED, occurredAt -- B3-S02 US-CA-03 evt HelpProvided")
     @Test
     void providingHelpRecordsOneHelpProvidedEventWithThePayload() {
       HelpRequest request = lenaAsksGrandmaAboutStep4();
@@ -357,7 +376,8 @@ class HelpRequestTest {
       assertThat(event.occurredAt()).isEqualTo(Instant.parse("2026-11-06T17:10:00Z"));
     }
 
-    @DisplayName("Grandma answers with 'butter in a thin stream' + 3 photos -> the Help carries the answer and the 3 photos -- B3-S02 US-CA-03 INV-04 R4.E1")
+    @DisplayName(
+        "Grandma answers with 'butter in a thin stream' + 3 photos -> the Help carries the answer and the 3 photos -- B3-S02 US-CA-03 INV-04 R4.E1")
     @Test
     void anAnswerMayCarryPictures() {
       HelpRequest request = lenaAsksGrandmaAboutStep4();
@@ -376,7 +396,8 @@ class HelpRequestTest {
           .satisfies(help -> assertThat(help.answer().images()).isEqualTo(threePhotos));
     }
 
-    @DisplayName("Jonas and Mia (Community) both answer -> two Helps, request stays ANSWERED, Jonas and Mia recorded as providers -- B3-S02 US-CA-03 INV-04 R4.E3")
+    @DisplayName(
+        "Jonas and Mia (Community) both answer -> two Helps, request stays ANSWERED, Jonas and Mia recorded as providers -- B3-S02 US-CA-03 INV-04 R4.E3")
     @Test
     void anAnsweredRequestCanStillBeAnswered() {
       HelpRequest request = lenaAsksAboutStep4(HelpProviderType.COMMUNITY);
@@ -406,14 +427,19 @@ class HelpRequestTest {
       HelpRequest request = lenaAsksGrandmaAboutStep4();
 
       request.provideHelp(
-          HELP_ID, HelpProvider.grandmaAvatar(), "Butter", explanationWith(photos(10)), FRIDAY_18_10);
+          HELP_ID,
+          HelpProvider.grandmaAvatar(),
+          "Butter",
+          explanationWith(photos(10)),
+          FRIDAY_18_10);
 
       assertThat(request.helps())
           .singleElement()
           .satisfies(help -> assertThat(help.answer().images()).hasSize(10));
     }
 
-    @DisplayName("Grandma's answer carries 11 photos -> rejected with TooManyPictures (INV-38), no Help, no event -- B3-S02 US-CA-03 INV-38 S3.E3")
+    @DisplayName(
+        "Grandma's answer carries 11 photos -> rejected with TooManyPictures (INV-38), no Help, no event -- B3-S02 US-CA-03 INV-38 S3.E3")
     @Test
     void elevenPicturesAreRejected() {
       HelpRequest request = lenaAsksGrandmaAboutStep4();
@@ -436,7 +462,8 @@ class HelpRequestTest {
       assertThat(request.pullEvents()).noneMatch(HelpProvided.class::isInstance);
     }
 
-    @DisplayName("Lena tries to answer her own request about step 4 -> rejected with OwnRequest (INV-36, code OWN_REQUEST), no Help -- B3-S02 US-CA-03 INV-36 S3.E1")
+    @DisplayName(
+        "Lena tries to answer her own request about step 4 -> rejected with OwnRequest (INV-36, code OWN_REQUEST), no Help -- B3-S02 US-CA-03 INV-36 S3.E1")
     @Test
     void aCookNeverAnswersTheirOwnRequest() {
       HelpRequest request = lenaAsksAboutStep4(HelpProviderType.COMMUNITY);
@@ -458,7 +485,8 @@ class HelpRequestTest {
       assertThat(request.helps()).isEmpty();
     }
 
-    @DisplayName("Grandma answers Lena's step-4 request with an explanation of step 6 -> rejected with AnswerDoesNotMatchRequest (INV-37) -- B3-S02 US-CA-03 INV-37 S3.E2")
+    @DisplayName(
+        "Grandma answers Lena's step-4 request with an explanation of step 6 -> rejected with AnswerDoesNotMatchRequest (INV-37) -- B3-S02 US-CA-03 INV-37 S3.E2")
     @Test
     void anAnswerAboutAnotherStepIsRejected() {
       HelpRequest request = lenaAsksGrandmaAboutStep4();
@@ -481,7 +509,8 @@ class HelpRequestTest {
       assertThat(request.helps()).isEmpty();
     }
 
-    @DisplayName("an answer about the same step number of another recipe -> rejected with AnswerDoesNotMatchRequest (INV-37) -- B3-S02 US-CA-03 INV-37 (recipe dimension)")
+    @DisplayName(
+        "an answer about the same step number of another recipe -> rejected with AnswerDoesNotMatchRequest (INV-37) -- B3-S02 US-CA-03 INV-37 (recipe dimension)")
     @Test
     void anAnswerAboutAnotherRecipeIsRejected() {
       HelpRequest request = lenaAsksGrandmaAboutStep4();
@@ -498,7 +527,8 @@ class HelpRequestTest {
       assertThat(request.helps()).isEmpty();
     }
 
-    @DisplayName("request sent only to Grandma Avatar; Jonas (Community) answers -> rejected with ProviderNotAsked (code PROVIDER_NOT_ASKED) -- B3-S02 US-CA-03 brief precondition, spec provideHelp 403")
+    @DisplayName(
+        "request sent only to Grandma Avatar; Jonas (Community) answers -> rejected with ProviderNotAsked (code PROVIDER_NOT_ASKED) -- B3-S02 US-CA-03 brief precondition, spec provideHelp 403")
     @Test
     void aProviderWhoWasNotAskedCannotAnswer() {
       HelpRequest request = lenaAsksGrandmaAboutStep4();
@@ -517,7 +547,8 @@ class HelpRequestTest {
       assertThat(request.helps()).isEmpty();
     }
 
-    @DisplayName("a CANCELLED request (reconstituted) receives Grandma's answer -> rejected with InvalidHelpRequestState (code INVALID_STATE), no Help -- B3-S02 US-CA-03 state machine (forbidden transition)")
+    @DisplayName(
+        "a CANCELLED request (reconstituted) receives Grandma's answer -> rejected with InvalidHelpRequestState (code INVALID_STATE), no Help -- B3-S02 US-CA-03 state machine (forbidden transition)")
     @Test
     void aCancelledRequestCannotBeAnswered() {
       HelpRequest cancelled = storedRequestToGrandmaIn(HelpRequestStatus.CANCELLED);
@@ -529,7 +560,8 @@ class HelpRequestTest {
       assertThat(cancelled.helps()).isEmpty();
     }
 
-    @DisplayName("a CLOSED request (reconstituted) receives Jonas's answer -> rejected with InvalidHelpRequestState (code INVALID_STATE) -- B3-S02 US-CA-03 state machine (forbidden transition)")
+    @DisplayName(
+        "a CLOSED request (reconstituted) receives Jonas's answer -> rejected with InvalidHelpRequestState (code INVALID_STATE) -- B3-S02 US-CA-03 state machine (forbidden transition)")
     @Test
     void aClosedRequestCannotBeAnswered() {
       HelpRequest closed = storedRequestIn(HelpRequestStatus.CLOSED, HelpProviderType.COMMUNITY);
@@ -552,7 +584,8 @@ class HelpRequestTest {
   @Nested
   class Lifecycle { // reconstitution and events, B3-S01 + B3-S02
 
-    @DisplayName("pulling events returns the recorded events once; a second pull returns none -- B3-S01 US-CA-03 aggregate shape")
+    @DisplayName(
+        "pulling events returns the recorded events once; a second pull returns none -- B3-S01 US-CA-03 aggregate shape")
     @Test
     void pulledEventsAreReturnedOnlyOnce() {
       HelpRequest request = lenaAsksGrandmaAboutStep4();
@@ -561,7 +594,8 @@ class HelpRequestTest {
       assertThat(request.pullEvents()).isEmpty();
     }
 
-    @DisplayName("reconstituting an ANSWERED request with one Help and version 3 restores its state and version and records no event -- B3-S01 US-CA-03 reconstitution")
+    @DisplayName(
+        "reconstituting an ANSWERED request with one Help and version 3 restores its state and version and records no event -- B3-S01 US-CA-03 reconstitution")
     @Test
     void reconstitutionRestoresStateWithoutEvents() {
       Instant saturday0600 = Instant.parse("2026-11-07T05:00:00Z");
@@ -569,7 +603,10 @@ class HelpRequestTest {
           new AskedProvider(HelpProviderType.GRANDMA_AVATAR, saturday0600, ProviderState.ANSWERED);
       Help grandmasHelp =
           new Help(
-              HELP_ID, HelpProvider.grandmaAvatar(), "Butter in a thin stream", BUTTER_IN_A_THIN_STREAM);
+              HELP_ID,
+              HelpProvider.grandmaAvatar(),
+              "Butter in a thin stream",
+              BUTTER_IN_A_THIN_STREAM);
 
       HelpRequest request =
           HelpRequest.reconstitute(
@@ -599,7 +636,8 @@ class HelpRequestTest {
       assertThat(request.pullEvents()).isEmpty();
     }
 
-    @DisplayName("a Help is reconstituted from stored state (id, provider Jonas, answer title, answer, accepted) without guards -- B3-S02 US-CA-03 reconstitution (step 6 r1, from step 7)")
+    @DisplayName(
+        "a Help is reconstituted from stored state (id, provider Jonas, answer title, answer, accepted) without guards -- B3-S02 US-CA-03 reconstitution (step 6 r1, from step 7)")
     @Test
     void helpIsReconstitutedFromStoredState() {
       Help help =
@@ -618,7 +656,8 @@ class HelpRequestTest {
       assertThat(help.isAccepted()).isTrue();
     }
 
-    @DisplayName("reconstituting a stored request asked of a Chef (state not reachable through commands) succeeds without running guards -- B3-S01 US-CA-03 reconstitution, no guards")
+    @DisplayName(
+        "reconstituting a stored request asked of a Chef (state not reachable through commands) succeeds without running guards -- B3-S01 US-CA-03 reconstitution, no guards")
     @Test
     void reconstitutionRunsNoGuards() {
       HelpRequest request = storedRequestIn(HelpRequestStatus.OPEN, HelpProviderType.CHEF);

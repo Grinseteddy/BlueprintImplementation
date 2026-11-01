@@ -9,10 +9,11 @@ import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestRepository;
 import org.larder.cookingassistance.domain.helprequest.PreparationStepExplanation;
 
-// cmd: Provide Help (Grandma Avatar, via GrandmaHelpProvided) · agg: Help Request · slice: B3-S02, story: US-CA-03
+// cmd: Provide Help (Grandma Avatar, via GrandmaHelpProvided) · agg: Help Request · slice: B3-S02,
+// story: US-CA-03
 /**
- * Handles the Grandma Avatar's answers from the broker as the service's own identity: idempotent
- * by message id, record and save in one unit of work (ADR0015).
+ * Handles the Grandma Avatar's answers from the broker as the service's own identity: idempotent by
+ * message id, record and save in one unit of work (ADR0015).
  */
 public class ProvideGrandmaAvatarHelp {
 

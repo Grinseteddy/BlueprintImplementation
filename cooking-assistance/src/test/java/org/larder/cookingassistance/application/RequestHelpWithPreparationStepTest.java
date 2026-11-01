@@ -52,7 +52,8 @@ class RequestHelpWithPreparationStepTest {
     assertThat(helpRequests.recordedEvents()).isEmpty();
   }
 
-  @DisplayName("Lena (role cook) requests help with step 4 from Grandma Avatar -> the id from the id generator is returned and a request with Lena as requester is saved -- B3-S01 US-CA-03 cmd Request help Preparation step")
+  @DisplayName(
+      "Lena (role cook) requests help with step 4 from Grandma Avatar -> the id from the id generator is returned and a request with Lena as requester is saved -- B3-S01 US-CA-03 cmd Request help Preparation step")
   @Test
   void cookRequestsHelpAndGetsTheNewId() {
     HelpRequestId id = useCase.execute(lenaAsksGrandmaAboutStep4(LENA_AS_COOK));
@@ -62,7 +63,8 @@ class RequestHelpWithPreparationStepTest {
         .hasValueSatisfying(saved -> assertThat(saved.requester()).isEqualTo(HelpRequests.LENA));
   }
 
-  @DisplayName("the HelpRequested event is saved with the request -- B3-S01 US-CA-03 evt HelpRequested")
+  @DisplayName(
+      "the HelpRequested event is saved with the request -- B3-S01 US-CA-03 evt HelpRequested")
   @Test
   void helpRequestedIsSavedWithTheRequest() {
     useCase.execute(lenaAsksGrandmaAboutStep4(LENA_AS_COOK));
@@ -74,7 +76,8 @@ class RequestHelpWithPreparationStepTest {
             event -> assertThat(event.helpRequestId()).isEqualTo(HelpRequests.HELP_REQUEST_ID));
   }
 
-  @DisplayName("asking a Chef -> ChefNotAllowed passes through unchanged (rule INV-01), nothing saved -- B3-S01 US-CA-03 INV-01")
+  @DisplayName(
+      "asking a Chef -> ChefNotAllowed passes through unchanged (rule INV-01), nothing saved -- B3-S01 US-CA-03 INV-01")
   @Test
   void chefNotAllowedPassesThrough() {
     assertThatThrownBy(
@@ -90,7 +93,8 @@ class RequestHelpWithPreparationStepTest {
     assertNothingSaved();
   }
 
-  @DisplayName("asking nobody -> NoHelpProviderChosen passes through unchanged (rule INV-01), nothing saved -- B3-S01 US-CA-03 INV-01")
+  @DisplayName(
+      "asking nobody -> NoHelpProviderChosen passes through unchanged (rule INV-01), nothing saved -- B3-S01 US-CA-03 INV-01")
   @Test
   void noHelpProviderChosenPassesThrough() {
     assertThatThrownBy(
@@ -103,7 +107,8 @@ class RequestHelpWithPreparationStepTest {
     assertNothingSaved();
   }
 
-  @DisplayName("no recipe -> RecipeRequired passes through unchanged (rule INV-02), nothing saved -- B3-S01 US-CA-03 INV-02")
+  @DisplayName(
+      "no recipe -> RecipeRequired passes through unchanged (rule INV-02), nothing saved -- B3-S01 US-CA-03 INV-02")
   @Test
   void recipeRequiredPassesThrough() {
     assertThatThrownBy(
@@ -116,7 +121,8 @@ class RequestHelpWithPreparationStepTest {
     assertNothingSaved();
   }
 
-  @DisplayName("no step -> PreparationStepRequired passes through unchanged (rule INV-02), nothing saved -- B3-S01 US-CA-03 INV-02")
+  @DisplayName(
+      "no step -> PreparationStepRequired passes through unchanged (rule INV-02), nothing saved -- B3-S01 US-CA-03 INV-02")
   @Test
   void preparationStepRequiredPassesThrough() {
     assertThatThrownBy(
@@ -133,7 +139,8 @@ class RequestHelpWithPreparationStepTest {
     assertNothingSaved();
   }
 
-  @DisplayName("an actor without role cook (e.g. only chef) -> NotAuthorized, nothing saved -- B3-S01 US-CA-03 ADR0013")
+  @DisplayName(
+      "an actor without role cook (e.g. only chef) -> NotAuthorized, nothing saved -- B3-S01 US-CA-03 ADR0013")
   @Test
   void actorWithoutCookRoleIsRefused() {
     Actor chefOnly = new Actor(HelpRequests.LENA, Set.of(Role.CHEF), false);

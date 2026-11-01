@@ -56,7 +56,8 @@ class ProvideHelpTest {
         HelpRequests.BUTTER_WITH_THREE_PHOTOS);
   }
 
-  @DisplayName("Jonas (role community) answers Lena's stored request to the Community -> the help id from the id generator is returned; the saved request holds Jonas's Help -- B3-S02 US-CA-03 cmd Provide Help")
+  @DisplayName(
+      "Jonas (role community) answers Lena's stored request to the Community -> the help id from the id generator is returned; the saved request holds Jonas's Help -- B3-S02 US-CA-03 cmd Provide Help")
   @Test
   void communityMemberProvidesHelpAndGetsTheNewHelpId() {
     HelpId helpId = useCase.execute(answerFrom(JONAS_AS_COMMUNITY));
@@ -67,7 +68,8 @@ class ProvideHelpTest {
         .satisfies(help -> assertThat(help.provider()).contains(HelpRequests.JONAS));
   }
 
-  @DisplayName("the HelpProvided event is saved with the request -- B3-S02 US-CA-03 evt HelpProvided")
+  @DisplayName(
+      "the HelpProvided event is saved with the request -- B3-S02 US-CA-03 evt HelpProvided")
   @Test
   void helpProvidedIsSavedWithTheRequest() {
     useCase.execute(answerFrom(JONAS_AS_COMMUNITY));
@@ -80,10 +82,12 @@ class ProvideHelpTest {
             event -> assertThat(event.helpId()).isEqualTo(HelpRequests.HELP_ID));
   }
 
-  @DisplayName("unknown help request id -> HelpRequestNotFound, nothing saved -- B3-S02 US-CA-03 404")
+  @DisplayName(
+      "unknown help request id -> HelpRequestNotFound, nothing saved -- B3-S02 US-CA-03 404")
   @Test
   void unknownHelpRequestIsNotFound() {
-    HelpRequestId unknown = new HelpRequestId(UUID.fromString("00000000-0000-7000-8000-000000000009"));
+    HelpRequestId unknown =
+        new HelpRequestId(UUID.fromString("00000000-0000-7000-8000-000000000009"));
 
     assertThatThrownBy(
             () ->
@@ -98,7 +102,8 @@ class ProvideHelpTest {
     assertThat(helpRequests.recordedEvents()).noneMatch(HelpProvided.class::isInstance);
   }
 
-  @DisplayName("Lena answers her own request (she holds role community) -> OwnRequest passes through unchanged (rule INV-36), nothing saved -- B3-S02 US-CA-03 INV-36")
+  @DisplayName(
+      "Lena answers her own request (she holds role community) -> OwnRequest passes through unchanged (rule INV-36), nothing saved -- B3-S02 US-CA-03 INV-36")
   @Test
   void ownRequestPassesThrough() {
     Actor lenaAsCommunity = new Actor(HelpRequests.LENA, Set.of(Role.COOK, Role.COMMUNITY), false);
@@ -114,7 +119,8 @@ class ProvideHelpTest {
     assertThat(helpRequests.recordedEvents()).noneMatch(HelpProvided.class::isInstance);
   }
 
-  @DisplayName("an answer about step 6 on a step-4 request -> AnswerDoesNotMatchRequest passes through unchanged (rule INV-37) -- B3-S02 US-CA-03 INV-37")
+  @DisplayName(
+      "an answer about step 6 on a step-4 request -> AnswerDoesNotMatchRequest passes through unchanged (rule INV-37) -- B3-S02 US-CA-03 INV-37")
   @Test
   void answerDoesNotMatchRequestPassesThrough() {
     HowToStepId step6 = new HowToStepId(UUID.fromString("c3d4e5f6-a7b8-4c9d-8e0f-2a3b4c5d6e7f"));
@@ -137,7 +143,8 @@ class ProvideHelpTest {
     assertNoHelpSaved();
   }
 
-  @DisplayName("11 pictures -> TooManyPictures passes through unchanged (rule INV-38) -- B3-S02 US-CA-03 INV-38")
+  @DisplayName(
+      "11 pictures -> TooManyPictures passes through unchanged (rule INV-38) -- B3-S02 US-CA-03 INV-38")
   @Test
   void tooManyPicturesPassesThrough() {
     List<URI> elevenPhotos =
@@ -162,7 +169,8 @@ class ProvideHelpTest {
     assertNoHelpSaved();
   }
 
-  @DisplayName("request sent only to Grandma Avatar; Jonas answers -> ProviderNotAsked passes through unchanged -- B3-S02 US-CA-03 INV-01")
+  @DisplayName(
+      "request sent only to Grandma Avatar; Jonas answers -> ProviderNotAsked passes through unchanged -- B3-S02 US-CA-03 INV-01")
   @Test
   void providerNotAskedPassesThrough() {
     InMemoryHelpRequestRepository onlyGrandmaAsked = new InMemoryHelpRequestRepository();
@@ -177,7 +185,8 @@ class ProvideHelpTest {
         .isEmpty();
   }
 
-  @DisplayName("a CANCELLED request -> InvalidHelpRequestState passes through unchanged -- B3-S02 US-CA-03 lifecycle")
+  @DisplayName(
+      "a CANCELLED request -> InvalidHelpRequestState passes through unchanged -- B3-S02 US-CA-03 lifecycle")
   @Test
   void invalidStatePassesThrough() {
     InMemoryHelpRequestRepository withCancelledRequest = new InMemoryHelpRequestRepository();
@@ -205,7 +214,8 @@ class ProvideHelpTest {
         .isEmpty();
   }
 
-  @DisplayName("another writer saves first (Mia answers in between) -> the use case reloads and retries once: both Jonas's and Mia's Helps are stored -- B3-S02 US-CA-03 ADR0010 QS-10")
+  @DisplayName(
+      "another writer saves first (Mia answers in between) -> the use case reloads and retries once: both Jonas's and Mia's Helps are stored -- B3-S02 US-CA-03 ADR0010 QS-10")
   @Test
   void conflictIsRetriedOnce() {
     helpRequests.interleave(this::miaAnswersMeanwhile);
@@ -225,7 +235,8 @@ class ProvideHelpTest {
     helpRequests.save(meanwhile);
   }
 
-  @DisplayName("the retry conflicts too -> ConcurrencyConflict propagates; only the other writers' changes are stored -- B3-S02 US-CA-03 ADR0010")
+  @DisplayName(
+      "the retry conflicts too -> ConcurrencyConflict propagates; only the other writers' changes are stored -- B3-S02 US-CA-03 ADR0010")
   @Test
   void secondConflictPropagates() {
     helpRequests.interleave(
@@ -251,11 +262,13 @@ class ProvideHelpTest {
     helpRequests.save(meanwhile);
   }
 
-  @DisplayName("an actor without role community (only cook) -> NotAuthorized before the request is loaded, nothing saved -- B3-S02 US-CA-03 ADR0013")
+  @DisplayName(
+      "an actor without role community (only cook) -> NotAuthorized before the request is loaded, nothing saved -- B3-S02 US-CA-03 ADR0013")
   @Test
   void actorWithoutCommunityRoleIsRefused() {
     Actor cookOnly = new Actor(HelpRequests.JONAS, Set.of(Role.COOK), false);
-    HelpRequestId unknown = new HelpRequestId(UUID.fromString("00000000-0000-7000-8000-000000000009"));
+    HelpRequestId unknown =
+        new HelpRequestId(UUID.fromString("00000000-0000-7000-8000-000000000009"));
 
     assertThatThrownBy(
             () ->
@@ -270,7 +283,8 @@ class ProvideHelpTest {
     assertNoHelpSaved();
   }
 
-  @DisplayName("Jonas (role community) answers stating provider type GRANDMA_AVATAR -> NotAuthorized before the request is loaded, nothing saved -- B3-S02 US-CA-03 ADR0013")
+  @DisplayName(
+      "Jonas (role community) answers stating provider type GRANDMA_AVATAR -> NotAuthorized before the request is loaded, nothing saved -- B3-S02 US-CA-03 ADR0013")
   @Test
   void communityMemberCannotAnswerAsGrandmaAvatar() {
     assertThatThrownBy(
@@ -288,7 +302,8 @@ class ProvideHelpTest {
         HelpRequests.BUTTER_WITH_THREE_PHOTOS);
   }
 
-  @DisplayName("an actor with roles cook, community and chef answers stating provider type CHEF -> NotAuthorized until increment 4 builds chef answers, nothing saved -- B3-S02 US-CA-03 ADR0013")
+  @DisplayName(
+      "an actor with roles cook, community and chef answers stating provider type CHEF -> NotAuthorized until increment 4 builds chef answers, nothing saved -- B3-S02 US-CA-03 ADR0013")
   @Test
   void chefAnswersAreNotYetAuthorized() {
     Actor jonasAsChefToo =

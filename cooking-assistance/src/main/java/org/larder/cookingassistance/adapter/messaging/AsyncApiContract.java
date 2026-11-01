@@ -18,8 +18,8 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * The approved AsyncAPI spec as consumers and the relay read it: component schemas (JSON Schema draft-07,
- * the base of the AsyncAPI schema format; formats asserted).
+ * The approved AsyncAPI spec as consumers and the relay read it: component schemas (JSON Schema
+ * draft-07, the base of the AsyncAPI schema format; formats asserted).
  */
 public final class AsyncApiContract {
 

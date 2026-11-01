@@ -14,12 +14,12 @@ import org.larder.cookingassistance.application.fakes.InMemoryHelpRequestReposit
 import org.larder.cookingassistance.application.fakes.InMemoryProcessedMessages;
 import org.larder.cookingassistance.application.fakes.RecordingUnitOfWork;
 import org.larder.cookingassistance.domain.helprequest.HelpProvided;
+import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequest;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestRepository;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestStatus;
 import org.larder.cookingassistance.domain.helprequest.InvalidHelpRequestState;
-import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.fixtures.HelpRequests;
 
 /**
@@ -54,7 +54,8 @@ class ProvideGrandmaAvatarHelpTest {
         HelpRequests.BUTTER_WITH_THREE_PHOTOS);
   }
 
-  @DisplayName("Grandma's answer (message id m1) about step 4 -> Grandma's Help is added to Lena's request and saved with HelpProvided -- B3-S02 US-CA-03 cmd Provide Help (GrandmaHelpProvided)")
+  @DisplayName(
+      "Grandma's answer (message id m1) about step 4 -> Grandma's Help is added to Lena's request and saved with HelpProvided -- B3-S02 US-CA-03 cmd Provide Help (GrandmaHelpProvided)")
   @Test
   void grandmasAnswerIsAddedAsHelp() {
     handler.handle(grandmasAnswer(M1));
@@ -69,7 +70,8 @@ class ProvideGrandmaAvatarHelpTest {
     assertThat(helpRequests.recordedEvents()).anyMatch(HelpProvided.class::isInstance);
   }
 
-  @DisplayName("the same message id m1 delivered twice -> only one Help -- B3-S02 US-CA-03 ADR0015 idempotency")
+  @DisplayName(
+      "the same message id m1 delivered twice -> only one Help -- B3-S02 US-CA-03 ADR0015 idempotency")
   @Test
   void redeliveredMessageHasNoEffect() {
     handler.handle(grandmasAnswer(M1));
@@ -80,7 +82,8 @@ class ProvideGrandmaAvatarHelpTest {
         .hasSize(1);
   }
 
-  @DisplayName("the processed-message record and the save happen inside one unit of work -- B3-S02 US-CA-03 ADR0015")
+  @DisplayName(
+      "the processed-message record and the save happen inside one unit of work -- B3-S02 US-CA-03 ADR0015")
   @Test
   void recordAndSaveShareOneUnitOfWork() {
     AtomicBoolean recordedInUnitOfWork = new AtomicBoolean();
@@ -117,10 +120,12 @@ class ProvideGrandmaAvatarHelpTest {
     assertThat(savedInUnitOfWork).isTrue();
   }
 
-  @DisplayName("unknown help request id -> HelpRequestNotFound propagates (dead-lettered by the consumer, step 9) -- B3-S02 US-CA-03 ADR0015")
+  @DisplayName(
+      "unknown help request id -> HelpRequestNotFound propagates (dead-lettered by the consumer, step 9) -- B3-S02 US-CA-03 ADR0015")
   @Test
   void unknownHelpRequestPropagatesNotFound() {
-    HelpRequestId unknown = new HelpRequestId(UUID.fromString("00000000-0000-7000-8000-000000000009"));
+    HelpRequestId unknown =
+        new HelpRequestId(UUID.fromString("00000000-0000-7000-8000-000000000009"));
 
     assertThatThrownBy(
             () ->
@@ -130,7 +135,8 @@ class ProvideGrandmaAvatarHelpTest {
         .isInstanceOf(HelpRequestNotFound.class);
   }
 
-  @DisplayName("Grandma answers a CANCELLED request -> InvalidHelpRequestState propagates unchanged (named outcome: dead-lettered with its rule, step 9) -- B3-S02 US-CA-03 lifecycle")
+  @DisplayName(
+      "Grandma answers a CANCELLED request -> InvalidHelpRequestState propagates unchanged (named outcome: dead-lettered with its rule, step 9) -- B3-S02 US-CA-03 lifecycle")
   @Test
   void domainRejectionPropagatesUnchanged() {
     InMemoryHelpRequestRepository withCancelledRequest = new InMemoryHelpRequestRepository();

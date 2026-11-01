@@ -35,7 +35,8 @@ final class HelpRequestMapper {
   }
 
   static HelpRequestLink toLink(HelpRequestId id) {
-    return new HelpRequestLink(id.value(), Links.absolute("/help-requests/{helpRequestId}", id.value()));
+    return new HelpRequestLink(
+        id.value(), Links.absolute("/help-requests/{helpRequestId}", id.value()));
   }
 
   static HelpRequest toResponse(HelpRequestView view) {

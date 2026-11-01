@@ -111,7 +111,15 @@ public final class HelpRequest {
       long version) {
     HelpRequest request =
         new HelpRequest(
-            id, requester, title, description, type, recipe, howToStep, askedProviders, status,
+            id,
+            requester,
+            title,
+            description,
+            type,
+            recipe,
+            howToStep,
+            askedProviders,
+            status,
             version);
     request.helps.addAll(helps);
     return request;

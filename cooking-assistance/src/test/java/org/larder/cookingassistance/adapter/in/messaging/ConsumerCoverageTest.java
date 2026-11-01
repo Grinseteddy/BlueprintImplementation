@@ -14,7 +14,8 @@ import org.junit.jupiter.api.Test;
 /** Coverage gate: every receive operation of the AsyncAPI spec has a registered consumer. */
 class ConsumerCoverageTest {
 
-  @DisplayName("the receive operations of cooking-assistance.asyncapi.yaml equal the registered consumers (consumeGrandmaHelpProvided) -- B3-S02 US-CA-03 ADR0014")
+  @DisplayName(
+      "the receive operations of cooking-assistance.asyncapi.yaml equal the registered consumers (consumeGrandmaHelpProvided) -- B3-S02 US-CA-03 ADR0014")
   @Test
   void everyReceiveOperationHasAConsumer() throws Exception {
     assertThat(MessageConsumers.BY_RECEIVE_OPERATION.keySet())

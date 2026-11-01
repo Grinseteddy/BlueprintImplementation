@@ -25,8 +25,8 @@ public record HelpRequestView(
     HelpRequestStatus status) {
 
   /**
-   * The providers the cook chose: the request asks exactly the preferred providers, so they are
-   * the asked providers' types until re-sending (increment 1 stores them separately).
+   * The providers the cook chose: the request asks exactly the preferred providers, so they are the
+   * asked providers' types until re-sending (increment 1 stores them separately).
    */
   public Set<HelpProviderType> preferredProviders() {
     return askedProviders.stream().map(AskedProvider::providerType).collect(Collectors.toSet());

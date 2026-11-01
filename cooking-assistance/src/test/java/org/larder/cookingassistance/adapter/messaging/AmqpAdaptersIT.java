@@ -40,9 +40,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
-/**
- * The real AMQP adapters deferred from steps 9 and 10, against RabbitMQ (ADR0003, ADR0015).
- */
+/** The real AMQP adapters deferred from steps 9 and 10, against RabbitMQ (ADR0003, ADR0015). */
 @SpringBootTest(
     classes = PersistenceTestApplication.class,
     properties = "cooking-assistance.outbox.poller.enabled=true")
@@ -75,7 +73,8 @@ class AmqpAdaptersIT {
         "{\"helpRequestId\":\"23a8eeed-35f6-460b-892e-7bb458a8fded\"}");
   }
 
-  @DisplayName("A1 publish -> on exchange cooking-assistance with routing key = channel address; body = payload, AMQP messageId, headers messageId/correlationId/source, content type application/json, persistent -- B3-S01 US-CA-03 ADR0015 op publishHelpRequestCreated")
+  @DisplayName(
+      "A1 publish -> on exchange cooking-assistance with routing key = channel address; body = payload, AMQP messageId, headers messageId/correlationId/source, content type application/json, persistent -- B3-S01 US-CA-03 ADR0015 op publishHelpRequestCreated")
   @Test
   void publisherPutsTheMessageOnItsChannel() {
     String queue = probe(CREATED);
@@ -96,25 +95,29 @@ class AmqpAdaptersIT {
         .isEqualTo(MessageDeliveryMode.PERSISTENT);
   }
 
-  @DisplayName("A2 publish returns only after the broker confirmed; with the exchange missing it throws -- B3-S01 US-CA-03 ADR0015")
+  @DisplayName(
+      "A2 publish returns only after the broker confirmed; with the exchange missing it throws -- B3-S01 US-CA-03 ADR0015")
   @Test
   void publishReturnsOnlyAfterTheConfirm() {
     admin.deleteExchange("cooking-assistance");
     try {
-      assertThatThrownBy(() -> publisher.publish(message(CREATED))).isInstanceOf(RuntimeException.class);
+      assertThatThrownBy(() -> publisher.publish(message(CREATED)))
+          .isInstanceOf(RuntimeException.class);
     } finally {
       admin.declareExchange(new TopicExchange("cooking-assistance", true, false));
     }
   }
 
-  @DisplayName("A3 an unroutable message (no queue bound) throws (operation binding mandatory: true) -- B3-S01 US-CA-03 ADR0015 AsyncAPI persistentPublish")
+  @DisplayName(
+      "A3 an unroutable message (no queue bound) throws (operation binding mandatory: true) -- B3-S01 US-CA-03 ADR0015 AsyncAPI persistentPublish")
   @Test
   void unroutableMessageIsRefused() {
     assertThatThrownBy(() -> publisher.publish(message("cooking-assistance.nobody-listens")))
         .isInstanceOf(RuntimeException.class);
   }
 
-  @DisplayName("A4 a GrandmaHelpProvided message on exchange grandma-avatar, key grandma-avatar.help.provided -> consumer handles it, acked: queue empty, DLQ empty, help stored -- B3-S02 US-CA-03 op consumeGrandmaHelpProvided")
+  @DisplayName(
+      "A4 a GrandmaHelpProvided message on exchange grandma-avatar, key grandma-avatar.help.provided -> consumer handles it, acked: queue empty, DLQ empty, help stored -- B3-S02 US-CA-03 op consumeGrandmaHelpProvided")
   @Test
   void receivedMessageIsHandedToTheConsumerAndAcked() {
     lenasRequestToGrandmaIsStored();
@@ -139,7 +142,8 @@ class AmqpAdaptersIT {
       "answer":{"answerType":"PREPARATION_STEP_EXPLANATION","recipe":"%s","howToStep":"%s",\
       "description":"Add the butter in a thin stream"}}"""
           .formatted(
-              HelpRequests.HELP_REQUEST_ID.value(), HelpRequests.HOLLANDAISE.value(),
+              HelpRequests.HELP_REQUEST_ID.value(),
+              HelpRequests.HOLLANDAISE.value(),
               HelpRequests.STEP_4.value());
 
   @Autowired HelpRequestRepository helpRequests;
@@ -173,12 +177,14 @@ class AmqpAdaptersIT {
     return properties == null ? -1 : (Integer) properties.get(RabbitAdmin.QUEUE_MESSAGE_COUNT);
   }
 
-  @DisplayName("A5 DEAD_LETTER -> rejected without requeue -> in cooking-assistance.dlq with x-death reason, not redelivered -- B3-S02 US-CA-03 ADR0015")
+  @DisplayName(
+      "A5 DEAD_LETTER -> rejected without requeue -> in cooking-assistance.dlq with x-death reason, not redelivered -- B3-S02 US-CA-03 ADR0015")
   @Test
   void deadLetterOutcomeGoesToTheDeadLetterQueue() {
     lenasRequestToGrandmaIsStored();
     rabbit.execute(channel -> channel.queuePurge(DEAD_LETTER_QUEUE));
-    String withoutTitle = GRANDMAS_ANSWER.replace("\"answerTitle\":\"Butter in a thin stream\",", "");
+    String withoutTitle =
+        GRANDMAS_ANSWER.replace("\"answerTitle\":\"Butter in a thin stream\",", "");
 
     grandmaAnswers(withoutTitle, "2c3d4e5f-6071-4829-9bac-1d2e3f4a5b6c");
 
@@ -192,7 +198,8 @@ class AmqpAdaptersIT {
     assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().helps()).isEmpty();
   }
 
-  @DisplayName("A6 RETRY -> redelivered; after 5 deliveries in cooking-assistance.dlq (quorum queue, delivery limit 5) -- B3-S02 US-CA-03 ADR0015")
+  @DisplayName(
+      "A6 RETRY -> redelivered; after 5 deliveries in cooking-assistance.dlq (quorum queue, delivery limit 5) -- B3-S02 US-CA-03 ADR0015")
   @Test
   void retryOutcomeIsDeadLetteredAfterFiveDeliveries() {
     lenasRequestToGrandmaIsStored();
@@ -211,7 +218,8 @@ class AmqpAdaptersIT {
 
   @MockitoSpyBean GrandmaHelpProvidedConsumer consumer;
 
-  @DisplayName("A7 the outbox poller publishes a pending row to the broker within 5 s -- B3-S01 US-CA-03 ADR0015 QS-08")
+  @DisplayName(
+      "A7 the outbox poller publishes a pending row to the broker within 5 s -- B3-S01 US-CA-03 ADR0015 QS-08")
   @Test
   void pollerPublishesPendingOutboxRows() {
     String queue = probe(CREATED);

@@ -16,7 +16,8 @@ import org.larder.cookingassistance.fixtures.HelpRequests;
 /** The wire format of the outbox payloads: exactly the AsyncAPI fields, no nulls (step 7 r2). */
 class OutboxEventMapperTest {
 
-  @DisplayName("HelpRequested -> payload with exactly helpRequestId, requester, title, type, description, recipe, howToStep, askedProviders, status, occurredAt and no null field -- B3-S01 US-CA-03 AsyncAPI HelpRequestCreated")
+  @DisplayName(
+      "HelpRequested -> payload with exactly helpRequestId, requester, title, type, description, recipe, howToStep, askedProviders, status, occurredAt and no null field -- B3-S01 US-CA-03 AsyncAPI HelpRequestCreated")
   @Test
   void helpRequestCreatedCarriesExactlyTheSpecFields() throws Exception {
     HelpRequest request = HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR);
@@ -25,12 +26,21 @@ class OutboxEventMapperTest {
 
     assertThat(fieldNames(payload))
         .containsExactlyInAnyOrder(
-            "helpRequestId", "requester", "title", "type", "description", "recipe", "howToStep",
-            "askedProviders", "status", "occurredAt");
+            "helpRequestId",
+            "requester",
+            "title",
+            "type",
+            "description",
+            "recipe",
+            "howToStep",
+            "askedProviders",
+            "status",
+            "occurredAt");
     assertNoNulls(payload);
   }
 
-  @DisplayName("HelpProvided by the Grandma Avatar -> payload with exactly helpId, helpRequest, helpRequester, answerTitle, helpProviderType, answer, helpRequestStatus, occurredAt (no helpProvider); answer with exactly answerType, recipe, howToStep, description, images -- B3-S02 US-CA-03 AsyncAPI HelpProvided")
+  @DisplayName(
+      "HelpProvided by the Grandma Avatar -> payload with exactly helpId, helpRequest, helpRequester, answerTitle, helpProviderType, answer, helpRequestStatus, occurredAt (no helpProvider); answer with exactly answerType, recipe, howToStep, description, images -- B3-S02 US-CA-03 AsyncAPI HelpProvided")
   @Test
   void helpProvidedByGrandmaCarriesExactlyTheSpecFields() throws Exception {
     HelpRequest request = HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR);
@@ -41,8 +51,14 @@ class OutboxEventMapperTest {
 
     assertThat(fieldNames(payload))
         .containsExactlyInAnyOrder(
-            "helpId", "helpRequest", "helpRequester", "answerTitle", "helpProviderType", "answer",
-            "helpRequestStatus", "occurredAt");
+            "helpId",
+            "helpRequest",
+            "helpRequester",
+            "answerTitle",
+            "helpProviderType",
+            "answer",
+            "helpRequestStatus",
+            "occurredAt");
     assertThat(fieldNames(payload.get("answer")))
         .containsExactlyInAnyOrder("answerType", "recipe", "howToStep", "description", "images");
     assertNoNulls(payload);

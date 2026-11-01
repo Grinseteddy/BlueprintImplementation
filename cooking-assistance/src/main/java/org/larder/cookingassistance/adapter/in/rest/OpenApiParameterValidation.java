@@ -35,7 +35,8 @@ class OpenApiParameterValidation implements HandlerInterceptor {
         JsonNode parameter = contract.at(pointer);
         if ("header".equals(parameter.path("in").asText())) {
           violations.addAll(
-              validateHeader(pointer, parameter, request.getHeader(parameter.get("name").asText())));
+              validateHeader(
+                  pointer, parameter, request.getHeader(parameter.get("name").asText())));
         }
       }
       if (!violations.isEmpty()) {

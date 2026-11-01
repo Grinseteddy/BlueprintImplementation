@@ -23,7 +23,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Wiring: command through HTTP, use case and repository, then one relay run -> the promised message.
+ * Wiring: command through HTTP, use case and repository, then one relay run -> the promised
+ * message.
  */
 @SpringBootTest(classes = PersistenceTestApplication.class)
 @AutoConfigureMockMvc
@@ -45,14 +46,18 @@ class OutboundWiringIT {
     jdbc.sql("delete from help_request").update();
   }
 
-  @DisplayName("POST /help-requests -> one relay run -> the fake received exactly one HelpRequestCreated on cooking-assistance.help-request.created; no pending rows -- B3-S01 US-CA-03 op publishHelpRequestCreated")
+  @DisplayName(
+      "POST /help-requests -> one relay run -> the fake received exactly one HelpRequestCreated on cooking-assistance.help-request.created; no pending rows -- B3-S01 US-CA-03 op publishHelpRequestCreated")
   @Test
   void createdHelpRequestReachesItsChannel() throws Exception {
     mvc.perform(
             post("/help-requests")
                 .header(
                     AUTHORIZATION,
-                    TestTokens.forCook(HelpRequests.LENA).roles("cook").scope("help:write").bearer())
+                    TestTokens.forCook(HelpRequests.LENA)
+                        .roles("cook")
+                        .scope("help:write")
+                        .bearer())
                 .header("version", "1.0.3")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(

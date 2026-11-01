@@ -13,7 +13,8 @@ final class Problems {
   static ProblemDetail of(HttpStatus status, String code, String title) {
     ProblemDetail problem = ProblemDetail.forStatus(status);
     problem.setType(
-        URI.create("https://larder.org/problems/" + code.toLowerCase(Locale.ROOT).replace('_', '-')));
+        URI.create(
+            "https://larder.org/problems/" + code.toLowerCase(Locale.ROOT).replace('_', '-')));
     problem.setTitle(title);
     problem.setProperty("code", code);
     return problem;

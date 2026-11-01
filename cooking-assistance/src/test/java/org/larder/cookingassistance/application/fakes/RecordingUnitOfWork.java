@@ -4,8 +4,8 @@ import java.util.function.Supplier;
 import org.larder.cookingassistance.application.UnitOfWork;
 
 /**
- * Unit of work for use-case tests: runs the work and tells whether a transaction is active.
- * Commit only — rollback is proven on the real unit of work (UnitOfWorkIT).
+ * Unit of work for use-case tests: runs the work and tells whether a transaction is active. Commit
+ * only — rollback is proven on the real unit of work (UnitOfWorkIT).
  */
 public class RecordingUnitOfWork implements UnitOfWork {
 

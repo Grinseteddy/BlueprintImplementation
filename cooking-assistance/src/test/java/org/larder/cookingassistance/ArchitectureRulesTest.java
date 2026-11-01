@@ -17,7 +17,8 @@ class ArchitectureRulesTest {
           .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
           .importPackages("org.larder.cookingassistance");
 
-  @DisplayName("E1 domain depends on no framework, adapter or generated code; application only on the domain -- B3-S01,B3-S02 US-CA-03 QS-02 ADR0008")
+  @DisplayName(
+      "E1 domain depends on no framework, adapter or generated code; application only on the domain -- B3-S01,B3-S02 US-CA-03 QS-02 ADR0008")
   @Test
   void domainAndApplicationStayFreeOfFrameworksAndAdapters() {
     noClasses()

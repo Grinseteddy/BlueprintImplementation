@@ -102,8 +102,17 @@ public class InMemoryHelpRequestRepository implements HelpRequestRepository {
 
     HelpRequest reconstitute() {
       return HelpRequest.reconstitute(
-          id, requester, title, description, type, recipe, howToStep, askedProviders, status,
-          helps, version);
+          id,
+          requester,
+          title,
+          description,
+          type,
+          recipe,
+          howToStep,
+          askedProviders,
+          status,
+          helps,
+          version);
     }
   }
 }

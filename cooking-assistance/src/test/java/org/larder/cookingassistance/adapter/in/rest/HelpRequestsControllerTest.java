@@ -27,8 +27,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 /**
- * Operations of tag Help Requests (createHelpRequest, getHelpRequestById) through the real web layer, real
- * resource-server security and the step 8 use cases with contract-checked fakes (no database).
+ * Operations of tag Help Requests (createHelpRequest, getHelpRequestById) through the real web
+ * layer, real resource-server security and the step 8 use cases with contract-checked fakes (no
+ * database).
  */
 @WebMvcTest
 @Import({RestTestConfiguration.class, SecurityConfiguration.class, TestSigningKeys.class})
@@ -58,7 +59,8 @@ class HelpRequestsControllerTest {
     helpRequests.clear();
   }
 
-  @DisplayName("Lena (cook, help:write) posts a PSE request to COMMUNITY -> 201 {helpRequestId: generated id, helpRequestLink: .../help-requests/<id>} matching HelpRequestLink; the stored request has Lena as requester and her title, recipe, step and provider -- B3-S01 US-CA-03 op createHelpRequest")
+  @DisplayName(
+      "Lena (cook, help:write) posts a PSE request to COMMUNITY -> 201 {helpRequestId: generated id, helpRequestLink: .../help-requests/<id>} matching HelpRequestLink; the stored request has Lena as requester and her title, recipe, step and provider -- B3-S01 US-CA-03 op createHelpRequest")
   @Test
   void lenaRequestsHelpWithAPreparationStep() throws Exception {
     MvcResult result =
@@ -82,7 +84,8 @@ class HelpRequestsControllerTest {
     assertThat(stored.askedProviderTypes()).containsExactly(HelpProviderType.COMMUNITY);
   }
 
-  @DisplayName("title missing -> 400 VALIDATION_FAILED, nothing saved -- B3-S01 US-CA-03 op createHelpRequest")
+  @DisplayName(
+      "title missing -> 400 VALIDATION_FAILED, nothing saved -- B3-S01 US-CA-03 op createHelpRequest")
   @Test
   void missingTitleIsRejected() throws Exception {
     String withoutTitle = LENAS_REQUEST.replace("\"title\": \"Sauce splits\",", "");
@@ -103,7 +106,8 @@ class HelpRequestsControllerTest {
     assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID)).isEmpty();
   }
 
-  @DisplayName("title missing -> the 400 VALIDATION_FAILED names the violation in detail -- B3-S01 US-CA-03 op createHelpRequest")
+  @DisplayName(
+      "title missing -> the 400 VALIDATION_FAILED names the violation in detail -- B3-S01 US-CA-03 op createHelpRequest")
   @Test
   void validationFailureNamesTheViolation() throws Exception {
     mvc.perform(
@@ -116,34 +120,38 @@ class HelpRequestsControllerTest {
         .andExpect(jsonPath("$.detail").value(containsString("title")));
   }
 
-  @DisplayName("type \"COOKIE\" -> 400 VALIDATION_FAILED, nothing saved -- B3-S01 US-CA-03 op createHelpRequest")
+  @DisplayName(
+      "type \"COOKIE\" -> 400 VALIDATION_FAILED, nothing saved -- B3-S01 US-CA-03 op createHelpRequest")
   @Test
   void invalidTypeIsRejected() throws Exception {
-    expectValidationFailed(
-        LENAS_REQUEST.replace("\"PREPARATION_STEP_EXPLANATION\"", "\"COOKIE\""));
+    expectValidationFailed(LENAS_REQUEST.replace("\"PREPARATION_STEP_EXPLANATION\"", "\"COOKIE\""));
   }
 
-  @DisplayName("PSE without howToStep -> 400 VALIDATION_FAILED, nothing saved (if/then checked) -- B3-S01 US-CA-03 INV-02 op createHelpRequest")
+  @DisplayName(
+      "PSE without howToStep -> 400 VALIDATION_FAILED, nothing saved (if/then checked) -- B3-S01 US-CA-03 INV-02 op createHelpRequest")
   @Test
   void preparationStepWithoutHowToStepIsRejected() throws Exception {
     expectValidationFailed(
         LENAS_REQUEST.replace("\"howToStep\": \"%s\",".formatted(HelpRequests.STEP_4.value()), ""));
   }
 
-  @DisplayName("recipe that is not a UUID (\"not-a-uuid\") -> 400 VALIDATION_FAILED, nothing saved -- B3-S01 US-CA-03 op createHelpRequest")
+  @DisplayName(
+      "recipe that is not a UUID (\"not-a-uuid\") -> 400 VALIDATION_FAILED, nothing saved -- B3-S01 US-CA-03 op createHelpRequest")
   @Test
   void recipeThatIsNoUuidIsRejected() throws Exception {
     expectValidationFailed(
         LENAS_REQUEST.replace(HelpRequests.HOLLANDAISE.value().toString(), "not-a-uuid"));
   }
 
-  @DisplayName("PSE with preferredProvider [CHEF] -> 400 VALIDATION_FAILED, nothing saved (schema else branch) -- B3-S01 US-CA-03 INV-01 op createHelpRequest")
+  @DisplayName(
+      "PSE with preferredProvider [CHEF] -> 400 VALIDATION_FAILED, nothing saved (schema else branch) -- B3-S01 US-CA-03 INV-01 op createHelpRequest")
   @Test
   void chefForAPreparationStepIsRejected() throws Exception {
     expectValidationFailed(LENAS_REQUEST.replace("[\"COMMUNITY\"]", "[\"CHEF\"]"));
   }
 
-  @DisplayName("no version header -> 400 VALIDATION_FAILED, nothing saved -- B3-S01 US-CA-03 op createHelpRequest")
+  @DisplayName(
+      "no version header -> 400 VALIDATION_FAILED, nothing saved -- B3-S01 US-CA-03 op createHelpRequest")
   @Test
   void missingVersionHeaderIsRejected() throws Exception {
     mvc.perform(
@@ -157,13 +165,15 @@ class HelpRequestsControllerTest {
     assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID)).isEmpty();
   }
 
-  @DisplayName("empty body -> 400 VALIDATION_FAILED, nothing saved -- B3-S01 US-CA-03 op createHelpRequest")
+  @DisplayName(
+      "empty body -> 400 VALIDATION_FAILED, nothing saved -- B3-S01 US-CA-03 op createHelpRequest")
   @Test
   void emptyBodyIsRejected() throws Exception {
     expectValidationFailed("");
   }
 
-  @DisplayName("valid INGREDIENT_SUBSTITUTE request -> 501 NOT_IMPLEMENTED, nothing saved (increment 2) -- B3-S01 US-CA-03 op createHelpRequest")
+  @DisplayName(
+      "valid INGREDIENT_SUBSTITUTE request -> 501 NOT_IMPLEMENTED, nothing saved (increment 2) -- B3-S01 US-CA-03 op createHelpRequest")
   @Test
   void ingredientSubstituteIsNotImplementedYet() throws Exception {
     String substituteRequest =
@@ -191,7 +201,8 @@ class HelpRequestsControllerTest {
     assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID)).isEmpty();
   }
 
-  @DisplayName("no token -> 401 UNAUTHENTICATED Problem -- B3-S01 US-CA-03 ADR0012 op createHelpRequest")
+  @DisplayName(
+      "no token -> 401 UNAUTHENTICATED Problem -- B3-S01 US-CA-03 ADR0012 op createHelpRequest")
   @Test
   void noTokenIsUnauthenticated() throws Exception {
     mvc.perform(
@@ -205,7 +216,8 @@ class HelpRequestsControllerTest {
     assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID)).isEmpty();
   }
 
-  @DisplayName("token for audience recipe-catalog -> 401 UNAUTHENTICATED -- B3-S01 US-CA-03 ADR0012 op createHelpRequest")
+  @DisplayName(
+      "token for audience recipe-catalog -> 401 UNAUTHENTICATED -- B3-S01 US-CA-03 ADR0012 op createHelpRequest")
   @Test
   void tokenForAnotherAudienceIsUnauthenticated() throws Exception {
     expectUnauthenticated(
@@ -216,7 +228,8 @@ class HelpRequestsControllerTest {
             .bearer());
   }
 
-  @DisplayName("token from issuer https://other.example -> 401 UNAUTHENTICATED -- B3-S01 US-CA-03 ADR0012 op createHelpRequest")
+  @DisplayName(
+      "token from issuer https://other.example -> 401 UNAUTHENTICATED -- B3-S01 US-CA-03 ADR0012 op createHelpRequest")
   @Test
   void tokenFromAnotherIssuerIsUnauthenticated() throws Exception {
     expectUnauthenticated(
@@ -240,7 +253,8 @@ class HelpRequestsControllerTest {
     assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID)).isEmpty();
   }
 
-  @DisplayName("expired token -> 401 UNAUTHENTICATED -- B3-S01 US-CA-03 ADR0012 op createHelpRequest")
+  @DisplayName(
+      "expired token -> 401 UNAUTHENTICATED -- B3-S01 US-CA-03 ADR0012 op createHelpRequest")
   @Test
   void expiredTokenIsUnauthenticated() throws Exception {
     expectUnauthenticated(
@@ -251,14 +265,15 @@ class HelpRequestsControllerTest {
             .bearer());
   }
 
-  @DisplayName("token whose sub is not a UUID -> 401 UNAUTHENTICATED -- B3-S01 US-CA-03 ADR0012 op createHelpRequest")
+  @DisplayName(
+      "token whose sub is not a UUID -> 401 UNAUTHENTICATED -- B3-S01 US-CA-03 ADR0012 op createHelpRequest")
   @Test
   void subjectThatIsNoUuidIsUnauthenticated() throws Exception {
-    expectUnauthenticated(
-        TestTokens.forSubject("lena").roles("cook").scope("help:write").bearer());
+    expectUnauthenticated(TestTokens.forSubject("lena").roles("cook").scope("help:write").bearer());
   }
 
-  @DisplayName("scope help:read only -> 403 INSUFFICIENT_SCOPE, nothing saved -- B3-S01 US-CA-03 ADR0013 op createHelpRequest")
+  @DisplayName(
+      "scope help:read only -> 403 INSUFFICIENT_SCOPE, nothing saved -- B3-S01 US-CA-03 ADR0013 op createHelpRequest")
   @Test
   void readScopeCannotRequestHelp() throws Exception {
     expectForbidden(
@@ -279,7 +294,8 @@ class HelpRequestsControllerTest {
     assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID)).isEmpty();
   }
 
-  @DisplayName("actor without role cook -> 403 NOT_AUTHORIZED, nothing saved -- B3-S01 US-CA-03 ADR0013 op createHelpRequest")
+  @DisplayName(
+      "actor without role cook -> 403 NOT_AUTHORIZED, nothing saved -- B3-S01 US-CA-03 ADR0013 op createHelpRequest")
   @Test
   void actorWithoutCookRoleIsRefused() throws Exception {
     expectForbidden(
@@ -287,7 +303,8 @@ class HelpRequestsControllerTest {
         "NOT_AUTHORIZED");
   }
 
-  @DisplayName("token without a roles claim -> 403 NOT_AUTHORIZED, nothing saved -- B3-S01 US-CA-03 ADR0012 ADR0013 op createHelpRequest")
+  @DisplayName(
+      "token without a roles claim -> 403 NOT_AUTHORIZED, nothing saved -- B3-S01 US-CA-03 ADR0012 ADR0013 op createHelpRequest")
   @Test
   void tokenWithoutRolesIsRefused() throws Exception {
     expectForbidden(
@@ -295,7 +312,8 @@ class HelpRequestsControllerTest {
         "NOT_AUTHORIZED");
   }
 
-  @DisplayName("token with roles cook and admin -> 201; the unknown role grants nothing -- B3-S01 US-CA-03 ADR0013 op createHelpRequest")
+  @DisplayName(
+      "token with roles cook and admin -> 201; the unknown role grants nothing -- B3-S01 US-CA-03 ADR0013 op createHelpRequest")
   @Test
   void unknownRoleIsIgnored() throws Exception {
     mvc.perform(
@@ -312,7 +330,8 @@ class HelpRequestsControllerTest {
         .andExpect(status().isCreated());
   }
 
-  @DisplayName("use case throws RuntimeException(\"connection refused for user larder\") -> 500 INTERNAL_ERROR, body does not contain the message -- B3-S01 US-CA-03 op createHelpRequest")
+  @DisplayName(
+      "use case throws RuntimeException(\"connection refused for user larder\") -> 500 INTERNAL_ERROR, body does not contain the message -- B3-S01 US-CA-03 op createHelpRequest")
   @Test
   void unexpectedErrorHidesItsMessage() throws Exception {
     helpRequests.interleave(
@@ -331,5 +350,4 @@ class HelpRequestsControllerTest {
         .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
         .andExpect(content().string(not(containsString("connection refused"))));
   }
-
 }

@@ -35,7 +35,10 @@ class GrandmaHelpProvidedListener {
   /** AMQP header values arrive as the client's string types; the consumer reads plain strings. */
   private static Map<String, Object> headersOf(Message message) {
     Map<String, Object> headers = new HashMap<>();
-    message.getMessageProperties().getHeaders().forEach((name, value) -> headers.put(name, String.valueOf(value)));
+    message
+        .getMessageProperties()
+        .getHeaders()
+        .forEach((name, value) -> headers.put(name, String.valueOf(value)));
     return headers;
   }
 }

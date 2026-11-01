@@ -22,7 +22,10 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
-/** The error map of the API: RFC 9457 Problem Details with the codes of cooking-assistance.openapi.yaml. */
+/**
+ * The error map of the API: RFC 9457 Problem Details with the codes of
+ * cooking-assistance.openapi.yaml.
+ */
 @RestControllerAdvice
 class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
 

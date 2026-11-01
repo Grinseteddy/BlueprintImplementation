@@ -43,7 +43,8 @@ class SecurityConfiguration {
                 requests
                     .requestMatchers(HttpMethod.POST, "/help-requests/**")
                     .hasAuthority("SCOPE_help:write")
-                    .requestMatchers(HttpMethod.GET, "/help-requests", "/help-requests/**", "/helps")
+                    .requestMatchers(
+                        HttpMethod.GET, "/help-requests", "/help-requests/**", "/helps")
                     .hasAuthority("SCOPE_help:read")
                     .anyRequest()
                     .authenticated())
@@ -82,7 +83,8 @@ class SecurityConfiguration {
       writeProblem(
           response,
           json,
-          Problems.of(HttpStatus.FORBIDDEN, "INSUFFICIENT_SCOPE", "The token lacks the required scope"));
+          Problems.of(
+              HttpStatus.FORBIDDEN, "INSUFFICIENT_SCOPE", "The token lacks the required scope"));
     };
   }
 

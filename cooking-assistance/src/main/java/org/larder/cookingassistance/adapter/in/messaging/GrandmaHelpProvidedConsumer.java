@@ -16,7 +16,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-// op: consumeGrandmaHelpProvided (channel cooking-assistance.grandma-help-provided) · cmd: Provide Help
+// op: consumeGrandmaHelpProvided (channel cooking-assistance.grandma-help-provided) · cmd: Provide
+// Help
 /** Consumes the Grandma Avatar's answers as the transport hands them over. */
 @Component
 public class GrandmaHelpProvidedConsumer {

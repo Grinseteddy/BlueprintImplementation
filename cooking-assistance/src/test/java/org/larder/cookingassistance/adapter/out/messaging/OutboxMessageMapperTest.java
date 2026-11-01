@@ -17,8 +17,8 @@ import org.junit.jupiter.api.Test;
 import org.larder.cookingassistance.fixtures.HelpRequests;
 
 /**
- * An outbox row becomes the message the AsyncAPI spec promises: channel, stable message id, headers,
- * payload, validated against the spec before it is sent.
+ * An outbox row becomes the message the AsyncAPI spec promises: channel, stable message id,
+ * headers, payload, validated against the spec before it is sent.
  */
 class OutboxMessageMapperTest {
 
@@ -28,7 +28,8 @@ class OutboxMessageMapperTest {
 
   final OutboxMessageMapper mapper = new OutboxMessageMapper();
 
-  @DisplayName("HelpRequestCreated row (id 42, aggregate = Lena's request) -> channel cooking-assistance.help-request.created, messageId = UUID v3 of \"cooking-assistance-outbox-42\", headers {messageId, correlationId = helpRequestId, source = cooking-assistance}, payload unchanged -- B3-S01 US-CA-03 op publishHelpRequestCreated")
+  @DisplayName(
+      "HelpRequestCreated row (id 42, aggregate = Lena's request) -> channel cooking-assistance.help-request.created, messageId = UUID v3 of \"cooking-assistance-outbox-42\", headers {messageId, correlationId = helpRequestId, source = cooking-assistance}, payload unchanged -- B3-S01 US-CA-03 op publishHelpRequestCreated")
   @Test
   void helpRequestCreatedRowBecomesItsMessage() {
     OutgoingMessage message =
@@ -47,7 +48,8 @@ class OutboxMessageMapperTest {
                 HELP_REQUEST_CREATED));
   }
 
-  @DisplayName("HelpProvided row -> channel cooking-assistance.help.provided, headers by the same rules, payload unchanged -- B3-S02 US-CA-03 op publishHelpProvided")
+  @DisplayName(
+      "HelpProvided row -> channel cooking-assistance.help.provided, headers by the same rules, payload unchanged -- B3-S02 US-CA-03 op publishHelpProvided")
   @Test
   void helpProvidedRowBecomesItsMessage() {
     OutgoingMessage message =
@@ -74,7 +76,8 @@ class OutboxMessageMapperTest {
     assertThat(mapper.toMessage(row).messageId()).isEqualTo(mapper.toMessage(row).messageId());
   }
 
-  @DisplayName("the mapped message validates against the spec; with title removed -> InvalidOutgoingMessage -- B3-S01 US-CA-03 op publishHelpRequestCreated")
+  @DisplayName(
+      "the mapped message validates against the spec; with title removed -> InvalidOutgoingMessage -- B3-S01 US-CA-03 op publishHelpRequestCreated")
   @Test
   void messageBreakingTheSpecIsRefused() {
     String withoutTitle = HELP_REQUEST_CREATED.replace("\"title\":\"Sauce splits\",", "");
@@ -86,26 +89,29 @@ class OutboxMessageMapperTest {
         .hasMessageContaining("title");
   }
 
-  @DisplayName("occurredAt \"yesterday\" -> InvalidOutgoingMessage (formats checked on the send side) -- B3-S01 US-CA-03 op publishHelpRequestCreated")
+  @DisplayName(
+      "occurredAt \"yesterday\" -> InvalidOutgoingMessage (formats checked on the send side) -- B3-S01 US-CA-03 op publishHelpRequestCreated")
   @Test
   void brokenDateTimeIsRefused() {
     String yesterday =
-        HELP_REQUEST_CREATED.replace("\"occurredAt\":\"2026-11-06T18:00:00Z\"", "\"occurredAt\":\"yesterday\"");
+        HELP_REQUEST_CREATED.replace(
+            "\"occurredAt\":\"2026-11-06T18:00:00Z\"", "\"occurredAt\":\"yesterday\"");
 
     assertThatThrownBy(
             () -> mapper.toMessage(new OutboxRecord(42, REQUEST, "HelpRequestCreated", yesterday)))
         .isInstanceOf(InvalidOutgoingMessage.class);
   }
 
-  @DisplayName("event type the spec does not know (\"CopyBorrowed\") -> UnmappedEvent -- B3-S01 US-CA-03 ADR0015")
+  @DisplayName(
+      "event type the spec does not know (\"CopyBorrowed\") -> UnmappedEvent -- B3-S01 US-CA-03 ADR0015")
   @Test
   void unknownEventTypeIsUnmapped() {
-    assertThatThrownBy(
-            () -> mapper.toMessage(new OutboxRecord(44, REQUEST, "CopyBorrowed", "{}")))
+    assertThatThrownBy(() -> mapper.toMessage(new OutboxRecord(44, REQUEST, "CopyBorrowed", "{}")))
         .isInstanceOf(UnmappedEvent.class);
   }
 
-  @DisplayName("the send operations of the spec = built (publishHelpRequestCreated, publishHelpProvided) + planned for increment 1 (publishHelpAccepted, publishHelpRejected, publishHelpRequestCancelled, publishHelpRequestTimedOut) -- B3-S01,B3-S02 US-CA-03 ADR0014")
+  @DisplayName(
+      "the send operations of the spec = built (publishHelpRequestCreated, publishHelpProvided) + planned for increment 1 (publishHelpAccepted, publishHelpRejected, publishHelpRequestCancelled, publishHelpRequestTimedOut) -- B3-S01,B3-S02 US-CA-03 ADR0014")
   @Test
   void everySendOperationIsBuiltOrPlanned() throws Exception {
     Set<String> builtOrPlanned = new HashSet<>(SendOperations.BUILT);

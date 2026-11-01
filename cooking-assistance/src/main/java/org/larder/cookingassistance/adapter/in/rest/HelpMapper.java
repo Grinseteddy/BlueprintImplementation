@@ -46,6 +46,8 @@ final class HelpMapper {
   static HelpLink toLink(HelpRequestId helpRequestId, HelpId helpId) {
     return new HelpLink(
         Links.absolute(
-            "/help-requests/{helpRequestId}/helps/{helpId}", helpRequestId.value(), helpId.value()));
+            "/help-requests/{helpRequestId}/helps/{helpId}",
+            helpRequestId.value(),
+            helpId.value()));
   }
 }

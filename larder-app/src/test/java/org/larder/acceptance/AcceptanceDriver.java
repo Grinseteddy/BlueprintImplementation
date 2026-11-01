@@ -9,7 +9,6 @@ import org.larder.cookingassistance.adapter.messaging.AsyncApiContract;
 import org.larder.cookingassistance.domain.helprequest.CookId;
 import org.larder.cookingassistance.fixtures.TestTokens;
 import org.springframework.amqp.core.AmqpAdmin;
-import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.Queue;
@@ -47,7 +46,9 @@ public class AcceptanceDriver {
     // not auto-deleted: a receive with a timeout subscribes and leaves, which would delete it
     admin.declareQueue(new Queue(queue, false, false, false));
     admin.declareBinding(
-        BindingBuilder.bind(new Queue(queue)).to(new TopicExchange("cooking-assistance")).with(channel));
+        BindingBuilder.bind(new Queue(queue))
+            .to(new TopicExchange("cooking-assistance"))
+            .with(channel));
     admin.purgeQueue(queue, false);
     return queue;
   }
@@ -61,19 +62,26 @@ public class AcceptanceDriver {
   }
 
   /** Any request as the cook, with both scopes; error statuses are returned, not thrown. */
-  ResponseEntity<String> send(HttpMethod method, String path, CookId cook, String roles, String body) {
+  ResponseEntity<String> send(
+      HttpMethod method, String path, CookId cook, String roles, String body) {
     RestClient.RequestBodySpec request =
         RestClient.create("http://localhost:" + port)
             .method(method)
             .uri(path)
             .header(
                 "Authorization",
-                TestTokens.forCook(cook).roles(roles.split(",")).scope("help:read help:write").bearer())
+                TestTokens.forCook(cook)
+                    .roles(roles.split(","))
+                    .scope("help:read help:write")
+                    .bearer())
             .header("version", "1.0.4");
     if (body != null) {
       request = request.contentType(MediaType.APPLICATION_JSON).body(body);
     }
-    return request.retrieve().onStatus(HttpStatusCode::isError, (req, response) -> {}).toEntity(String.class);
+    return request
+        .retrieve()
+        .onStatus(HttpStatusCode::isError, (req, response) -> {})
+        .toEntity(String.class);
   }
 
   JsonNode json(ResponseEntity<String> response) {

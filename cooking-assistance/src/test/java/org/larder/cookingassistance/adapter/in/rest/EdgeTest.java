@@ -23,7 +23,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * What the whole API shares: undeclared paths, methods and content types, unparsable bodies -> Problem.
+ * What the whole API shares: undeclared paths, methods and content types, unparsable bodies ->
+ * Problem.
  */
 @WebMvcTest
 @Import({RestTestConfiguration.class, SecurityConfiguration.class, TestSigningKeys.class})
@@ -43,7 +44,8 @@ class EdgeTest {
         .andExpect(jsonPath("$.code").value("NOT_FOUND"));
   }
 
-  @DisplayName("DELETE /help-requests -> 405 METHOD_NOT_ALLOWED Problem with Allow: GET, POST -- B3-S01 US-CA-03 edge")
+  @DisplayName(
+      "DELETE /help-requests -> 405 METHOD_NOT_ALLOWED Problem with Allow: GET, POST -- B3-S01 US-CA-03 edge")
   @Test
   void undeclaredMethodIsNotAllowed() throws Exception {
     mvc.perform(delete("/help-requests").header(AUTHORIZATION, LENA).header("version", "1.0.3"))
@@ -53,7 +55,8 @@ class EdgeTest {
         .andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"));
   }
 
-  @DisplayName("POST /help-requests as text/plain -> 415 UNSUPPORTED_MEDIA_TYPE Problem -- B3-S01 US-CA-03 edge")
+  @DisplayName(
+      "POST /help-requests as text/plain -> 415 UNSUPPORTED_MEDIA_TYPE Problem -- B3-S01 US-CA-03 edge")
   @Test
   void undeclaredContentTypeIsUnsupported() throws Exception {
     mvc.perform(
@@ -67,7 +70,8 @@ class EdgeTest {
         .andExpect(jsonPath("$.code").value("UNSUPPORTED_MEDIA_TYPE"));
   }
 
-  @DisplayName("POST /help-requests with malformed JSON -> 400 VALIDATION_FAILED Problem -- B3-S01 US-CA-03 edge")
+  @DisplayName(
+      "POST /help-requests with malformed JSON -> 400 VALIDATION_FAILED Problem -- B3-S01 US-CA-03 edge")
   @Test
   void malformedJsonIsABadRequest() throws Exception {
     mvc.perform(

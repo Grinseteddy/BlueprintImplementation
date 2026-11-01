@@ -12,7 +12,8 @@ public final class SpecSchemas {
   private SpecSchemas() {}
 
   public static void assertMatches(String json, String schemaName) {
-    assertThat(CONTRACT.schema("/components/schemas/" + schemaName).validate(json, InputFormat.JSON))
+    assertThat(
+            CONTRACT.schema("/components/schemas/" + schemaName).validate(json, InputFormat.JSON))
         .as("%s against %s", json, schemaName)
         .isEmpty();
   }

@@ -8,9 +8,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.larder.cookingassistance.application.UnitOfWork;
-import org.larder.cookingassistance.fixtures.HelpRequests;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestRepository;
+import org.larder.cookingassistance.fixtures.HelpRequests;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -40,7 +40,8 @@ class UnitOfWorkIT {
     jdbc.sql("delete from help_request").update();
   }
 
-  @DisplayName("work done inside transactionally(...) is committed when it returns: a processed-message record written inside is visible afterwards -- B3-S02 US-CA-03 ADR0015 unit of work")
+  @DisplayName(
+      "work done inside transactionally(...) is committed when it returns: a processed-message record written inside is visible afterwards -- B3-S02 US-CA-03 ADR0015 unit of work")
   @Test
   void workIsCommittedWhenItReturns() {
     unitOfWork.transactionally(() -> insertProcessedMessage(MESSAGE_ID));
@@ -61,7 +62,8 @@ class UnitOfWorkIT {
         .single();
   }
 
-  @DisplayName("work is rolled back when it throws: a processed-message record written inside is not visible afterwards and the exception reaches the caller -- B3-S02 US-CA-03 ADR0015 unit of work")
+  @DisplayName(
+      "work is rolled back when it throws: a processed-message record written inside is not visible afterwards and the exception reaches the caller -- B3-S02 US-CA-03 ADR0015 unit of work")
   @Test
   void workIsRolledBackWhenItThrows() {
     IllegalStateException failure = new IllegalStateException("work failed");
@@ -77,7 +79,8 @@ class UnitOfWorkIT {
     assertThat(processedMessageCount(MESSAGE_ID)).isZero();
   }
 
-  @DisplayName("a HelpRequestRepository.save inside transactionally(...) joins its transaction: save, then throw -> neither the help_request row nor its outbox row exists -- B3-S02 US-CA-03 ADR0015 unit of work")
+  @DisplayName(
+      "a HelpRequestRepository.save inside transactionally(...) joins its transaction: save, then throw -> neither the help_request row nor its outbox row exists -- B3-S02 US-CA-03 ADR0015 unit of work")
   @Test
   void repositorySaveJoinsTheUnitOfWork() {
     assertThatThrownBy(
