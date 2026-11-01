@@ -19,22 +19,31 @@ class OutboxMessageMapper {
 
   OutgoingMessage toMessage(OutboxRecord row) {
     UUID messageId = messageIdOf(row);
-    Map<String, String> headers =
-        Map.of(
-            "messageId", messageId.toString(),
-            // one help journey is one help request until correlation is propagated (L8, step 12)
-            "correlationId", row.aggregateId().toString(),
-            "source", SOURCE);
-    // checked against the spec before sending
-    validate("MessageHeader", json.valueToTree(headers));
+    OutgoingMessage message =
+        new OutgoingMessage(
+            contract.channelAddressOf(row.eventType()).orElseThrow(() -> unmapped(row)),
+            messageId,
+            headersOf(row, messageId),
+            row.payload());
+    checkAgainstSpec(row, message);
+    return message;
+  }
+
+  /** ADR0015: the message keeps its promise to consumers or is never sent. */
+  private void checkAgainstSpec(OutboxRecord row, OutgoingMessage message) {
+    validate("MessageHeader", json.valueToTree(message.headers()));
     validate(
         contract.payloadSchemaOf(row.eventType()).orElseThrow(() -> unmapped(row)),
-        parse(row.payload()));
-    return new OutgoingMessage(
-        contract.channelAddressOf(row.eventType()).orElseThrow(() -> unmapped(row)),
-        messageId,
-        headers,
-        row.payload());
+        parse(message.payload()));
+  }
+
+  /** The MessageHeader of the spec. */
+  private static Map<String, String> headersOf(OutboxRecord row, UUID messageId) {
+    return Map.of(
+        "messageId", messageId.toString(),
+        // one help journey is one help request until correlation is propagated (L8, step 12)
+        "correlationId", row.aggregateId().toString(),
+        "source", SOURCE);
   }
 
   private static UnmappedEvent unmapped(OutboxRecord row) {
