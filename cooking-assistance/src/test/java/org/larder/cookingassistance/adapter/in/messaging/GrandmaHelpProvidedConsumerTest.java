@@ -86,6 +86,23 @@ class GrandmaHelpProvidedConsumerTest {
   }
 
   @DisplayName(
+      "valid message with unknown fields in the payload and in the answer -> they are ignored, Grandma's help is stored -> ACK -- B3-S02 US-CA-03 op consumeGrandmaHelpProvided (tolerant reader)")
+  @Test
+  void unknownFieldsAreIgnored() {
+    String withUnknownFields =
+        GRANDMAS_ANSWER
+            .replace("\"answerTitle\":", "\"mood\": \"cheerful\",\n  \"answerTitle\":")
+            .replace("\"description\":", "\"difficulty\": \"easy\",\n    \"description\":");
+
+    Outcome outcome = consumer.handle(HEADERS, bytes(withUnknownFields));
+
+    assertThat(outcome).isEqualTo(Outcome.ACK);
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().helps())
+        .singleElement()
+        .satisfies(help -> assertThat(help.answerTitle()).isEqualTo("Butter in a thin stream"));
+  }
+
+  @DisplayName(
       "answerTitle missing -> DEAD_LETTER, nothing changed -- B3-S02 US-CA-03 op consumeGrandmaHelpProvided")
   @Test
   void missingAnswerTitleIsDeadLettered() {
