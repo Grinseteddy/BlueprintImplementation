@@ -1,0 +1,45 @@
+# The one build command on every push and pull request (ADR0018, QS-16: under 10 minutes).
+name: verify
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Lint the approved specs
+        run: |
+          npx -y @stoplight/spectral-cli@6.11.1 lint docs/cooking-assistance/api/cooking-assistance.openapi.yaml -r docs/cooking-assistance/api/rulesets/openapi-house-style.spectral.yaml --fail-severity error
+          npx -y @stoplight/spectral-cli@6.11.1 lint docs/cooking-assistance/api/cooking-assistance.asyncapi.yaml -r docs/cooking-assistance/api/rulesets/asyncapi.spectral.yaml --fail-severity error
+      - name: Build, format and Error Prone checks, fast and slow suites (Testcontainers)
+        run: ./mvnw -B verify
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            */target/surefire-reports/
+            */target/failsafe-reports/
+            larder-app/target/cucumber/
