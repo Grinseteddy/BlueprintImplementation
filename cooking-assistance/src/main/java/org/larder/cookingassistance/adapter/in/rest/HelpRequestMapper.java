@@ -1,9 +1,16 @@
 package org.larder.cookingassistance.adapter.in.rest;
 
+import java.time.ZoneOffset;
+import java.util.List;
 import java.util.stream.Collectors;
+import org.larder.cookingassistance.adapter.in.rest.generated.model.AskedProvider;
+import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpRequest;
 import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpRequestCreate;
 import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpRequestLink;
+import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpRequestStatus;
+import org.larder.cookingassistance.adapter.in.rest.generated.model.ProviderState;
 import org.larder.cookingassistance.application.Actor;
+import org.larder.cookingassistance.application.HelpRequestView;
 import org.larder.cookingassistance.application.RequestHelpWithPreparationStep;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
@@ -29,5 +36,36 @@ final class HelpRequestMapper {
 
   static HelpRequestLink toLink(HelpRequestId id) {
     return new HelpRequestLink(id.value(), Links.absolute("/help-requests/{helpRequestId}", id.value()));
+  }
+
+  static HelpRequest toResponse(HelpRequestView view) {
+    List<AskedProvider> asked =
+        view.askedProviders().stream()
+            .map(
+                provider ->
+                    new AskedProvider(
+                        generatedType(provider.providerType()),
+                        provider.deadline().atOffset(ZoneOffset.UTC),
+                        ProviderState.fromValue(provider.state().name())))
+            .toList();
+    return new HelpRequest(
+            view.id().value(),
+            view.requester().value(),
+            view.title(),
+            org.larder.cookingassistance.adapter.in.rest.generated.model.HelpType.fromValue(
+                view.type().name()),
+            view.description(),
+            // the providers the cook chose are the providers asked (until re-sending, increment 1)
+            asked.stream().map(AskedProvider::getProviderType).collect(Collectors.toSet()),
+            asked,
+            HelpRequestStatus.fromValue(view.status().name()))
+        .recipe(view.recipe().value())
+        .howToStep(view.howToStep().value());
+  }
+
+  private static org.larder.cookingassistance.adapter.in.rest.generated.model.HelpProviderType
+      generatedType(HelpProviderType type) {
+    return org.larder.cookingassistance.adapter.in.rest.generated.model.HelpProviderType.fromValue(
+        type.name());
   }
 }

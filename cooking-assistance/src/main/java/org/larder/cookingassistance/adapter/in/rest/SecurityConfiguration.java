@@ -43,6 +43,8 @@ class SecurityConfiguration {
                 requests
                     .requestMatchers(HttpMethod.POST, "/help-requests/**")
                     .hasAuthority("SCOPE_help:write")
+                    .requestMatchers(HttpMethod.GET, "/help-requests", "/help-requests/**", "/helps")
+                    .hasAuthority("SCOPE_help:read")
                     .anyRequest()
                     .authenticated())
         .oauth2ResourceServer(

@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -333,17 +332,4 @@ class HelpRequestsControllerTest {
         .andExpect(content().string(not(containsString("connection refused"))));
   }
 
-  @DisplayName("getHelpRequestById with help:read -> 501 NOT_IMPLEMENTED (step 11) -- B3-S01 US-CA-03 op getHelpRequestById")
-  @Test
-  void getHelpRequestByIdIsNotImplementedYet() throws Exception {
-    mvc.perform(
-            get("/help-requests/" + ID)
-                .header(
-                    AUTHORIZATION,
-                    TestTokens.forCook(HelpRequests.LENA).roles("cook").scope("help:read").bearer())
-                .header("version", "1.0.2"))
-        .andExpect(status().isNotImplemented())
-        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
-        .andExpect(jsonPath("$.code").value("NOT_IMPLEMENTED"));
-  }
 }

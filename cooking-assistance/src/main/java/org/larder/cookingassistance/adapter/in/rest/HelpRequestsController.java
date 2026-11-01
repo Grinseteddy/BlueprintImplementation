@@ -9,6 +9,8 @@ import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpRequestL
 import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpRequestPage;
 import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpRequestStatus;
 import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpType;
+import org.larder.cookingassistance.application.HelpRequestNotFound;
+import org.larder.cookingassistance.application.HelpRequestQueries;
 import org.larder.cookingassistance.application.RequestHelpWithPreparationStep;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.springframework.http.HttpStatus;
@@ -20,9 +22,12 @@ import org.springframework.web.bind.annotation.RestController;
 class HelpRequestsController implements HelpRequestsApi {
 
   private final RequestHelpWithPreparationStep requestHelpWithPreparationStep;
+  private final HelpRequestQueries queries;
 
-  HelpRequestsController(RequestHelpWithPreparationStep requestHelpWithPreparationStep) {
+  HelpRequestsController(
+      RequestHelpWithPreparationStep requestHelpWithPreparationStep, HelpRequestQueries queries) {
     this.requestHelpWithPreparationStep = requestHelpWithPreparationStep;
+    this.queries = queries;
   }
 
   // op: createHelpRequest (cooking-assistance.openapi.yaml) · cmd: Request help Preparation step
@@ -39,9 +44,13 @@ class HelpRequestsController implements HelpRequestsApi {
     return ResponseEntity.status(HttpStatus.CREATED).body(HelpRequestMapper.toLink(id));
   }
 
+  // op: getHelpRequestById (cooking-assistance.openapi.yaml) · RM: help request (aggregate tables, ADR0016)
   @Override
   public ResponseEntity<HelpRequest> getHelpRequestById(UUID helpRequestId, String version) {
-    throw new NotImplemented("getHelpRequestById");
+    HelpRequestId id = new HelpRequestId(helpRequestId);
+    return ResponseEntity.ok(
+        HelpRequestMapper.toResponse(
+            queries.byId(id).orElseThrow(() -> new HelpRequestNotFound(id))));
   }
 
   @Override
