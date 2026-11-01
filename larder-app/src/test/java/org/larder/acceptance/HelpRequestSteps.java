@@ -24,6 +24,7 @@ public class HelpRequestSteps {
   private final Environment environment;
   private AcceptanceDriver driver;
   private String createdQueue;
+  private String providedQueue;
   private ResponseEntity<String> lastResponse;
 
   public HelpRequestSteps(
@@ -46,6 +47,8 @@ public class HelpRequestSteps {
     jdbc.sql("delete from cooking_assistance.asked_provider").update();
     jdbc.sql("delete from cooking_assistance.help_request").update();
     createdQueue = driver.listenTo(AcceptanceDriver.CREATED);
+    providedQueue = driver.listenTo(AcceptanceDriver.PROVIDED);
+    driver.emptyDeadLetters();
   }
 
   @When("Lena asks Grandma Avatar about step {int} of her Hollandaise")
@@ -216,6 +219,103 @@ public class HelpRequestSteps {
   public void sameRequestWithoutPhotoIsAccepted() {
     lenaAsksTheCommunityAbout(HelpRequests.STEP_4.value(), "Sauce splits", "");
     assertThat(lastResponse.getStatusCode().value()).isEqualTo(201);
+  }
+
+  static final CookId MIA = new CookId(UUID.fromString("4c5d6e7f-8a9b-4c0d-9e1f-2a3b4c5d6e70"));
+
+  @io.cucumber.java.en.Given("Lena asked Grandma Avatar about step {int} of her Hollandaise")
+  public void lenaAskedGrandma(int step) {
+    lastResponse = driver.post("/help-requests", HelpRequests.LENA, "cook", request("[\"GRANDMA_AVATAR\"]"));
+    assertThat(lastResponse.getStatusCode().value()).isEqualTo(201);
+    lenasRequests.add(driver.json(lastResponse).get("helpRequestId").asText());
+  }
+
+  private void grandmaAnswers(UUID step, int photos, String messageId) {
+    String images =
+        java.util.stream.IntStream.rangeClosed(1, photos)
+            .mapToObj(i -> "\"https://larder.org/media/images/butter-" + i + "\"")
+            .collect(java.util.stream.Collectors.joining(",", "[", "]"));
+    driver.grandmaPublishes(
+        """
+        {"helpRequest":"%s","answerTitle":"Butter in a thin stream",
+         "answer":{"answerType":"PREPARATION_STEP_EXPLANATION","recipe":"%s","howToStep":"%s",
+         "description":"butter in a thin stream","images":%s}}"""
+            .formatted(lenasRequests.getLast(), HelpRequests.HOLLANDAISE.value(), step, images),
+        messageId);
+  }
+
+  @When("Grandma Avatar answers {string} with {int} photos")
+  public void grandmaAnswersWithPhotos(String answer, int photos) {
+    grandmaAnswers(HelpRequests.STEP_4.value(), photos, "4e5f6071-8293-4a4b-bdce-3f4a5b6c7d8e");
+  }
+
+  @Then("the answer with its {int} photos is announced")
+  public void answerWithPhotosIsAnnounced(int photos) {
+    JsonNode provided = driver.nextMessage(providedQueue, "HelpProvided");
+    assertThat(provided.get("helpProviderType").asText()).isEqualTo("GRANDMA_AVATAR");
+    assertThat(provided.get("answer").get("images")).hasSize(photos);
+  }
+
+  @Then("Lena's request is answered")
+  public void lenasRequestIsAnswered() {
+    assertThat(readRequest(lenasRequests.getLast()).get("status").asText()).isEqualTo("ANSWERED");
+  }
+
+  private ResponseEntity<String> communityAnswers(CookId member) {
+    return driver.post(
+        "/help-requests/" + lenasRequests.getLast() + "/helps",
+        member,
+        "cook,community",
+        """
+        {"answerTitle":"Warm the bowl","helpProviderType":"COMMUNITY",
+         "answer":{"answerType":"PREPARATION_STEP_EXPLANATION","recipe":"%s","howToStep":"%s",
+         "description":"Add the butter slowly to a warm bowl"}}"""
+            .formatted(HelpRequests.HOLLANDAISE.value(), HelpRequests.STEP_4.value()));
+  }
+
+  @When("Jonas and Mia from the Community both answer")
+  public void jonasAndMiaAnswer() {
+    assertThat(communityAnswers(HelpRequests.JONAS).getStatusCode().value()).isEqualTo(201);
+    assertThat(communityAnswers(MIA).getStatusCode().value()).isEqualTo(201);
+  }
+
+  @Then("both answers are announced")
+  public void bothAnswersAreAnnounced() {
+    JsonNode first = driver.nextMessage(providedQueue, "HelpProvided");
+    JsonNode second = driver.nextMessage(providedQueue, "HelpProvided");
+    assertThat(java.util.List.of(first.get("helpProvider").asText(), second.get("helpProvider").asText()))
+        .containsExactlyInAnyOrder(HelpRequests.JONAS.value().toString(), MIA.value().toString());
+  }
+
+  @When("Lena tries to answer her own request")
+  public void lenaTriesToAnswerHerOwnRequest() {
+    lastResponse = communityAnswers(HelpRequests.LENA);
+  }
+
+  @Then("she is refused because it is her own request")
+  public void refusedBecauseOwnRequest() {
+    assertThat(lastResponse.getStatusCode().value()).isEqualTo(403);
+    assertThat(lastResponse.getBody()).contains("\"code\":\"OWN_REQUEST\"");
+  }
+
+  @When("Grandma Avatar answers with an explanation of step {int}")
+  public void grandmaAnswersAnotherStep(int step) {
+    grandmaAnswers(STEP_6, 0, "5f607182-93a4-4b5c-8edf-4a5b6c7d8e9f");
+  }
+
+  @When("Grandma Avatar answers with {int} photos")
+  public void grandmaAnswersWithTooManyPhotos(int photos) {
+    grandmaAnswers(HelpRequests.STEP_4.value(), photos, "607182a3-a4b5-4c6d-9ef0-5b6c7d8e9fa0");
+  }
+
+  @Then("Grandma's answer is refused and set aside")
+  public void grandmasAnswerIsSetAside() {
+    assertThat(driver.nextDeadLetter()).contains(lenasRequests.getLast());
+  }
+
+  @Then("Lena's request is still open")
+  public void lenasRequestIsStillOpen() {
+    assertThat(readRequest(lenasRequests.getLast()).get("status").asText()).isEqualTo("OPEN");
   }
 
   private static String request(String providers) {

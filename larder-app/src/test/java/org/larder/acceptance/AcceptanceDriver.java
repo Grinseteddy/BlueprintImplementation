@@ -44,7 +44,8 @@ public class AcceptanceDriver {
   /** A queue the test owns, bound to the service's exchange, emptied for each scenario. */
   String listenTo(String channel) {
     String queue = "acceptance." + channel;
-    admin.declareQueue(new Queue(queue, false, false, true));
+    // not auto-deleted: a receive with a timeout subscribes and leaves, which would delete it
+    admin.declareQueue(new Queue(queue, false, false, false));
     admin.declareBinding(
         BindingBuilder.bind(new Queue(queue)).to(new TopicExchange("cooking-assistance")).with(channel));
     admin.purgeQueue(queue, false);
@@ -77,6 +78,38 @@ public class AcceptanceDriver {
 
   JsonNode json(ResponseEntity<String> response) {
     return read(response.getBody().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+  }
+
+  static final String PROVIDED = "cooking-assistance.help.provided";
+  static final String DEAD_LETTERS = "cooking-assistance.dlq";
+
+  /** The test plays the Grandma Avatar context: it owns the grandma-avatar exchange. */
+  void grandmaPublishes(String payload, String messageId) {
+    admin.declareExchange(new TopicExchange("grandma-avatar", true, false));
+    org.springframework.amqp.core.MessageProperties properties =
+        new org.springframework.amqp.core.MessageProperties();
+    properties.setContentType("application/json");
+    properties.setHeader("correlationId", "0b8f7a52-4bfa-4d4e-9d6d-1f4b9c8f9a10");
+    properties.setHeader("messageId", messageId);
+    properties.setHeader("source", "grandma-avatar");
+    rabbit.send(
+        "grandma-avatar",
+        "grandma-avatar.help.provided",
+        new Message(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8), properties));
+  }
+
+  /** The dead-letter queue of the service (ADR0015), emptied for each scenario. */
+  void emptyDeadLetters() {
+    admin.purgeQueue(DEAD_LETTERS, false);
+  }
+
+  /** The next dead-lettered message within the deadline. */
+  String nextDeadLetter() {
+    Message message = rabbit.receive(DEAD_LETTERS, 10_000);
+    if (message == null) {
+      throw new AssertionError("nothing dead-lettered within 10 s");
+    }
+    return new String(message.getBody(), java.nio.charset.StandardCharsets.UTF_8);
   }
 
   /** No message on the channel: the only fixed wait of the suite, since absence has no event. */

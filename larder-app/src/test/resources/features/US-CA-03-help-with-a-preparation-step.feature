@@ -54,14 +54,14 @@ Feature: As a Cook, I want to ask a help provider for Help with a Meal Preparati
 
   Rule: R4 — An answer may include pictures; accepting an answer closes the whole request
 
-    @B3-S02 @INV-04 @R4.E1 @wip
+    @B3-S02 @INV-04 @R4.E1
     Scenario: Grandma answers with three photos
       Given Lena asked Grandma Avatar about step 4 of her Hollandaise
       When Grandma Avatar answers "butter in a thin stream" with 3 photos
       Then the answer with its 3 photos is announced
       And Lena's request is answered
 
-    @B3-S02 @INV-04 @R4.E3 @wip
+    @B3-S02 @INV-04 @R4.E3
     Scenario: Jonas and Mia both answer
       Given Lena asked the Community about step 4 of her Hollandaise
       When Jonas and Mia from the Community both answer
@@ -150,20 +150,20 @@ Feature: As a Cook, I want to ask a help provider for Help with a Meal Preparati
 
   Rule: S3 — A Cook never answers their own request; an answer matches its request; at most 10 pictures
 
-    @B3-S02 @INV-36 @S3.E1 @wip
+    @B3-S02 @INV-36 @S3.E1
     Scenario: Lena cannot answer her own request
       Given Lena asked the Community about step 4 of her Hollandaise
       When Lena tries to answer her own request
       Then she is refused because it is her own request
 
-    @B3-S02 @INV-37 @S3.E2 @wip
+    @B3-S02 @INV-37 @S3.E2
     Scenario: An answer about another step is refused
       Given Lena asked Grandma Avatar about step 4 of her Hollandaise
       When Grandma Avatar answers with an explanation of step 6
       Then Grandma's answer is refused and set aside
       And Lena's request is still open
 
-    @B3-S02 @INV-38 @S3.E3 @wip
+    @B3-S02 @INV-38 @S3.E3
     Scenario: An answer with 11 photos is refused
       Given Lena asked Grandma Avatar about step 4 of her Hollandaise
       When Grandma Avatar answers with 11 photos
