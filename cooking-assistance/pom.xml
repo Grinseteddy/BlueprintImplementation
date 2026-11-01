@@ -36,10 +36,36 @@
       <artifactId>postgresql</artifactId>
     </dependency>
 
+    <!-- inbound adapters: REST and generated contract code (ADR0014) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+    <!-- JWT resource server (ADR0012, ADR0013) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+    </dependency>
+    <!-- requests and messages validated against the approved specs at runtime (JSON Schema 2020-12) -->
+    <dependency>
+      <groupId>com.networknt</groupId>
+      <artifactId>json-schema-validator</artifactId>
+      <version>1.5.9</version>
+    </dependency>
+
     <!-- tests: fast (JUnit, AssertJ, jqwik) and slow (Spring Boot Test, Testcontainers; ADR0017) -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-test</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -74,8 +100,123 @@
     </dependency>
   </dependencies>
 
+  <properties>
+    <cooking-assistance.api>${project.basedir}/../docs/cooking-assistance/api</cooking-assistance.api>
+    <codegen.dir>${project.basedir}/../tools/codegen</codegen.dir>
+  </properties>
+
   <build>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+      </resource>
+      <!-- the approved specs, validated against at runtime -->
+      <resource>
+        <directory>${cooking-assistance.api}</directory>
+        <targetPath>api</targetPath>
+        <includes>
+          <include>*.yaml</include>
+        </includes>
+      </resource>
+    </resources>
     <plugins>
+      <!-- generated from the approved OpenAPI spec on every build, never edited (ADR0014) -->
+      <plugin>
+        <groupId>org.openapitools</groupId>
+        <artifactId>openapi-generator-maven-plugin</artifactId>
+        <version>7.26.0</version>
+        <executions>
+          <execution>
+            <id>openapi-rest-contract</id>
+            <goals>
+              <goal>generate</goal>
+            </goals>
+            <configuration>
+              <inputSpec>${cooking-assistance.api}/cooking-assistance.openapi.yaml</inputSpec>
+              <generatorName>spring</generatorName>
+              <apiPackage>org.larder.cookingassistance.adapter.in.rest.generated</apiPackage>
+              <modelPackage>org.larder.cookingassistance.adapter.in.rest.generated.model</modelPackage>
+              <generateSupportingFiles>false</generateSupportingFiles>
+              <configOptions>
+                <interfaceOnly>true</interfaceOnly>
+                <useSpringBoot3>true</useSpringBoot3>
+                <useJakartaEe>true</useJakartaEe>
+                <useTags>true</useTags>
+                <skipDefaultInterface>true</skipDefaultInterface>
+                <useBeanValidation>true</useBeanValidation>
+                <openApiNullable>false</openApiNullable>
+                <documentationProvider>none</documentationProvider>
+                <annotationLibrary>none</annotationLibrary>
+                <generateJsonIncludeAnnotations>false</generateJsonIncludeAnnotations>
+                <generateJsonSetterNullsAnnotations>false</generateJsonSetterNullsAnnotations>
+                <hideGenerationTimestamp>true</hideGenerationTimestamp>
+              </configOptions>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- message models generated from the approved AsyncAPI spec with Modelina, pinned in
+           tools/codegen; a pinned Node runs it on every build, never edited (ADR0014) -->
+      <plugin>
+        <groupId>com.github.eirslett</groupId>
+        <artifactId>frontend-maven-plugin</artifactId>
+        <version>1.15.1</version>
+        <configuration>
+          <workingDirectory>${codegen.dir}</workingDirectory>
+          <installDirectory>${codegen.dir}</installDirectory>
+        </configuration>
+        <executions>
+          <execution>
+            <id>install-node</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>install-node-and-npm</goal>
+            </goals>
+            <configuration>
+              <nodeVersion>v22.22.1</nodeVersion>
+            </configuration>
+          </execution>
+          <execution>
+            <id>codegen-dependencies</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>npm</goal>
+            </goals>
+            <configuration>
+              <arguments>ci --no-fund --no-audit</arguments>
+            </configuration>
+          </execution>
+          <execution>
+            <id>asyncapi-message-models</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>npm</goal>
+            </goals>
+            <configuration>
+              <arguments>run asyncapi-models -- ${cooking-assistance.api}/cooking-assistance.asyncapi.yaml ${project.build.directory}/generated-sources/asyncapi/org/larder/cookingassistance/adapter/messaging/generated org.larder.cookingassistance.adapter.messaging.generated</arguments>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>3.6.0</version>
+        <executions>
+          <execution>
+            <id>add-asyncapi-sources</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>add-source</goal>
+            </goals>
+            <configuration>
+              <sources>
+                <source>${project.build.directory}/generated-sources/asyncapi</source>
+              </sources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <!-- slow suite: *IT classes on real infrastructure, run by ./mvnw verify (ADR0017) -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

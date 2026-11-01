@@ -1,0 +1,12 @@
+{
+  "name": "larder-codegen",
+  "private": true,
+  "description": "Pinned generators run from the Maven build (ADR0014): AsyncAPI message models with Modelina",
+  "type": "module",
+  "scripts": {
+    "asyncapi-models": "node generate-asyncapi-models.mjs"
+  },
+  "dependencies": {
+    "@asyncapi/modelina": "5.10.1"
+  }
+}

@@ -6,3 +6,7 @@ target/
 
 # IDE settings
 .idea/
+
+# pinned codegen tools (installed by the build)
+tools/codegen/node/
+tools/codegen/node_modules/
