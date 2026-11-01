@@ -12,6 +12,8 @@
 
   <modules>
     <module>cooking-assistance</module>
+    <!-- thin Spring Boot host of the Larder monolith (ADR0001, ADR0007) -->
+    <module>larder-app</module>
   </modules>
 
   <properties>
@@ -19,6 +21,8 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <spring-boot.version>3.5.6</spring-boot.version>
     <jqwik.version>1.9.2</jqwik.version>
+    <cucumber.version>7.23.0</cucumber.version>
+    <archunit.version>1.4.1</archunit.version>
   </properties>
 
   <dependencyManagement>
@@ -34,6 +38,29 @@
         <groupId>net.jqwik</groupId>
         <artifactId>jqwik</artifactId>
         <version>${jqwik.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.cucumber</groupId>
+        <artifactId>cucumber-bom</artifactId>
+        <version>${cucumber.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.tngtech.archunit</groupId>
+        <artifactId>archunit-junit5</artifactId>
+        <version>${archunit.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.larder</groupId>
+        <artifactId>cooking-assistance</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.larder</groupId>
+        <artifactId>cooking-assistance</artifactId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
       </dependency>
     </dependencies>
   </dependencyManagement>
