@@ -21,8 +21,8 @@ final class AnswerJsonMapper {
     }
   }
 
-  /** The answer in its AsyncAPI shape, also used inside event payloads. */
-  static PreparationStepExplanationJson toPayload(PreparationStepExplanation answer) {
+  /** The answer in its AsyncAPI shape. */
+  private static PreparationStepExplanationJson toPayload(PreparationStepExplanation answer) {
     return new PreparationStepExplanationJson(
         "PREPARATION_STEP_EXPLANATION",
         answer.recipe().value(),

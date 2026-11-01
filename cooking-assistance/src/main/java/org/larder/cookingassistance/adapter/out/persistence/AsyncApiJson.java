@@ -1,5 +1,6 @@
 package org.larder.cookingassistance.adapter.out.persistence;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
@@ -15,6 +16,8 @@ final class AsyncApiJson {
       JsonMapper.builder()
           .addModule(new JavaTimeModule())
           .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+          // optional fields are absent, never null (generated models carry every optional field)
+          .serializationInclusion(JsonInclude.Include.NON_NULL)
           .build();
 
   private AsyncApiJson() {}

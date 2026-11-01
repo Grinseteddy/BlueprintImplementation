@@ -1,16 +1,28 @@
 package org.larder.cookingassistance.adapter.out.persistence;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import java.net.URI;
 import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import org.larder.cookingassistance.adapter.messaging.generated.AskedProvider;
+import org.larder.cookingassistance.adapter.messaging.generated.HelpProvidedPayload;
+import org.larder.cookingassistance.adapter.messaging.generated.HelpProvidedStatus;
+import org.larder.cookingassistance.adapter.messaging.generated.HelpProviderType;
+import org.larder.cookingassistance.adapter.messaging.generated.HelpRequestCreatedPayload;
+import org.larder.cookingassistance.adapter.messaging.generated.HelpRequestCreatedStatus;
+import org.larder.cookingassistance.adapter.messaging.generated.HelpType;
+import org.larder.cookingassistance.adapter.messaging.generated.PreparationStepExplanation;
+import org.larder.cookingassistance.adapter.messaging.generated.PreparationStepExplanationAnswerType;
 import org.larder.cookingassistance.domain.helprequest.CookId;
 import org.larder.cookingassistance.domain.helprequest.HelpProvided;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestEvent;
 import org.larder.cookingassistance.domain.helprequest.HelpRequested;
 
-/** Turns domain events into outbox rows under their AsyncAPI message names and field names. */
+/**
+ * Turns domain events into outbox rows: the publish decision per event (an exhaustive switch over
+ * the sealed event union) and the payload as the message model generated from the AsyncAPI spec.
+ */
 final class OutboxEventMapper {
 
   private OutboxEventMapper() {}
@@ -32,11 +44,18 @@ final class OutboxEventMapper {
                 event.helpRequest().value(),
                 event.helpRequester().value(),
                 event.answerTitle(),
-                event.helpProviderType().name(),
+                HelpProviderType.fromValue(event.helpProviderType().name()),
                 event.helpProvider().map(CookId::value).orElse(null),
-                AnswerJsonMapper.toPayload(event.answer()),
-                event.helpRequestStatus().name(),
-                event.occurredAt())),
+                new PreparationStepExplanation(
+                    PreparationStepExplanationAnswerType.PREPARATION_STEP_EXPLANATION,
+                    event.answer().recipe().value(),
+                    event.answer().howToStep().value(),
+                    event.answer().description(),
+                    event.answer().images().stream().map(URI::toString).toList(),
+                    null),
+                HelpProvidedStatus.fromValue(event.helpRequestStatus().name()),
+                utc(event.occurredAt()),
+                null)),
         event.occurredAt());
   }
 
@@ -49,19 +68,34 @@ final class OutboxEventMapper {
                 event.helpRequestId().value(),
                 event.requester().value(),
                 event.title(),
-                event.type().name(),
+                HelpType.fromValue(event.type().name()),
                 event.description(),
                 event.recipe().value(),
                 event.howToStep().value(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 event.askedProviders().stream()
                     .map(
                         asked ->
-                            new AskedProviderPayload(
-                                asked.providerType().name(), asked.deadline()))
+                            new AskedProvider(
+                                HelpProviderType.fromValue(asked.providerType().name()),
+                                null,
+                                utc(asked.deadline()),
+                                null))
                     .toList(),
-                event.status().name(),
-                event.occurredAt())),
+                null,
+                HelpRequestCreatedStatus.fromValue(event.status().name()),
+                utc(event.occurredAt()),
+                null)),
         event.occurredAt());
+  }
+
+  private static OffsetDateTime utc(Instant instant) {
+    return instant.atOffset(ZoneOffset.UTC);
   }
 
   private static String json(Object payload) {
@@ -71,33 +105,4 @@ final class OutboxEventMapper {
       throw new IllegalStateException("Cannot write the event payload as JSON", e);
     }
   }
-
-  /** AsyncAPI HelpRequestCreatedPayload. */
-  record HelpRequestCreatedPayload(
-      UUID helpRequestId,
-      UUID requester,
-      String title,
-      String type,
-      String description,
-      UUID recipe,
-      UUID howToStep,
-      List<AskedProviderPayload> askedProviders,
-      String status,
-      Instant occurredAt) {}
-
-  /** AsyncAPI HelpProvidedPayload; helpProvider absent for the Grandma Avatar. */
-  @JsonInclude(JsonInclude.Include.NON_NULL)
-  record HelpProvidedPayload(
-      UUID helpId,
-      UUID helpRequest,
-      UUID helpRequester,
-      String answerTitle,
-      String helpProviderType,
-      UUID helpProvider,
-      AnswerJsonMapper.PreparationStepExplanationJson answer,
-      String helpRequestStatus,
-      Instant occurredAt) {}
-
-  /** AsyncAPI AskedProvider. */
-  record AskedProviderPayload(String providerType, Instant deadline) {}
 }
