@@ -27,3 +27,5 @@
 - B1: Red 401 on the probes as predicted (fresh report); Green larder-app ProbeSecurity (own chain for /actuator/health/**, highest precedence) + probes enabled, only health exposed. Acceptance unaffected.
 - D1 OpenApiExamplesIT: green on activation (a zsh "no matches" in my report helper aborted the first script — rerun); trial empty HelpLink → D1 fails "against HelpLink", acceptance green — as predicted.
 - D2 AsyncApiContractIT: green on activation; trial invalid messages acked → DLQ expected 1 but was 0 — as predicted. All trial runs on clean builds with fresh reports.
+- E1 ArchitectureRulesTest (QS-02): green on activation; gate trial @Component on HelpRequestId → rule 1 violated naming it — as predicted.
+- E2 CorrelationIT (QS-14 short check): green on activation; trial correlationId = messageId → fails on the header — as predicted.
