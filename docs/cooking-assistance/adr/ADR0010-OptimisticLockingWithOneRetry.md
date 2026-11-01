@@ -24,7 +24,7 @@ serializes all writers; risks waits
 
 ## Consequences
 
-- A second conflict answers 409 INVALID_STATE (REST) or redelivers (messaging)
+- A second conflict answers 409 CONCURRENT_UPDATE (REST) or redelivers (messaging) *(corrected 2026-11-01, reverse check of increment 0: INVALID_STATE is the lifecycle rejection)*
 
 ## Principles
 —

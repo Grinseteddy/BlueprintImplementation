@@ -31,3 +31,11 @@ AP0003
 
 ## Quality scenarios
 QS-01, QS-02
+
+## Addition (steps 8–10, increment 0, recorded 2026-11-01 by the reverse check)
+
+- The domain lives in the sub-package `domain.helprequest` (one package per aggregate).
+- `adapter.config` holds the composition of use cases, clock and ID generator (`ApplicationConfiguration`).
+- `adapter.messaging` holds what the inbound and outbound messaging adapters share: the AsyncAPI contract (`AsyncApiContract`).
+- `adapter.out.id` holds the UUIDv7 ID generator (ADR0011) behind the application's `IdGenerator` port.
+- The ArchUnit rules treat all of them as adapters (`..adapter..`): domain and application import none of them.
