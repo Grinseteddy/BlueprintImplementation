@@ -5,7 +5,7 @@ Feature: As a Cook, I want to ask a help provider for Help with a Meal Preparati
 
   Rule: R1 — Help with a preparation step goes to the Community and/or Grandma Avatar, never to a Chef; every Cook can ask
 
-    @B3-S01 @INV-01 @R1.E1 @wip
+    @B3-S01 @INV-01 @R1.E1
     Scenario: Lena asks Grandma about step 4 of her Hollandaise
       When Lena asks Grandma Avatar about step 4 of her Hollandaise
       Then Grandma Avatar receives the request about step 4

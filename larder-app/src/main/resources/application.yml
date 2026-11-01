@@ -1,0 +1,17 @@
+# Larder: one process, its modules wired here (ADR0001, ADR0007). Secrets and endpoints only from the environment (ADR0019).
+spring:
+  application:
+    name: larder
+  # Cook Assistance owns schema cooking_assistance (ADR0002, ADR0009)
+  flyway:
+    schemas: cooking_assistance
+    default-schema: cooking_assistance
+    locations: classpath:db/cooking-assistance/migration
+  datasource:
+    hikari:
+      schema: cooking_assistance
+
+# Cook Assistance: the identity provider's signing keys (ADR0012)
+cooking-assistance:
+  security:
+    jwk-set-uri: ${LARDER_JWKS_URI}
