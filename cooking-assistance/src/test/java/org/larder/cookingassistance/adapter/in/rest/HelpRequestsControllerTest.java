@@ -104,6 +104,19 @@ class HelpRequestsControllerTest {
     assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID)).isEmpty();
   }
 
+  @DisplayName("title missing -> the 400 VALIDATION_FAILED names the violation in detail -- B3-S01 US-CA-03 op createHelpRequest")
+  @Test
+  void validationFailureNamesTheViolation() throws Exception {
+    mvc.perform(
+            post("/help-requests")
+                .header(AUTHORIZATION, LENA_AS_COOK)
+                .header("version", "1.0.2")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(LENAS_REQUEST.replace("\"title\": \"Sauce splits\",", "")))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.detail").value(containsString("title")));
+  }
+
   @DisplayName("type \"COOKIE\" -> 400 VALIDATION_FAILED, nothing saved -- B3-S01 US-CA-03 op createHelpRequest")
   @Test
   void invalidTypeIsRejected() throws Exception {

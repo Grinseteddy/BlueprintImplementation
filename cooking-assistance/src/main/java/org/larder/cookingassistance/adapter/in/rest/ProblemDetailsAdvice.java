@@ -79,9 +79,12 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
         headers);
   }
 
+  /** The spec's own violation messages tell the client what to fix; they hold no internal data. */
   @ExceptionHandler(RequestValidationFailed.class)
-  ResponseEntity<Object> handleRequestValidationFailed() {
-    return validationFailed();
+  ResponseEntity<Object> handleRequestValidationFailed(RequestValidationFailed violations) {
+    ResponseEntity<Object> response = validationFailed();
+    ((ProblemDetail) response.getBody()).setDetail(violations.getMessage());
+    return response;
   }
 
   /** A domain rejection keeps its code and carries its rule id (error map of the OpenAPI spec). */
