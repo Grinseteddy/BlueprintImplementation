@@ -45,3 +45,27 @@
 - A17: Red 500 (placeholder + catch-all) as predicted; Green NotImplemented in the 3 unbuilt methods.
 - Step 4 r4 (approved): global security help:read only → OpenAPI 1.0.3; Spectral no errors. GET → SCOPE_help:read rule on the planned list for step 11.
 - Unit A: 20/20 (17 planned + A11b, A15b, A15c). Paused by the user after unit A; nothing committed since b6d94a2.
+
+## Resume 2026-11-01
+- verify green (33 + 3 skipped) as predicted; 4 commits 7d5ea33, 0990170, 7a267fe, db61d23.
+
+## Cycles (HelpsControllerTest)
+- B1: Red 404 as predicted; Green HelpsController (5 unbuilt → NotImplemented) + HelpMapper; compile gate caught a wrong listHelps signature (fixed). Refactor: Links.absolute shared by both mappers.
+- B1b added (approved): Red 500 (images null → NPE) as predicted — first removal string did not match the text block indentation, fixed with replaceAll before the run; Green absent images → empty list.
+- B2–B5: each green on activation (run per activation); trial validator off → all stay green as predicted (double guard: bean validation / Jackson).
+- B6: Red 500 as predicted; Green HelpRequestNotFound → 404.
+- B7: Red 500 as predicted; Green DomainRejection handler (403, code, rule). B8 green on activation; trial status 422 → B7 and B8 fail, as predicted. B9: Red 403 → Green INVALID_STATE 409. B10: Red 403 → Green status table (403 actor rules, 409 state, 422 rest; spec P11).
+- B11: Red 500 as predicted; Green ConcurrencyConflict → 409 CONCURRENT_UPDATE.
+- B12: green on activation; trial mapper always COMMUNITY → only B12 fails (201), as predicted. B13: green; trial NotAuthorized → 401 → A15, A15b, B12, B13 fail, as predicted.
+- B14: Red 500 (ClassCastException) as predicted; Green pattern switch over the answer kind in HelpMapper.
+- B15: green; trial exact path matcher → only B15 fails (201), as predicted. B16: green; trial no catch-all → A16 and B16 error, as predicted. B17 (7 parameterized): green; trial no 501 handler → 7 B17 cases + A9, A17, B14 fail, as predicted.
+- Unit B: 18/18 (17 planned + B1b), 0 behavioral mismatches.
+- Unit C (renamed ProblemDetailsAdviceTest to match the class): C1 (9 cases) green on activation; trial default 403 → 6 × 422 cases + B10 fail, as predicted. 1/1.
+- Unit D: D1 Red no $.code → handleNoResourceFoundException; D2 Red no $.code (status and Allow already right) → 405 override keeping Allow; D3 Red no $.code → 415 override keeping Accept; D4 Red 500 as predicted (revised at activation from "green": networknt parsed the body first, "Invalid input", confirmed in the log) → body advice parses with Jackson, unparsable → RequestValidationFailed. Refactor: problem(..., headers). 4/4.
+- Unit E (GrandmaHelpProvidedConsumerTest): scaffold Outcome + handle returning null. E1 Red "expected ACK but was null" → Jackson into the generated record + GrandmaAnswerMapper (anticorruption) → ACK. E2 Red ACK (title missing stored) → AsyncApiContract (draft-07, formats) + InvalidMessage → DEAD_LETTER. E3 Red NPE → MessageHeader validation. E4 green; trial formats off → error "Invalid UUID string: abc" as predicted (format proof promised at A5). E5 Red UncheckedIOException(JsonParseException) → unparsable → InvalidMessage. E6 green; trial random messageId → E6 fails (2 helps) as predicted, **mismatch: E1 failed too** (E1 also asserts M1 recorded — prediction incomplete). E7 Red HelpRequestNotFound → DEAD_LETTER; E8 Red ProviderNotAsked → DomainRejection DEAD_LETTER; E9 Red RuntimeException → RETRY (logged without payload); E10 Red RETRY (ClassCastException caught) → type switch + AnswerKindNotBuilt → DEAD_LETTER. 10/10.
+- Unit F: scaffold empty MessageConsumers registry; Red "could not find consumeGrandmaHelpProvided" → registered; gate trial (made-up receive operation in the spec) fails as predicted; spec restored from git. 1/1.
+- Unit G (InboundWiringIT; PersistenceTestApplication and PostgresTestContainer made public): G1 green, trial no @RestController → 404 as predicted; G2 green, trial on HelpsController → only G2 404; G3 Red NoSuchBeanDefinitionException → @Component on the consumer. 3/3.
+- Finish: verify ×2 green; a "1 skipped" in my sum was a stale report of the renamed ProblemMapperTest (no class) — clean verify: 105 fast + 32 slow, 0 skipped. Generation reproducible (0 diff). REST gate trial: made-up operation → compile error in HelpRequestsController; spec restored. Leak grep: none. 8 ifs in adapter/in — all contract or token checks.
+- Slice refactoring B3-S01 (isolated agent): kept notFound(), OpenApiContract.operationServedBy(handler), AcceptedTokens (ADR0012 token policy out of SecurityConfiguration); tests unchanged; clean verify green. Proposals: rejection category in the domain → inc 1 (with NOT_REQUESTER); NoHelpProviderChosen code VALIDATION_FAILED would answer 422 via the domain vs 400 in the spec (unreachable over REST) → inc 1; violation messages unused → A2b added (approved): Red no $.detail → Green detail = schema violations.
+- Slice refactoring B3-S02 (isolated agent): kept Outcome javadoc; undid ADR0015 classification in Outcome; tests unchanged; clean verify ×2 green (106 fast + 32 slow).
+- Step 9 approved 2026-11-01; commits 31e7177, 66a0199, b8cc093, 5505893 (intermediate states rebuilt from the refactor snapshots; the refactor state passed the fast suite).
