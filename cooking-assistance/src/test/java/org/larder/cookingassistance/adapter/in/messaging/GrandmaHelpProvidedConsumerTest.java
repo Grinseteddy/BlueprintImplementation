@@ -103,6 +103,16 @@ class GrandmaHelpProvidedConsumerTest {
   }
 
   @DisplayName(
+      "valid message whose source is not grandma-avatar -> DEAD_LETTER, nothing changed -- B3-S02 US-CA-03 OWASP-API10 op consumeGrandmaHelpProvided")
+  @Test
+  void messageFromAnotherSourceIsDeadLettered() {
+    Map<String, Object> fromElsewhere = new HashMap<>(HEADERS);
+    fromElsewhere.put("source", "evil-system");
+
+    expectDeadLetteredWithoutEffect(fromElsewhere, bytes(GRANDMAS_ANSWER));
+  }
+
+  @DisplayName(
       "answerTitle missing -> DEAD_LETTER, nothing changed -- B3-S02 US-CA-03 op consumeGrandmaHelpProvided")
   @Test
   void missingAnswerTitleIsDeadLettered() {

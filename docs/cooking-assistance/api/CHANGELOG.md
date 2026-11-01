@@ -1,5 +1,11 @@
 # Cook Assistance API — changelog
 
+## AsyncAPI 1.0.3 — 2026-11-01 (step 4 r7, from step 14 of increment 0)
+
+| Change | Why |
+|---|---|
+| `GrandmaHelpProvided` headers use the new `GrandmaMessageHeader`: `MessageHeader` with `source` fixed to `grandma-avatar` | security review SEC-08: a message from another source was processed. Narrowing for producers other than the Grandma Avatar, who never had the right to send it |
+
 ## OpenAPI 1.0.5 — 2026-11-01 (step 4 r6, from step 13 of increment 0)
 
 | Change | Why |

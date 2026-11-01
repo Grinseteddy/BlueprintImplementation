@@ -1,6 +1,8 @@
 package org.larder.cookingassistance.adapter.in.rest;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
@@ -23,6 +25,8 @@ final class AcceptedTokens {
         JwtValidators.createDefaultWithIssuer(ISSUER),
         new JwtClaimValidator<List<String>>(
             JwtClaimNames.AUD, audience -> audience != null && audience.contains(AUDIENCE)),
+        // ADR0012: every token expires; the default timestamp check skips a missing exp
+        new JwtClaimValidator<Instant>(JwtClaimNames.EXP, Objects::nonNull),
         // ADR0012: the subject is the cook id
         new JwtClaimValidator<String>(JwtClaimNames.SUB, AcceptedTokens::isUuid));
   }

@@ -5,20 +5,34 @@ import static org.hamcrest.Matchers.containsString;
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.larder.cookingassistance.fixtures.HelpRequests;
 import org.larder.cookingassistance.fixtures.TestSigningKeys;
 import org.larder.cookingassistance.fixtures.TestTokens;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -97,5 +111,91 @@ class EdgeTest {
         .andExpect(status().isNotAcceptable())
         .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
         .andExpect(jsonPath("$.code").value("NOT_ACCEPTABLE"));
+  }
+
+  @DisplayName(
+      "HEAD /help-requests/{id} with scope help:write only -> 403 INSUFFICIENT_SCOPE -- B3-S01 US-CA-03 OWASP-API5 ADR0013 op getHelpRequestById")
+  @Test
+  void headNeedsTheReadScope() throws Exception {
+    mvc.perform(
+            head("/help-requests/{id}", HelpRequests.HELP_REQUEST_ID.value())
+                .header(
+                    AUTHORIZATION,
+                    TestTokens.forCook(HelpRequests.LENA)
+                        .roles("cook")
+                        .scope("help:write")
+                        .bearer())
+                .header("version", "1.0.3"))
+        .andExpect(status().isForbidden());
+  }
+
+  @DisplayName(
+      "OPTIONS /help-requests/{id} -> 405 METHOD_NOT_ALLOWED Problem with Allow: GET, never 500 -- B3-S01 US-CA-03 OWASP-A10 edge")
+  @Test
+  void optionsIsNotAllowed() throws Exception {
+    mvc.perform(
+            options("/help-requests/{id}", HelpRequests.HELP_REQUEST_ID.value())
+                .header(AUTHORIZATION, LENA)
+                .header("version", "1.0.3"))
+        .andExpect(status().isMethodNotAllowed())
+        .andExpect(header().string("Allow", containsString("GET")))
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"));
+  }
+
+  /** Every operation of the spec with its method, a concrete path and the scope it requires. */
+  static Stream<String[]> specOperations() throws Exception {
+    JsonNode spec;
+    try (InputStream in =
+        EdgeTest.class
+            .getClassLoader()
+            .getResourceAsStream("api/cooking-assistance.openapi.yaml")) {
+      spec = new ObjectMapper(new YAMLFactory()).readTree(in);
+    }
+    String someId = UUID.randomUUID().toString();
+    List<String[]> operations = new ArrayList<>();
+    spec.get("paths")
+        .fields()
+        .forEachRemaining(
+            path ->
+                path.getValue()
+                    .fields()
+                    .forEachRemaining(
+                        operation -> {
+                          JsonNode security =
+                              operation.getValue().has("security")
+                                  ? operation.getValue().get("security")
+                                  : spec.get("security");
+                          operations.add(
+                              new String[] {
+                                operation.getKey().toUpperCase(java.util.Locale.ROOT),
+                                path.getKey().replaceAll("\\{[^}]+}", someId),
+                                security.get(0).get("oAuth2").get(0).asText(),
+                                operation.getValue().get("operationId").asText()
+                              });
+                        }));
+    return operations.stream();
+  }
+
+  @DisplayName(
+      "every spec operation called with a token lacking its scope -> 403 INSUFFICIENT_SCOPE -- B3-S01,B3-S02 US-CA-03 OWASP-API5 ADR0013 (D-07 gate)")
+  @ParameterizedTest(name = "{3}: {0} {1} without {2}")
+  @MethodSource("specOperations")
+  void everyOperationRequiresItsScope(
+      String method, String path, String requiredScope, String operationId) throws Exception {
+    String otherScope = requiredScope.equals("help:read") ? "help:write" : "help:read";
+    mvc.perform(
+            request(HttpMethod.valueOf(method), path)
+                .header(
+                    AUTHORIZATION,
+                    TestTokens.forCook(HelpRequests.LENA)
+                        .roles("cook", "community")
+                        .scope(otherScope)
+                        .bearer())
+                .header("version", "1.0.3")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("INSUFFICIENT_SCOPE"));
   }
 }

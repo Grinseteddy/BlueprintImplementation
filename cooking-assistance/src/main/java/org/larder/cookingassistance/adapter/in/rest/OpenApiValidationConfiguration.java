@@ -5,7 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-/** Registers the runtime validation of request parameters against the approved OpenAPI spec. */
+/** Registers the runtime enforcement of the approved OpenAPI spec on requests at the edge. */
 @Configuration
 class OpenApiValidationConfiguration implements WebMvcConfigurer {
 
@@ -16,6 +16,7 @@ class OpenApiValidationConfiguration implements WebMvcConfigurer {
 
   @Override
   public void addInterceptors(InterceptorRegistry registry) {
+    registry.addInterceptor(new OpenApiOptionsRefusal(openApiContract()));
     registry.addInterceptor(new OpenApiParameterValidation(openApiContract()));
   }
 }

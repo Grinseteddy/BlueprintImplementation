@@ -20,9 +20,9 @@ final class AsyncApiMessageReader {
       new ObjectMapper().disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
   private final AsyncApiContract contract = new AsyncApiContract();
 
-  /** The headers, validated against the spec's MessageHeader schema. */
-  void validateHeaders(Map<String, Object> headers) {
-    validate("MessageHeader", json.valueToTree(headers));
+  /** The headers, validated against the message's header schema in the spec. */
+  void validateHeaders(Map<String, Object> headers, String schemaName) {
+    validate(schemaName, json.valueToTree(headers));
   }
 
   /** The payload, validated against its component schema before it is mapped. */

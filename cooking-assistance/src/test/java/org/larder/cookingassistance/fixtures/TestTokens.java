@@ -81,6 +81,12 @@ public final class TestTokens {
     return this;
   }
 
+  /** A token that carries no exp claim at all. */
+  public TestTokens withoutExpiry() {
+    this.expiresAt = null;
+    return this;
+  }
+
   public String bearer() {
     JWTClaimsSet claims =
         new JWTClaimsSet.Builder()
@@ -90,8 +96,8 @@ public final class TestTokens {
             .claim("roles", withRoles ? roles : null)
             .claim("premium", false)
             .claim("scope", scope)
-            .issueTime(Date.from(expiresAt.minusSeconds(600)))
-            .expirationTime(Date.from(expiresAt))
+            .issueTime(Date.from(Instant.now().minusSeconds(300)))
+            .expirationTime(expiresAt == null ? null : Date.from(expiresAt))
             .build();
     SignedJWT jwt =
         new SignedJWT(

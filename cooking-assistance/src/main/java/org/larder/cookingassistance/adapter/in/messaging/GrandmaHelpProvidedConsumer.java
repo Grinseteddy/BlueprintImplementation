@@ -27,7 +27,7 @@ public class GrandmaHelpProvidedConsumer {
 
   public Outcome handle(Map<String, Object> headers, byte[] body) {
     try {
-      messages.validateHeaders(headers);
+      messages.validateHeaders(headers, "GrandmaMessageHeader");
       GrandmaHelpProvidedPayload payload =
           messages.readPayload(
               body, "GrandmaHelpProvidedPayload", GrandmaHelpProvidedPayload.class);

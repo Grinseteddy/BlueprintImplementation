@@ -13,7 +13,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Method;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -50,6 +53,22 @@ final class OpenApiContract {
       }
     }
     throw new IllegalStateException("operation " + operationId + " is not in the spec");
+  }
+
+  /** The methods the spec declares for a request path, matched against its path templates. */
+  Set<String> methodsDeclaredFor(String requestPath) {
+    Set<String> methods = new TreeSet<>();
+    spec.get("paths")
+        .fields()
+        .forEachRemaining(
+            path -> {
+              if (requestPath.matches(path.getKey().replaceAll("\\{[^}]+}", "[^/]+"))) {
+                path.getValue()
+                    .fieldNames()
+                    .forEachRemaining(m -> methods.add(m.toUpperCase(Locale.ROOT)));
+              }
+            });
+    return methods;
   }
 
   /** The JSON pointer a local reference ({@code #/components/...}) points to. */

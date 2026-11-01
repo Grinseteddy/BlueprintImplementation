@@ -32,6 +32,9 @@ import org.springframework.security.web.access.AccessDeniedHandler;
 @Configuration
 class SecurityConfiguration {
 
+  /** The paths of the read operations, which the spec guards with help:read. */
+  private static final String[] READ_PATHS = {"/help-requests", "/help-requests/**", "/helps"};
+
   @Bean
   SecurityFilterChain api(HttpSecurity http, ObjectMapper json) throws Exception {
     return http.csrf(AbstractHttpConfigurer::disable)
@@ -43,8 +46,10 @@ class SecurityConfiguration {
                 requests
                     .requestMatchers(HttpMethod.POST, "/help-requests/**")
                     .hasAuthority("SCOPE_help:write")
-                    .requestMatchers(
-                        HttpMethod.GET, "/help-requests", "/help-requests/**", "/helps")
+                    .requestMatchers(HttpMethod.GET, READ_PATHS)
+                    .hasAuthority("SCOPE_help:read")
+                    // Spring MVC serves HEAD with the GET handler: it reads like a GET (OWASP-API5)
+                    .requestMatchers(HttpMethod.HEAD, READ_PATHS)
                     .hasAuthority("SCOPE_help:read")
                     .anyRequest()
                     .authenticated())

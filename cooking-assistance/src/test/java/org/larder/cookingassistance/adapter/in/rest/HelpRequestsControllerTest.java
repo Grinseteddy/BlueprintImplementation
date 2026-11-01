@@ -266,6 +266,18 @@ class HelpRequestsControllerTest {
   }
 
   @DisplayName(
+      "correctly signed token without exp -> 401 UNAUTHENTICATED, nothing saved -- B3-S01 US-CA-03 OWASP-API2 ADR0012 op createHelpRequest")
+  @Test
+  void tokenWithoutExpiryIsUnauthenticated() throws Exception {
+    expectUnauthenticated(
+        TestTokens.forCook(HelpRequests.LENA)
+            .roles("cook")
+            .scope("help:write")
+            .withoutExpiry()
+            .bearer());
+  }
+
+  @DisplayName(
       "token whose sub is not a UUID -> 401 UNAUTHENTICATED -- B3-S01 US-CA-03 ADR0012 op createHelpRequest")
   @Test
   void subjectThatIsNoUuidIsUnauthenticated() throws Exception {
