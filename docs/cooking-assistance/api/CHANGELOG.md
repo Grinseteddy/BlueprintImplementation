@@ -1,5 +1,17 @@
 # Cook Assistance API — changelog
 
+## AsyncAPI 1.0.4 — 2026-11-01 (step 4 r8, from step 14 of increment 0)
+
+| Change | Why |
+|---|---|
+| `images` of PreparationStepExplanation and CatastropheMitigation must match `^https://` | security review SEC-07: non-https picture links from the Grandma Avatar were stored and republished. Narrowing, aligned with OpenAPI 1.0.6 |
+
+## OpenAPI 1.0.6 — 2026-11-01 (step 4 r8, from step 14 of increment 0)
+
+| Change | Why |
+|---|---|
+| `Pictures` items must match `^https://`; `INVALID_PICTURE_LINK` named in the `Problem.code` description (422, INV-38); `version` header accepts 1.0.6 | security review SEC-07: `javascript:`, `file:` and metadata URLs were stored and republished as picture links. Narrowing: such links were never meant to be valid |
+
 ## AsyncAPI 1.0.3 — 2026-11-01 (step 4 r7, from step 14 of increment 0)
 
 | Change | Why |

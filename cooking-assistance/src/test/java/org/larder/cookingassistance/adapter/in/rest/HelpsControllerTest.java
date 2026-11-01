@@ -174,6 +174,14 @@ class HelpsControllerTest {
     expectValidationFailed(JONAS_ANSWER.replace("\"images\": []", "\"images\": " + elevenImages()));
   }
 
+  @DisplayName(
+      "image link javascript:alert(1) -> 400 VALIDATION_FAILED, nothing saved (schema: https only) -- B3-S02 US-CA-03 INV-38 OWASP-API10 op provideHelp")
+  @Test
+  void nonHttpsImageIsRejected() throws Exception {
+    expectValidationFailed(
+        JONAS_ANSWER.replace("\"images\": []", "\"images\": [\"javascript:alert(1)\"]"));
+  }
+
   @DisplayName("unknown help request -> 404 NOT_FOUND -- B3-S02 US-CA-03 op provideHelp")
   @Test
   void unknownHelpRequestIsNotFound() throws Exception {

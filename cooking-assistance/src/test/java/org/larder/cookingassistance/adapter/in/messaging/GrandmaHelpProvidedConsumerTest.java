@@ -113,6 +113,17 @@ class GrandmaHelpProvidedConsumerTest {
   }
 
   @DisplayName(
+      "Grandma's answer with a javascript: picture link -> DEAD_LETTER, nothing changed -- B3-S02 US-CA-03 INV-38 OWASP-API10 op consumeGrandmaHelpProvided")
+  @Test
+  void nonHttpsPictureIsDeadLettered() {
+    String withScriptLink =
+        GRANDMAS_ANSWER.replace(
+            "\"description\":", "\"images\": [\"javascript:alert(1)\"],\n    \"description\":");
+
+    expectDeadLetteredWithoutEffect(HEADERS, bytes(withScriptLink));
+  }
+
+  @DisplayName(
       "answerTitle missing -> DEAD_LETTER, nothing changed -- B3-S02 US-CA-03 op consumeGrandmaHelpProvided")
   @Test
   void missingAnswerTitleIsDeadLettered() {

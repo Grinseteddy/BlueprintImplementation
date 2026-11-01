@@ -9,7 +9,7 @@ info:
 
     Clients must be tolerant readers: ignore unknown fields and handle unknown enum values
     (status, type and error codes can grow in later minor versions).
-  version: 1.0.5
+  version: 1.0.6
   contact:
     name: Annegret Junker
     email: annegret.junker@larder.org
@@ -468,8 +468,8 @@ components:
       description: Version of the API the client was built against.
       schema:
         type: string
-        default: "1.0.5"
-        enum: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5"]
+        default: "1.0.6"
+        enum: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6"]
 
   schemas:
     HelpType:
@@ -525,11 +525,12 @@ components:
       uniqueItems: true
 
     Pictures:
-      description: Links to pictures (0..10).
+      description: Links to pictures (0..10), https only.
       type: array
       items:
         type: string
         format: uri
+        pattern: '^https://'
       maxItems: 10
       examples:
         - - https://larder.org/media/images/b009a5d1-0205-4b0c-af82-822229cf243a
@@ -1379,6 +1380,7 @@ components:
         code:
           description: |
             Machine-readable domain error code, e.g. CHEF_NOT_ALLOWED, MISSING_FIELD, FIELD_NOT_ALLOWED, TOO_MANY_PICTURES,
+            INVALID_PICTURE_LINK,
             NOT_PREMIUM, OCCASION_TOO_CLOSE, CHEF_UNAVAILABLE, OWN_REQUEST, PROVIDER_NOT_ASKED, NOT_REQUESTER,
             INVALID_STATE, ANSWER_DOES_NOT_MATCH_REQUEST, SUBSTITUTE_REJECTED_BEFORE, VALIDATION_FAILED,
             CONCURRENT_UPDATE, NOT_AUTHORIZED, INSUFFICIENT_SCOPE, UNAUTHENTICATED, NOT_FOUND, METHOD_NOT_ALLOWED,

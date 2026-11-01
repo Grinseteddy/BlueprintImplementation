@@ -463,6 +463,30 @@ class HelpRequestTest {
     }
 
     @DisplayName(
+        "Grandma's answer carries a javascript: picture link -> rejected with PictureLinkNotSecure (INV-38, code INVALID_PICTURE_LINK), no Help, no event -- B3-S02 US-CA-03 INV-38 OWASP-API10")
+    @Test
+    void pictureLinksAreHttpsOnly() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+
+      assertThatThrownBy(
+              () ->
+                  request.provideHelp(
+                      HELP_ID,
+                      HelpProvider.grandmaAvatar(),
+                      "Butter",
+                      explanationWith(List.of(URI.create("javascript:alert(1)"))),
+                      FRIDAY_18_10))
+          .isInstanceOfSatisfying(
+              PictureLinkNotSecure.class,
+              rejection -> {
+                assertThat(rejection.rule()).isEqualTo("INV-38");
+                assertThat(rejection.code()).isEqualTo("INVALID_PICTURE_LINK");
+              });
+      assertThat(request.helps()).isEmpty();
+      assertThat(request.pullEvents()).noneMatch(HelpProvided.class::isInstance);
+    }
+
+    @DisplayName(
         "Lena tries to answer her own request about step 4 -> rejected with OwnRequest (INV-36, code OWN_REQUEST), no Help -- B3-S02 US-CA-03 INV-36 S3.E1")
     @Test
     void aCookNeverAnswersTheirOwnRequest() {

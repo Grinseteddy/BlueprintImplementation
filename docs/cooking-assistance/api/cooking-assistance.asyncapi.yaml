@@ -1,7 +1,7 @@
 asyncapi: 3.0.0
 info:
   title: Cooking Assistance
-  version: 1.0.3
+  version: 1.0.4
   description: |
     Event-driven API of the Cooking Assistance bounded context. It provides help
     for cooks in planning and preparation of meals and dinners: cooks create help
@@ -1017,10 +1017,11 @@ components:
         images:
           type: array
           maxItems: 10
-          description: Pictures illustrating the explanation (0..10)
+          description: Pictures illustrating the explanation (0..10), https links only
           items:
             type: string
             format: uri
+            pattern: '^https://'
 
     CatastropheMitigation:
       type: object
@@ -1048,10 +1049,11 @@ components:
         images:
           type: array
           maxItems: 10
-          description: Pictures illustrating the rescue (0..10)
+          description: Pictures illustrating the rescue (0..10), https links only
           items:
             type: string
             format: uri
+            pattern: '^https://'
 
     MenuProposal:
       type: object

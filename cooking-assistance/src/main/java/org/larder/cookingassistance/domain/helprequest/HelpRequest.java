@@ -163,7 +163,7 @@ public final class HelpRequest {
     ensureOpenForAnswers();
     ensureProviderWasAsked(provider);
     ensureNotOwnRequest(provider);
-    ensureAtMostTenPictures(answer.images());
+    ensurePicturesMayBeAttached(answer.images());
     ensureAnswerMatchesRequest(answer);
     helps.add(new Help(helpId, provider, answerTitle, answer));
     status = HelpRequestStatus.ANSWERED;
@@ -222,11 +222,19 @@ public final class HelpRequest {
     }
   }
 
-  // INV-38: a request or an answer carries at most 10 pictures
-  private static void ensureAtMostTenPictures(List<URI> pictures) {
+  // INV-38: a request or an answer carries at most 10 pictures, each an https link
+  // (security review SEC-07)
+  private static void ensurePicturesMayBeAttached(List<URI> pictures) {
     if (pictures.size() > MAX_PICTURES) {
       throw new TooManyPictures();
     }
+    if (!pictures.stream().allMatch(HelpRequest::isHttpsLink)) {
+      throw new PictureLinkNotSecure();
+    }
+  }
+
+  private static boolean isHttpsLink(URI picture) {
+    return "https".equalsIgnoreCase(picture.getScheme());
   }
 
   public HelpRequestId id() {
