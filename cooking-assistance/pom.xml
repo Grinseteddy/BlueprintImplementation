@@ -147,7 +147,8 @@
                 <openApiNullable>false</openApiNullable>
                 <documentationProvider>none</documentationProvider>
                 <annotationLibrary>none</annotationLibrary>
-                <generateJsonIncludeAnnotations>false</generateJsonIncludeAnnotations>
+                <generateJsonIncludeAnnotations>true</generateJsonIncludeAnnotations>
+                <containerDefaultToNull>true</containerDefaultToNull>
                 <generateJsonSetterNullsAnnotations>false</generateJsonSetterNullsAnnotations>
                 <hideGenerationTimestamp>true</hideGenerationTimestamp>
               </configOptions>
