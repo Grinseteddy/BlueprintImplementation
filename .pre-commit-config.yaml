@@ -1,0 +1,31 @@
+# Hooks of ADR0018: format, secret scan, commit message, API lint. Install once with: pre-commit install --hook-type pre-commit --hook-type commit-msg
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.28.0
+    hooks:
+      - id: gitleaks
+  - repo: local
+    hooks:
+      - id: commitlint
+        name: commitlint (conventional commits)
+        entry: npx -y @commitlint/cli@19.8.1 --edit
+        language: system
+        stages: [commit-msg]
+      - id: spotless-check
+        name: spotless check (google-java-format)
+        entry: ./mvnw -q spotless:check
+        language: system
+        types: [java]
+        pass_filenames: false
+      - id: spectral-openapi
+        name: spectral lint (OpenAPI)
+        entry: npx -y @stoplight/spectral-cli@6.11.1 lint docs/cooking-assistance/api/cooking-assistance.openapi.yaml -r docs/cooking-assistance/api/rulesets/openapi-house-style.spectral.yaml --fail-severity error
+        language: system
+        files: ^docs/cooking-assistance/api/
+        pass_filenames: false
+      - id: spectral-asyncapi
+        name: spectral lint (AsyncAPI)
+        entry: npx -y @stoplight/spectral-cli@6.11.1 lint docs/cooking-assistance/api/cooking-assistance.asyncapi.yaml -r docs/cooking-assistance/api/rulesets/asyncapi.spectral.yaml --fail-severity error
+        language: system
+        files: ^docs/cooking-assistance/api/
+        pass_filenames: false
