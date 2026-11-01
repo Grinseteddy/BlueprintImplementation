@@ -15,6 +15,7 @@ import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -51,16 +52,31 @@ public class AcceptanceDriver {
   }
 
   ResponseEntity<String> post(String path, CookId cook, String roles, String body) {
-    return RestClient.create("http://localhost:" + port)
-        .post()
-        .uri(path)
-        .header("Authorization", TestTokens.forCook(cook).roles(roles.split(",")).scope("help:read help:write").bearer())
-        .header("version", "1.0.4")
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(body)
-        .retrieve()
-        .onStatus(HttpStatusCode::isError, (request, response) -> {})
-        .toEntity(String.class);
+    return send(HttpMethod.POST, path, cook, roles, body);
+  }
+
+  ResponseEntity<String> get(String path, CookId cook, String roles) {
+    return send(HttpMethod.GET, path, cook, roles, null);
+  }
+
+  /** Any request as the cook, with both scopes; error statuses are returned, not thrown. */
+  ResponseEntity<String> send(HttpMethod method, String path, CookId cook, String roles, String body) {
+    RestClient.RequestBodySpec request =
+        RestClient.create("http://localhost:" + port)
+            .method(method)
+            .uri(path)
+            .header(
+                "Authorization",
+                TestTokens.forCook(cook).roles(roles.split(",")).scope("help:read help:write").bearer())
+            .header("version", "1.0.4");
+    if (body != null) {
+      request = request.contentType(MediaType.APPLICATION_JSON).body(body);
+    }
+    return request.retrieve().onStatus(HttpStatusCode::isError, (req, response) -> {}).toEntity(String.class);
+  }
+
+  JsonNode json(ResponseEntity<String> response) {
+    return read(response.getBody().getBytes(java.nio.charset.StandardCharsets.UTF_8));
   }
 
   /** No message on the channel: the only fixed wait of the suite, since absence has no event. */

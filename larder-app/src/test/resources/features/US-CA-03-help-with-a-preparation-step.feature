@@ -28,17 +28,17 @@ Feature: As a Cook, I want to ask a help provider for Help with a Meal Preparati
 
   Rule: R2 — A request can only have one step: one numbered step of one recipe
 
-    @B3-S01 @INV-02 @R2.E1 @wip
+    @B3-S01 @INV-02 @R2.E1
     Scenario: Lena's request shows the recipe, the step and her question
       When Lena asks the Community "How do I keep the sauce from splitting?" about step 4 of her Hollandaise
       Then her request shows the Hollandaise, step 4 and her question
 
-    @B3-S01 @INV-02 @R2.E2 @wip
+    @B3-S01 @INV-02 @R2.E2
     Scenario: Unsure about steps 4 and 6 means two requests
       When Lena asks the Community about step 4 and about step 6 of her Hollandaise
       Then she has two requests, one about step 4 and one about step 6
 
-    @B3-S01 @INV-02 @R2.E3 @wip
+    @B3-S01 @INV-02 @R2.E3
     Scenario: Lena cannot add step 6 to her open request on step 4
       Given Lena asked the Community about step 4 of her Hollandaise
       When she tries to add step 6 to that request
@@ -46,7 +46,7 @@ Feature: As a Cook, I want to ask a help provider for Help with a Meal Preparati
 
   Rule: R3 — A request is text only
 
-    @B3-S01 @INV-03 @R3.E1 @wip
+    @B3-S01 @INV-03 @R3.E1
     Scenario: A photo cannot be attached to the request
       When Lena asks the Community about step 4 with a photo of the split sauce
       Then the request with the photo is refused

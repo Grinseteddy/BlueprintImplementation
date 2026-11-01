@@ -119,6 +119,105 @@ public class HelpRequestSteps {
     driver.noMessage(createdQueue);
   }
 
+  static final UUID STEP_6 = UUID.fromString("c3d4e5f6-a7b8-4c9d-8e0f-2a3b4c5d6e7f");
+  private final java.util.List<String> lenasRequests = new java.util.ArrayList<>();
+
+  private String lenaAsksTheCommunityAbout(UUID step, String question, String extra) {
+    ResponseEntity<String> created =
+        driver.post(
+            "/help-requests",
+            HelpRequests.LENA,
+            "cook",
+            """
+            {"title":"%s","type":"PREPARATION_STEP_EXPLANATION",
+             "description":"My Hollandaise keeps splitting","recipe":"%s","howToStep":"%s",
+             "preferredProvider":["COMMUNITY"]%s}"""
+                .formatted(question, HelpRequests.HOLLANDAISE.value(), step, extra));
+    lastResponse = created;
+    if (created.getStatusCode().value() == 201) {
+      lenasRequests.add(driver.json(created).get("helpRequestId").asText());
+    }
+    return created.getBody();
+  }
+
+  private JsonNode readRequest(String helpRequestId) {
+    ResponseEntity<String> read = driver.get("/help-requests/" + helpRequestId, HelpRequests.JONAS, "cook,community");
+    assertThat(read.getStatusCode().value()).isEqualTo(200);
+    return driver.json(read);
+  }
+
+  @io.cucumber.java.en.Given("Lena asked the Community about step {int} of her Hollandaise")
+  public void lenaAskedTheCommunity(int step) {
+    lenaAsksTheCommunityAbout(HelpRequests.STEP_4.value(), "Sauce splits", "");
+    assertThat(lastResponse.getStatusCode().value()).isEqualTo(201);
+  }
+
+  @When("Lena asks the Community {string} about step {int} of her Hollandaise")
+  public void lenaAsksTheCommunityAQuestion(String question, int step) {
+    lenaAsksTheCommunityAbout(HelpRequests.STEP_4.value(), question, "");
+    assertThat(lastResponse.getStatusCode().value()).isEqualTo(201);
+  }
+
+  @Then("her request shows the Hollandaise, step {int} and her question")
+  public void requestShowsRecipeStepAndQuestion(int step) {
+    JsonNode request = readRequest(lenasRequests.getLast());
+    assertThat(request.get("recipe").asText()).isEqualTo(HelpRequests.HOLLANDAISE.value().toString());
+    assertThat(request.get("howToStep").asText()).isEqualTo(HelpRequests.STEP_4.value().toString());
+    assertThat(request.get("title").asText()).isEqualTo("How do I keep the sauce from splitting?");
+  }
+
+  @When("Lena asks the Community about step {int} and about step {int} of her Hollandaise")
+  public void lenaAsksAboutTwoSteps(int first, int second) {
+    lenaAsksTheCommunityAbout(HelpRequests.STEP_4.value(), "Step 4", "");
+    lenaAsksTheCommunityAbout(STEP_6, "Step 6", "");
+  }
+
+  @Then("she has two requests, one about step {int} and one about step {int}")
+  public void twoRequestsOneStepEach(int first, int second) {
+    assertThat(lenasRequests).hasSize(2);
+    assertThat(readRequest(lenasRequests.get(0)).get("howToStep").asText())
+        .isEqualTo(HelpRequests.STEP_4.value().toString());
+    assertThat(readRequest(lenasRequests.get(1)).get("howToStep").asText()).isEqualTo(STEP_6.toString());
+  }
+
+  @When("she tries to add step {int} to that request")
+  public void sheTriesToAddAStep(int step) {
+    lastResponse =
+        driver.send(
+            org.springframework.http.HttpMethod.PATCH,
+            "/help-requests/" + lenasRequests.getLast(),
+            HelpRequests.LENA,
+            "cook",
+            "{\"howToStep\":\"" + STEP_6 + "\"}");
+  }
+
+  @Then("nothing is added: the request is still about step {int} only")
+  public void nothingIsAdded(int step) {
+    // the API offers no operation that changes a request (OpenAPI: no PATCH)
+    assertThat(lastResponse.getStatusCode().value()).isEqualTo(405);
+    assertThat(readRequest(lenasRequests.getLast()).get("howToStep").asText())
+        .isEqualTo(HelpRequests.STEP_4.value().toString());
+  }
+
+  @When("Lena asks the Community about step {int} with a photo of the split sauce")
+  public void lenaAsksWithAPhoto(int step) {
+    lenaAsksTheCommunityAbout(
+        HelpRequests.STEP_4.value(),
+        "Sauce splits",
+        ",\"pictures\":[\"https://larder.org/media/images/split-sauce\"]");
+  }
+
+  @Then("the request with the photo is refused")
+  public void requestWithPhotoIsRefused() {
+    assertThat(lastResponse.getStatusCode().value()).isEqualTo(400);
+  }
+
+  @io.cucumber.java.en.But("the same request without the photo is accepted")
+  public void sameRequestWithoutPhotoIsAccepted() {
+    lenaAsksTheCommunityAbout(HelpRequests.STEP_4.value(), "Sauce splits", "");
+    assertThat(lastResponse.getStatusCode().value()).isEqualTo(201);
+  }
+
   private static String request(String providers) {
     return """
         {"title":"How do I keep the sauce from splitting?","type":"PREPARATION_STEP_EXPLANATION",
