@@ -10,17 +10,17 @@ Feature: As a Cook, I want to ask a help provider for Help with a Meal Preparati
       When Lena asks Grandma Avatar about step 4 of her Hollandaise
       Then Grandma Avatar receives the request about step 4
 
-    @B3-S01 @INV-01 @R1.E2 @wip
+    @B3-S01 @INV-01 @R1.E2
     Scenario: Lena asks the Community and Grandma together
       When Lena asks the Community and Grandma Avatar about step 4 of her Hollandaise
       Then the Community and Grandma Avatar receive the same request
 
-    @B3-S01 @INV-01 @R1.E3 @wip
+    @B3-S01 @INV-01 @R1.E3
     Scenario: Tom on the free plan asks about step 2 of his bread
       When Tom, on the free plan, asks the Community about step 2 of his bread
       Then the request is sent to the Community
 
-    @B3-S01 @INV-01 @R1.E4 @wip
+    @B3-S01 @INV-01 @R1.E4
     Scenario: Marco, the chef who proposed the Hollandaise, is not offered
       When Lena asks chef Marco about step 4 of her Hollandaise
       Then the request is refused because a chef only helps with a menu proposal

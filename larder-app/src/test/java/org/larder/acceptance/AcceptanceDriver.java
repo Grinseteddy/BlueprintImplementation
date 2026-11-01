@@ -63,6 +63,14 @@ public class AcceptanceDriver {
         .toEntity(String.class);
   }
 
+  /** No message on the channel: the only fixed wait of the suite, since absence has no event. */
+  void noMessage(String queue) {
+    Message message = rabbit.receive(queue, 2_000);
+    if (message != null) {
+      throw new AssertionError("unexpected message: " + new String(message.getBody()));
+    }
+  }
+
   /** The next message on a channel within the deadline, validated against its AsyncAPI payload. */
   JsonNode nextMessage(String queue, String messageName) {
     Message message = rabbit.receive(queue, 10_000);
