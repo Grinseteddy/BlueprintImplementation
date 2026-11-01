@@ -1,7 +1,7 @@
-asyncapi: 3.1.0
+asyncapi: 3.0.0
 info:
   title: Cooking Assistance
-  version: 1.0.1
+  version: 1.0.2
   description: |
     Event-driven API of the Cooking Assistance bounded context. It provides help
     for cooks in planning and preparation of meals and dinners: cooks create help
@@ -629,6 +629,7 @@ components:
             type: string
             maxLength: 2000
         status:
+          title: HelpRequestCreatedStatus
           type: string
           description: A newly created request is always OPEN
           enum: [OPEN]
@@ -684,6 +685,7 @@ components:
           $ref: '#/components/schemas/Answer'
           description: The content of the help
         helpRequestStatus:
+          title: HelpProvidedStatus
           type: string
           description: Status of the referenced request once help is provided
           enum: [ANSWERED]
@@ -723,6 +725,7 @@ components:
           format: uuid
           description: The individual who gave the accepted help; absent for the Grandma Avatar
         helpRequestStatus:
+          title: HelpAcceptedStatus
           type: string
           description: Status of the request after accepting
           enum: [CLOSED]
@@ -768,6 +771,7 @@ components:
           items:
             $ref: '#/components/schemas/AskedProvider'
         helpRequestStatus:
+          title: HelpRejectedStatus
           type: string
           description: Status of the request after rejecting
           enum: [OPEN]
@@ -806,6 +810,7 @@ components:
           items:
             $ref: '#/components/schemas/AskedProvider'
         helpRequestStatus:
+          title: HelpRequestCancelledStatus
           type: string
           description: Status of the request after cancelling
           enum: [CANCELLED]
@@ -846,6 +851,7 @@ components:
           items:
             $ref: '#/components/schemas/HelpProviderType'
         helpRequestStatus:
+          title: HelpRequestTimedOutStatus
           type: string
           description: Status of the request after the timeout
           enum: [CANCELLED]
@@ -895,6 +901,7 @@ components:
         - substitute
       properties:
         answerType:
+          title: SubstitutesAnswerType
           type: string
           const: INGREDIENT_SUBSTITUTE
           description: Marks this answer as an Ingredient Substitute
@@ -978,6 +985,7 @@ components:
         - description
       properties:
         answerType:
+          title: PreparationStepExplanationAnswerType
           type: string
           const: PREPARATION_STEP_EXPLANATION
           description: Marks this answer as a Preparation Step Explanation
@@ -1012,6 +1020,7 @@ components:
         - explanation
       properties:
         answerType:
+          title: CatastropheMitigationAnswerType
           type: string
           const: STEPS_TO_MITIGATE_CATASTROPHE
           description: Marks this answer as Steps to Mitigate Catastrophe
@@ -1045,6 +1054,7 @@ components:
         - course
       properties:
         answerType:
+          title: MenuProposalAnswerType
           type: string
           const: MENU_PROPOSAL
           description: Marks this answer as a Menu proposal

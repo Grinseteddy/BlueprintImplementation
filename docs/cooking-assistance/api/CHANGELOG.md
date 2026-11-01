@@ -1,5 +1,21 @@
 # Cook Assistance API — changelog
 
+## OpenAPI 1.0.3 — 2026-10-31 (step 4 r4, from step 9 of increment 0)
+
+| Change | Why |
+|---|---|
+| Global security requires `help:read` only (was `help:read` and `help:write` in one requirement); write operations keep their `help:write` override; `version` header accepts 1.0.3 | one requirement listing both scopes means both are needed for every read; the intent is read → help:read, write → help:write. Relaxing, non-breaking |
+
+## 1.0.2 — 2026-10-31 (step 4 r3, from step 9 of increment 0)
+
+Wire format unchanged.
+
+| Spec | Change | Why |
+|---|---|---|
+| OpenAPI | `required: true` on the create-help-request, create-help and rejection request bodies; `version` header accepts 1.0.2 | an empty body was spec-valid; the generator emitted `@RequestBody(required = false)` |
+| AsyncAPI | `asyncapi: 3.0.0` (was 3.1.0); the document uses no 3.1 feature and validates as 3.0.0 | Modelina 5.10.1 supports AsyncAPI up to 3.0.0 and generated nothing from 3.1.0 |
+| AsyncAPI | `title` on the 10 inline const/enum schemas (`*AnswerType`, `*Status`) | Modelina named them `AnonymousSchema_N` |
+
 ## 1.0.1 — 2026-10-31 (step 4 r1, from step 9 of increment 0)
 
 Wire format unchanged; no breaking change.

@@ -9,7 +9,7 @@ info:
 
     Clients must be tolerant readers: ignore unknown fields and handle unknown enum values
     (status, type and error codes can grow in later minor versions).
-  version: 1.0.1
+  version: 1.0.3
   contact:
     name: Annegret Junker
     email: annegret.junker@larder.org
@@ -22,7 +22,6 @@ servers:
 security:
   - oAuth2:
       - help:read
-      - help:write
 
 tags:
   - name: Help Requests
@@ -467,8 +466,8 @@ components:
       description: Version of the API the client was built against.
       schema:
         type: string
-        default: "1.0.1"
-        enum: ["1.0.0", "1.0.1"]
+        default: "1.0.3"
+        enum: ["1.0.0", "1.0.1", "1.0.2", "1.0.3"]
 
   schemas:
     HelpType:
@@ -1497,6 +1496,7 @@ components:
   requestBodies:
     HelpRequestCreateRequest:
       description: Help request creation request
+      required: true
       content:
         application/json:
           schema:
@@ -1512,6 +1512,7 @@ components:
 
     RejectionRequest:
       description: Rejection with a note
+      required: true
       content:
         application/json:
           schema:
@@ -1519,6 +1520,7 @@ components:
 
     HelpCreateRequest:
       description: Help creation request
+      required: true
       content:
         application/json:
           schema:
