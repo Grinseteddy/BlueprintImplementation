@@ -10,7 +10,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
  * test class that imports this configuration.
  */
 @TestConfiguration(proxyBeanMethods = false)
-class PostgresTestContainer {
+public class PostgresTestContainer {
 
   @Bean
   @ServiceConnection

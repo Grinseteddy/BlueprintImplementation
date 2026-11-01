@@ -1,13 +1,13 @@
 package org.larder.cookingassistance.adapter.in.rest;
 
-import com.networknt.schema.InputFormat;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.networknt.schema.JsonSchema;
 import com.networknt.schema.ValidationMessage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Type;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpHeaders;
@@ -23,6 +23,7 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestBodyAdviceAd
 @ControllerAdvice
 class OpenApiRequestValidation extends RequestBodyAdviceAdapter {
 
+  private final ObjectMapper json = new ObjectMapper();
   private final OpenApiContract contract;
 
   OpenApiRequestValidation(OpenApiContract contract) {
@@ -46,9 +47,7 @@ class OpenApiRequestValidation extends RequestBodyAdviceAdapter {
       throws IOException {
     byte[] body = message.getBody().readAllBytes();
     List<String> violations =
-        requestBodySchema(parameter.getMethod().getName())
-            .validate(new String(body, StandardCharsets.UTF_8), InputFormat.JSON)
-            .stream()
+        requestBodySchema(parameter.getMethod().getName()).validate(parse(body)).stream()
             .map(ValidationMessage::getMessage)
             .toList();
     if (!violations.isEmpty()) {
@@ -65,6 +64,14 @@ class OpenApiRequestValidation extends RequestBodyAdviceAdapter {
         return message.getHeaders();
       }
     };
+  }
+
+  private JsonNode parse(byte[] body) {
+    try {
+      return json.readTree(body);
+    } catch (IOException notJson) {
+      throw new RequestValidationFailed(List.of("the body is not valid JSON"));
+    }
   }
 
   private JsonSchema requestBodySchema(String operationId) {
