@@ -12,6 +12,7 @@ import com.networknt.schema.oas.OpenApi31;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -35,7 +36,12 @@ final class OpenApiContract {
       SchemaValidatorsConfig.builder().formatAssertionsEnabled(true).build();
   private final Map<String, JsonSchema> schemas = new ConcurrentHashMap<>();
 
-  JsonNode operation(String operationId) {
+  /**
+   * The operation a handler serves; the generated interfaces name each method after its
+   * operationId.
+   */
+  JsonNode operationServedBy(Method handler) {
+    String operationId = handler.getName();
     for (JsonNode path : spec.get("paths")) {
       for (JsonNode operation : path) {
         if (operationId.equals(operation.path("operationId").asText())) {

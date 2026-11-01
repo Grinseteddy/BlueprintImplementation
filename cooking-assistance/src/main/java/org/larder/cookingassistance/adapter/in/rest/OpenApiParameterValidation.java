@@ -30,7 +30,7 @@ class OpenApiParameterValidation implements HandlerInterceptor {
       HttpServletRequest request, HttpServletResponse response, Object handler) {
     if (handler instanceof HandlerMethod method) {
       List<String> violations = new ArrayList<>();
-      for (JsonNode reference : contract.operation(method.getMethod().getName()).path("parameters")) {
+      for (JsonNode reference : contract.operationServedBy(method.getMethod()).path("parameters")) {
         String pointer = OpenApiContract.pointer(reference);
         JsonNode parameter = contract.at(pointer);
         if ("header".equals(parameter.path("in").asText())) {

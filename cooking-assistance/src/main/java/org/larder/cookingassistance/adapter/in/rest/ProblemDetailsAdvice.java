@@ -48,7 +48,7 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
   @Override
   protected ResponseEntity<Object> handleNoResourceFoundException(
       NoResourceFoundException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
-    return problem(HttpStatus.NOT_FOUND, "NOT_FOUND", "Resource not found");
+    return notFound();
   }
 
   /** 405 keeps the Allow header listing the methods the spec declares for the path (RFC 9110). */
@@ -111,7 +111,7 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
 
   @ExceptionHandler(HelpRequestNotFound.class)
   ResponseEntity<Object> handleNotFound() {
-    return problem(HttpStatus.NOT_FOUND, "NOT_FOUND", "Resource not found");
+    return notFound();
   }
 
   @ExceptionHandler(NotAuthorized.class)
@@ -129,6 +129,10 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
   ResponseEntity<Object> handleUnexpected(Exception unexpected) {
     LOG.error("unexpected error", unexpected);
     return problem(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "Unexpected error");
+  }
+
+  private static ResponseEntity<Object> notFound() {
+    return problem(HttpStatus.NOT_FOUND, "NOT_FOUND", "Resource not found");
   }
 
   private static ResponseEntity<Object> validationFailed() {

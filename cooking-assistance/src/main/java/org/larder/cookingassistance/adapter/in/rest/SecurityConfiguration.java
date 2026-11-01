@@ -10,8 +10,6 @@ import com.nimbusds.jwt.proc.DefaultJWTProcessor;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.net.URL;
-import java.util.List;
-import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,11 +20,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
-import org.springframework.security.oauth2.jwt.JwtClaimNames;
-import org.springframework.security.oauth2.jwt.JwtClaimValidator;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
 import org.springframework.security.oauth2.server.resource.web.access.BearerTokenAccessDeniedHandler;
@@ -37,10 +31,6 @@ import org.springframework.security.web.access.AccessDeniedHandler;
 /** JWT resource server (ADR0012): a bearer-only, stateless API; refusals are Problem Details. */
 @Configuration
 class SecurityConfiguration {
-
-  // ADR0012: tokens are issued by https://larder.org for the audience cooking-assistance
-  private static final String ISSUER = "https://larder.org";
-  private static final String AUDIENCE = "cooking-assistance";
 
   @Bean
   SecurityFilterChain api(HttpSecurity http, ObjectMapper json) throws Exception {
@@ -78,26 +68,8 @@ class SecurityConfiguration {
     // claims are checked by the decoder's validators
     processor.setJWTClaimsSetVerifier((claims, context) -> {});
     NimbusJwtDecoder decoder = new NimbusJwtDecoder(processor);
-    decoder.setJwtValidator(
-        new DelegatingOAuth2TokenValidator<>(
-            JwtValidators.createDefaultWithIssuer(ISSUER),
-            new JwtClaimValidator<List<String>>(
-                JwtClaimNames.AUD, audience -> audience != null && audience.contains(AUDIENCE)),
-            // ADR0012: the subject is the cook id
-            new JwtClaimValidator<String>(JwtClaimNames.SUB, SecurityConfiguration::isUuid)));
+    decoder.setJwtValidator(AcceptedTokens.validator());
     return decoder;
-  }
-
-  private static boolean isUuid(String subject) {
-    if (subject == null) {
-      return false;
-    }
-    try {
-      UUID.fromString(subject);
-      return true;
-    } catch (IllegalArgumentException notAUuid) {
-      return false;
-    }
   }
 
   /** 403 with the bearer challenge and a Problem body (code INSUFFICIENT_SCOPE). */

@@ -7,6 +7,7 @@ import com.networknt.schema.ValidationMessage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.List;
 import org.springframework.core.MethodParameter;
@@ -18,7 +19,7 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestBodyAdviceAd
 
 /**
  * Validates request bodies against the approved OpenAPI spec (JSON Schema 2020-12, formats
- * asserted) before they are mapped; the handler method's name is the operationId.
+ * asserted) before they are mapped.
  */
 @ControllerAdvice
 class OpenApiRequestValidation extends RequestBodyAdviceAdapter {
@@ -47,7 +48,7 @@ class OpenApiRequestValidation extends RequestBodyAdviceAdapter {
       throws IOException {
     byte[] body = message.getBody().readAllBytes();
     List<String> violations =
-        requestBodySchema(parameter.getMethod().getName()).validate(parse(body)).stream()
+        requestBodySchema(parameter.getMethod()).validate(parse(body)).stream()
             .map(ValidationMessage::getMessage)
             .toList();
     if (!violations.isEmpty()) {
@@ -74,8 +75,9 @@ class OpenApiRequestValidation extends RequestBodyAdviceAdapter {
     }
   }
 
-  private JsonSchema requestBodySchema(String operationId) {
-    String requestBody = OpenApiContract.pointer(contract.operation(operationId).get("requestBody"));
+  private JsonSchema requestBodySchema(Method handler) {
+    String requestBody =
+        OpenApiContract.pointer(contract.operationServedBy(handler).get("requestBody"));
     return contract.schema(requestBody + "/content/application~1json/schema");
   }
 }
