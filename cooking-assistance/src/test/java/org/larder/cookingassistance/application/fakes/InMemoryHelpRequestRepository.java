@@ -61,6 +61,12 @@ public class InMemoryHelpRequestRepository implements HelpRequestRepository {
     this.interleaved = otherWriter;
   }
 
+  /** Forgets every stored request and recorded event, for a fake shared by several tests. */
+  public void clear() {
+    snapshots.clear();
+    recordedEvents.clear();
+  }
+
   /** Events recorded with saved requests, in order (the fake's stand-in for the outbox). */
   public List<HelpRequestEvent> recordedEvents() {
     return List.copyOf(recordedEvents);
