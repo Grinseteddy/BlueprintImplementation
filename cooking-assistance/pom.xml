@@ -242,6 +242,12 @@
             <goals>
               <goal>test-jar</goal>
             </goals>
+            <configuration>
+              <!-- only the shared fixtures; the module's test applications must not reach other contexts -->
+              <includes>
+                <include>org/larder/cookingassistance/fixtures/**</include>
+              </includes>
+            </configuration>
           </execution>
         </executions>
       </plugin>
