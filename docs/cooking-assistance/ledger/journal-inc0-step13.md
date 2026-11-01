@@ -22,3 +22,4 @@
 - Re-inspection: D-01 fixed, D-06 fixed, D-02 partially fixed; new R-01 (status-name codes; framework 500s not logged) = drift #1, widened; R-02 (non-standard status throws in HttpStatus.valueOf) → planned list; Q-01 answered (the default response covers 406); Q-02 (@Validated on list GETs → 500) → planned list for inc 1.
 - R-01 (step 9): T1 Red INTERNAL_SERVER_ERROR vs INTERNAL_ERROR as predicted, Green 5xx → INTERNAL_ERROR; T2 Red BAD_REQUEST vs VALIDATION_FAILED as predicted, Green 400 → VALIDATION_FAILED.
 - Refactor (agent): NamedProblem enum (one line per named entry), Problems.response — kept; spotless prediction off once (line length miscounted, formatting only). Full reactor verify ×2 green.
+- Step 13 approved 2026-11-01.
