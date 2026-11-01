@@ -1,0 +1,18 @@
+# Intent inventory of increment 0 (walking skeleton, US-CA-03, slices B3-S01 + B3-S02).
+# Every active item needs at least one passing, active test tracing it; planned items name their increment.
+user_stories:
+  US-CA-03:
+    examples: [R1.E1, R1.E2, R1.E3, R1.E4, R2.E1, R2.E2, R2.E3, R3.E1, R4.E1, R4.E3, S3.E1, S3.E2, S3.E3]
+    planned_examples: {R4.E2: 1, R4.E4: 1, R5.E1: 1, R5.E2: 1, R6.E1: 1, R7.E1: 1, R7.E2: 1, R8.E1: 1, R8.E2: 1, R8.E3: 1, R8.E4: 1}
+rules: [INV-01, INV-02, INV-03, INV-04, INV-36, INV-37, INV-38]
+http_operations: [createHelpRequest, provideHelp, getHelpRequestById]
+planned_http_operations: {listHelpRequests: 1, cancelHelpRequest: 1, listHelpsOfHelpRequest: 1, getHelpOfHelpRequest: 1, acceptHelp: 1, rejectHelp: 1, listHelps: 1}
+send_operations: [publishHelpRequestCreated, publishHelpProvided]
+planned_send_operations: {publishHelpAccepted: 1, publishHelpRejected: 1, publishHelpRequestCancelled: 1, publishHelpRequestTimedOut: 1}
+receive_operations: [consumeGrandmaHelpProvided]
+domain_events:
+  # domain event: the tokens that trace it (its AsyncAPI message is named differently)
+  HelpRequested: [HelpRequested, HelpRequestCreated, publishHelpRequestCreated]
+  HelpProvided: [HelpProvided, publishHelpProvided]
+quality_scenarios: [QS-02, QS-14]
+planned_quality_scenarios: {QS-01: 1, QS-03: 1, QS-04: 1, QS-05: 1, QS-07: 1, QS-08: 1, QS-09: 1, QS-10: 1, QS-11: 1, QS-12: 1, QS-13: 1, QS-15: 1, QS-16: 1}
