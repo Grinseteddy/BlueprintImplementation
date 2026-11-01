@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -18,8 +19,12 @@ import org.larder.cookingassistance.domain.helprequest.PreparationStepRequired;
 import org.larder.cookingassistance.domain.helprequest.ProviderNotAsked;
 import org.larder.cookingassistance.domain.helprequest.RecipeRequired;
 import org.larder.cookingassistance.domain.helprequest.TooManyPictures;
+import org.springframework.beans.ConversionNotSupportedException;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.context.request.ServletWebRequest;
 
 /** The error map (OpenAPI 1.0.3 Problem codes): each domain rejection -> status, code and rule. */
 class ProblemDetailsAdviceTest {
@@ -54,5 +59,35 @@ class ProblemDetailsAdviceTest {
     ProblemDetail problem = (ProblemDetail) response.getBody();
     assertThat(problem.getStatus()).isEqualTo(status);
     assertThat(problem.getProperties()).containsEntry("code", code).containsEntry("rule", rule);
+  }
+
+  private static ProblemDetail frameworkError(Exception error) throws Exception {
+    ResponseEntity<Object> response =
+        new ProblemDetailsAdvice()
+            .handleException(error, new ServletWebRequest(new MockHttpServletRequest()));
+    return (ProblemDetail) response.getBody();
+  }
+
+  @DisplayName(
+      "Spring's own 500 (conversion not supported) -> 500 INTERNAL_ERROR Problem, type .../internal-error -- B3-S01,B3-S02 US-CA-03 edge")
+  @Test
+  void frameworkServerErrorIsAnInternalError() throws Exception {
+    ProblemDetail problem =
+        frameworkError(new ConversionNotSupportedException("x", Integer.class, null));
+
+    assertThat(problem.getStatus()).isEqualTo(500);
+    assertThat(problem.getProperties()).containsEntry("code", "INTERNAL_ERROR");
+    assertThat(problem.getType()).hasToString("https://larder.org/problems/internal-error");
+  }
+
+  @DisplayName(
+      "Spring's own 400 (missing request parameter) -> 400 VALIDATION_FAILED Problem -- B3-S01,B3-S02 US-CA-03 edge")
+  @Test
+  void frameworkBadRequestIsAValidationFailure() throws Exception {
+    ProblemDetail problem =
+        frameworkError(new MissingServletRequestParameterException("limit", "Integer"));
+
+    assertThat(problem.getStatus()).isEqualTo(400);
+    assertThat(problem.getProperties()).containsEntry("code", "VALIDATION_FAILED");
   }
 }
