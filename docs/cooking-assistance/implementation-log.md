@@ -58,6 +58,9 @@ TDD (steps 6–12): inc 0 step 11 — HelpRequestQueryIT 6/6 (A17 of step 9 remo
 Step 11 decisions: ADR0016 followed (aggregate tables, no projection; deviation from the read-model skill's "never query the write tables" recorded); read access any caller with help:read; preferredProvider derived from the asked providers; generator options containerDefaultToNull + generateJsonIncludeAnnotations (ADR0014 note)
 Slice refactoring: inc 0, step 11, B3-S01+B3-S02 (one agent): retained 2 (preferredProviders in HelpRequestView, named askedProviders read), undone 0, boundary read rule out of the REST mapper, proposals 2 (absent recipe/step → null in responses → inc 2/3 test-first; shared asked_provider row mapping → inc 1), suite green, keep
 Planned list (additions, step 11): other GETs with keyset paging (L6), projections for previousNotes and provider lists, preferredProvider stored separately, helpsLink (inc 1); absent recipe/step must stay absent in responses (inc 2/3)
+Sent back: step 12 inc 0 — R3.E1 reworded, R4.E1 annotated → step 3 (revision r1), approved 2026-11-01; missing OpenAPI examples → step 4 (revision r5, OpenAPI 1.0.4), approved 2026-11-01
+Step 12 decisions: L8 → ADR0020 (Micrometer Tracing + OTel bridge, Actuator); delivery = all of ADR0018; Cucumber 7.23.0 (JUnit 5.12.2 of Boot 3.5.6); RabbitMQ delivery limit 4 = 5 deliveries (ADR0015)
+Step 12 progress: unit A AmqpAdaptersIT 7/7 (RabbitMQ 3.13 Testcontainers), verify ×2 green; B, C (13 active scenarios), D, E, delivery setup, F pending; journal ledger/journal-inc0-step12.md
 Plan estimate (step 0): steps 1–5 ≈ 1–1.5 days; inc 0 1–1.5 d; inc 1 (meal plan) 1.5–2 d; inc 2–4 ≈ 1 d each; step 15 2–3 h; total ≈ 7–9 working days
 
 | Step | Increment | Name | Input source | Artifact | Route | Accepted | Done | Approved | Open questions |
