@@ -84,4 +84,18 @@ class EdgeTest {
         .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
         .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
   }
+
+  @DisplayName(
+      "GET /help-requests/{id} accepting only application/xml -> 406 NOT_ACCEPTABLE Problem -- B3-S01 US-CA-03 edge")
+  @Test
+  void unacceptableMediaTypeIsNotAcceptable() throws Exception {
+    mvc.perform(
+            get("/help-requests/{id}", HelpRequests.HELP_REQUEST_ID.value())
+                .header(AUTHORIZATION, LENA)
+                .header("version", "1.0.3")
+                .accept(MediaType.APPLICATION_XML))
+        .andExpect(status().isNotAcceptable())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.code").value("NOT_ACCEPTABLE"));
+  }
 }

@@ -17,19 +17,36 @@ import org.larder.cookingassistance.domain.helprequest.ProviderState;
 import org.larder.cookingassistance.domain.helprequest.RecipeId;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /** Reads help requests from the aggregate's tables (ADR0016: read-your-writes, QS-07). */
 @Repository
 class JdbcHelpRequestQueries implements HelpRequestQueries {
 
   private final JdbcClient jdbc;
+  private final TransactionTemplate snapshot;
 
-  JdbcHelpRequestQueries(JdbcClient jdbc) {
+  JdbcHelpRequestQueries(JdbcClient jdbc, PlatformTransactionManager transactions) {
     this.jdbc = jdbc;
+    this.snapshot = oneSnapshot(transactions);
+  }
+
+  /** ADR0016: the request and its asked providers are read from one snapshot, never torn. */
+  private static TransactionTemplate oneSnapshot(PlatformTransactionManager transactions) {
+    TransactionTemplate snapshot = new TransactionTemplate(transactions);
+    snapshot.setReadOnly(true);
+    snapshot.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+    return snapshot;
   }
 
   @Override
   public Optional<HelpRequestView> byId(HelpRequestId id) {
+    return snapshot.execute(transaction -> readById(id));
+  }
+
+  private Optional<HelpRequestView> readById(HelpRequestId id) {
     List<AskedProvider> asked = askedProviders(id);
     return jdbc.sql(
             "select requester, title, type, description, recipe, how_to_step, status"

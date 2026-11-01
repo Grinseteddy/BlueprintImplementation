@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.lang.Nullable;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -30,6 +31,25 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
 
   private static final Logger LOG = LoggerFactory.getLogger(ProblemDetailsAdvice.class);
+
+  /** Spring's own errors this map does not name still answer the spec's Problem, with a code. */
+  @Override
+  protected ResponseEntity<Object> handleExceptionInternal(
+      Exception ex,
+      @Nullable Object body,
+      HttpHeaders headers,
+      HttpStatusCode statusCode,
+      WebRequest request) {
+    // Spring passes a null body for most of its errors; the parent builds the Problem from them
+    ResponseEntity<Object> response =
+        super.handleExceptionInternal(ex, body, headers, statusCode, request);
+    if (response != null
+        && response.getBody() instanceof ProblemDetail problem
+        && !Problems.carriesCode(problem)) {
+      return unnamedError(response.getStatusCode(), response.getHeaders());
+    }
+    return response;
+  }
 
   @Override
   protected ResponseEntity<Object> handleMethodArgumentNotValid(
@@ -147,6 +167,13 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
 
   private static ResponseEntity<Object> notFound() {
     return problem(HttpStatus.NOT_FOUND, "NOT_FOUND", "Resource not found");
+  }
+
+  /** An error the map does not name: its status names the code, its reason phrase the title. */
+  private static ResponseEntity<Object> unnamedError(
+      HttpStatusCode statusCode, HttpHeaders headers) {
+    HttpStatus status = HttpStatus.valueOf(statusCode.value());
+    return problem(status, status.name(), status.getReasonPhrase(), headers);
   }
 
   private static ResponseEntity<Object> validationFailed() {

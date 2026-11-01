@@ -1,5 +1,11 @@
 # Cook Assistance API — changelog
 
+## OpenAPI 1.0.5 — 2026-11-01 (step 4 r6, from step 13 of increment 0)
+
+| Change | Why |
+|---|---|
+| `NOT_ACCEPTABLE` named in the `Problem.code` description (406 when the client accepts no media type the operation produces); `version` header accepts 1.0.5 | Fagan D-02: every Problem carries a code, also for errors the framework raises. Additive, non-breaking |
+
 ## OpenAPI 1.0.4 — 2026-11-01 (step 4 r5, from step 12 of increment 0)
 
 | Change | Why |

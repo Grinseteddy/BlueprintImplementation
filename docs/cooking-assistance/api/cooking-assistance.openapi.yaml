@@ -9,7 +9,7 @@ info:
 
     Clients must be tolerant readers: ignore unknown fields and handle unknown enum values
     (status, type and error codes can grow in later minor versions).
-  version: 1.0.4
+  version: 1.0.5
   contact:
     name: Annegret Junker
     email: annegret.junker@larder.org
@@ -468,8 +468,8 @@ components:
       description: Version of the API the client was built against.
       schema:
         type: string
-        default: "1.0.4"
-        enum: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4"]
+        default: "1.0.5"
+        enum: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5"]
 
   schemas:
     HelpType:
@@ -1382,7 +1382,7 @@ components:
             NOT_PREMIUM, OCCASION_TOO_CLOSE, CHEF_UNAVAILABLE, OWN_REQUEST, PROVIDER_NOT_ASKED, NOT_REQUESTER,
             INVALID_STATE, ANSWER_DOES_NOT_MATCH_REQUEST, SUBSTITUTE_REJECTED_BEFORE, VALIDATION_FAILED,
             CONCURRENT_UPDATE, NOT_AUTHORIZED, INSUFFICIENT_SCOPE, UNAUTHENTICATED, NOT_FOUND, METHOD_NOT_ALLOWED,
-            UNSUPPORTED_MEDIA_TYPE, INTERNAL_ERROR, NOT_IMPLEMENTED.
+            UNSUPPORTED_MEDIA_TYPE, NOT_ACCEPTABLE, INTERNAL_ERROR, NOT_IMPLEMENTED.
             The list may grow.
           type: string
           examples:
