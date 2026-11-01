@@ -31,13 +31,13 @@ Kinds: *quantitative* and *cardinality* rules get a property test in step 6.
 - **Slice / command:** B3-S01 · Request help Preparation step · **kind:** other
 - **Guard / outcome:** PicturesNotAllowed — the request carries text only
 - **Sources:** map; contradicts glossary picture 0..* (resolved per type: maps)
-  - `US-CA-03 R3.E1` **Given/When** Lena tries to attach a photo of the split sauce **Then** not added, sent as text
+  - `US-CA-03 R3.E1` **Given/When** Lena tries to attach a photo of the split sauce **Then** the request with the photo is refused (text only); sent without the photo, it is accepted *(reworded in step 3 r1, 2026-11-01: dropping the photo is the client's part)*
 
 #### INV-04 — US-CA-03 R4: An answer may include pictures; accepting an answer closes the whole request
 - **Slice / command:** B3-S02 · Provide Help · **kind:** other
 - **Guard / outcome:** an answer may carry pictures; several providers may answer (Answered can still be answered)
 - **Sources:** map R4 (E1, E3); model v2 'Answered help requests can be still answered'
-  - `US-CA-03 R4.E1` **Given/When** Grandma: "butter in a thin stream" + 3 photos **Then** Lena sees answer and photos
+  - `US-CA-03 R4.E1` **Given/When** Grandma: "butter in a thin stream" + 3 photos **Then** Lena sees answer and photos *(increment 0 shows the answer and its 3 photos in the published HelpProvided; reading helps — "Lena sees" — comes with listHelpsOfHelpRequest in increment 1)*
   - `US-CA-03 R4.E3` **Given/When** Jonas and Mia answer; Lena accepts Mia's **Then** closed
 
 #### INV-05 — US-CA-03 R4: An answer may include pictures; accepting an answer closes the whole request

@@ -1,5 +1,11 @@
 # Cook Assistance API — changelog
 
+## OpenAPI 1.0.4 — 2026-11-01 (step 4 r5, from step 12 of increment 0)
+
+| Change | Why |
+|---|---|
+| Request-body examples for createHelpRequest (`preparationStep`) and provideHelp (`preparationStepExplanation`); examples on the `helpRequestId` and `helpId` path parameters; `version` header accepts 1.0.4 | the example-based contract check (and later Schemathesis) had no test data |
+
 ## OpenAPI 1.0.3 — 2026-10-31 (step 4 r4, from step 9 of increment 0)
 
 | Change | Why |
