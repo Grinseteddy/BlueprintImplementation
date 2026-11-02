@@ -18,6 +18,8 @@
 |---|---|
 | `Pictures` items must match `^https://`; `INVALID_PICTURE_LINK` named in the `Problem.code` description (422, INV-38); `version` header accepts 1.0.6 | security review SEC-07: `javascript:`, `file:` and metadata URLs were stored and republished as picture links. Narrowing: such links were never meant to be valid |
 
+Note (2026-11-02, reverse check of step 14): over REST the `Pictures` pattern answers first, so a client sees 400 `VALIDATION_FAILED`; `INVALID_PICTURE_LINK` (422) is the domain's code and shows where the schema does not run first (Grandma's messages end as dead letters).
+
 ## AsyncAPI 1.0.3 — 2026-11-01 (step 4 r7, from step 14 of increment 0)
 
 | Change | Why |

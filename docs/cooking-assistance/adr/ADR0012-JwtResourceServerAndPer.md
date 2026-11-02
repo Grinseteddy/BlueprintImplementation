@@ -40,5 +40,6 @@ QS-12, QS-13
   - configure `^cooking-assistance(\..*)?$` — the `cooking-assistance` exchange and the module's queues (`cooking-assistance.grandma-help-provided`, `cooking-assistance.dlq`);
   - write `^cooking-assistance(\..*)?$` — publish to its exchange, bind its own queues;
   - read `^(cooking-assistance\..*|grandma-avatar)$` — consume its own queues, bind a queue to the Grandma Avatar's exchange.
-- The `grandma-avatar` exchange is declared by its owner. The module only checks that it exists (passive declaration) and never gets configure or write rights on it.
+- The `grandma-avatar` exchange is declared by its owner. The module binds its queue to it by name; the bind fails while the owner has not declared it. The module never gets configure or write rights on it.
+- HEAD on a read path needs `help:read`, the same as GET (security review SEC-02).
 - A test runs the module with a broker user holding exactly these permissions.

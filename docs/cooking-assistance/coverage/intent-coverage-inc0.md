@@ -1,6 +1,6 @@
 | Kind | Item | Passing tests | Levels |
 |---|---|---|---|
-| user story | US-CA-03 | 212 | acceptance, adapter, application, architecture, composition, contract, domain, other, quality |
+| user story | US-CA-03 | 241 | acceptance, adapter, application, architecture, composition, contract, domain, other, quality |
 | example | US-CA-03 R1.E1 | 2 | acceptance, domain |
 | example | US-CA-03 R1.E2 | 3 | acceptance, adapter, domain |
 | example | US-CA-03 R1.E3 | 2 | acceptance, domain |
@@ -20,13 +20,13 @@
 | rule | INV-04 | 8 | acceptance, adapter, domain |
 | rule | INV-36 | 4 | acceptance, adapter, application, domain |
 | rule | INV-37 | 5 | acceptance, adapter, application, domain |
-| rule | INV-38 | 6 | acceptance, adapter, application, domain, other |
-| HTTP operation | createHelpRequest | 32 | adapter, contract |
-| HTTP operation | provideHelp | 29 | adapter, contract, domain |
-| HTTP operation | getHelpRequestById | 7 | adapter, contract |
+| rule | INV-38 | 10 | acceptance, adapter, application, domain, other |
+| HTTP operation | createHelpRequest | 35 | adapter, contract |
+| HTTP operation | provideHelp | 30 | adapter, contract, domain |
+| HTTP operation | getHelpRequestById | 9 | adapter, contract |
 | send operation | publishHelpRequestCreated | 5 | adapter |
 | send operation | publishHelpProvided | 1 | adapter |
-| receive operation | consumeGrandmaHelpProvided | 13 | adapter, contract |
+| receive operation | consumeGrandmaHelpProvided | 17 | adapter, contract |
 | domain event | HelpRequested | 9 | adapter, application, domain |
 | domain event | HelpProvided | 5 | adapter, application, domain |
 | quality scenario | QS-02 | 1 | architecture |
