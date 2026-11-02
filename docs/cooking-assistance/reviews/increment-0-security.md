@@ -272,3 +272,12 @@ New findings:
 Observations: no maximum token lifetime; firewall rejections surface as 401; an existing queue with dead-letter exchange "" refuses the new argument until recreated; the read permission allows binding with "#" to every Grandma Avatar event.
 
 Decisions (user, 2026-11-02): SEC-09 rest, SEC-12, SEC-13 fix now, test-first (steps 9, 9, 12); the four observations → planned list (token lifetime → ADR0012 inc 1; "#" bind → ADR0012 accepted risk; queue migration → README deployment note).
+
+## Tools after the skeleton review (2026-11-02)
+| Tool | Where | Result |
+|---|---|---|
+| gitleaks | CI `verify.yml` (pinned SHA), pre-commit config | in CI; first run with the pull request |
+| SpotBugs 4.10.5 + FindSecBugs 1.14.0 | `security` profile, CI `security.yml` | gate on the SECURITY category from medium priority up; local run: 179 + 6 classes, 0 security findings; trial with a command injection fails the gate. 16 quality findings at medium → planned list |
+| OWASP Dependency-Check 13.0.0 | `security` profile, CI `security.yml` | CVSS ≥ 7 fails; needs the repository secret `NVD_API_KEY`; not run locally (NVD download) |
+| OWASP ZAP | — | planned (increment 1, needs the runnable jar, now built) |
+| SEC-11 | both workflows | actions pinned to commit SHAs; Spring Boot 3.5.16 |
