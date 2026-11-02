@@ -19,7 +19,7 @@
   <properties>
     <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <spring-boot.version>3.5.6</spring-boot.version>
+    <spring-boot.version>3.5.16</spring-boot.version>
     <jqwik.version>1.9.2</jqwik.version>
     <cucumber.version>7.23.0</cucumber.version>
     <archunit.version>1.4.1</archunit.version>
@@ -153,7 +153,9 @@
             <version>4.10.5.0</version>
             <configuration>
               <effort>Max</effort>
-              <threshold>High</threshold>
+              <!-- the gate: security findings (FindSecBugs and SpotBugs' own) from medium priority up -->
+              <threshold>Medium</threshold>
+              <includeFilterFile>${maven.multiModuleProjectDirectory}/tools/security/spotbugs-include.xml</includeFilterFile>
               <excludeFilterFile>${maven.multiModuleProjectDirectory}/tools/security/spotbugs-exclude.xml</excludeFilterFile>
               <plugins>
                 <plugin>
