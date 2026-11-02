@@ -60,6 +60,22 @@ class BrokerSettingsTest {
   }
 
   @DisplayName(
+      "LARDER_BROKER_HOST empty, user and password set -> the host does not start, naming LARDER_BROKER_HOST -- B3-S02 US-CA-03 OWASP-API8 ADR0012")
+  @Test
+  void hostWithEmptyBrokerHostDoesNotStart() {
+    new ApplicationContextRunner()
+        .withUserConfiguration(BrokerEnvironmentCheck.class)
+        .withPropertyValues(
+            "LARDER_BROKER_HOST=",
+            "LARDER_BROKER_USERNAME=cooking-assistance",
+            "LARDER_BROKER_PASSWORD=from-the-vault")
+        .run(
+            context ->
+                assertThat(context.getStartupFailure())
+                    .hasStackTraceContaining("LARDER_BROKER_HOST"));
+  }
+
+  @DisplayName(
       "LARDER_BROKER_* set -> host, user and password from them, TLS on by default (amqps) -- B3-S02 US-CA-03 OWASP-API8 ADR0012")
   @Test
   void brokerSettingsComeFromTheEnvironment() throws Exception {

@@ -13,6 +13,11 @@ class BrokerEnvironmentCheck {
 
   BrokerEnvironmentCheck(Environment environment) {
     // Spring leaves an unresolved ${...} in place; without this the host would connect nowhere
-    REQUIRED_BROKER_VARIABLES.forEach(environment::getRequiredProperty);
+    for (String variable : REQUIRED_BROKER_VARIABLES) {
+      if (environment.getRequiredProperty(variable).isBlank()) {
+        // an empty host resolves to localhost (security re-test SEC-13)
+        throw new IllegalStateException(variable + " must not be blank");
+      }
+    }
   }
 }

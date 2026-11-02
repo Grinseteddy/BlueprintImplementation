@@ -32,3 +32,12 @@
 ## Step 12 suites and intent coverage, reverse check of the fixes
 - Full reactor verify ×2 green (166 + 55; 3 + 29, 12 skipped = planned scenarios). Intent coverage: exit 0, no gaps, US-CA-03 done for the skeleton slices (prediction held); report updated.
 - Scoped reverse check (Sonnet, 9254635..HEAD): no defect, 5 drifts. Decisions 2026-11-02: (1) LARDER_* variables → README at the increment checkpoint; (2, 3) documented — INV-38 step 3 r4 (scheme case-insensitive in the domain, specs stricter), CHANGELOG note (REST sees 400 before 422); (4) 413 stays in the Problem.code list like 406/415; (5) ADR0012 addition (HEAD under help:read; bind by name instead of "passive declaration"), ADR0019 addition (1 MB, OPTIONS, public base URL, broker from the environment).
+
+## Security re-test (separate agent, Fable)
+- 8 findings fixed (verified by probe), SEC-09 partially (/error → 500), SEC-06/11 unchanged; new SEC-12, SEC-13 (low). I confirmed the three open claims in the code (OpenApiContract throws for the "error" operation; consumer catch-all retries the URI IllegalArgumentException; getRequiredProperty accepts ""). Decisions 2026-11-02: fix all three now, test-first; observations → planned list.
+
+## Fix cycles — re-test findings
+- T1 SEC-09 rest (step 9, EdgeTest#errorPathIsNotFound): Red 500 instead of 404 as predicted ("operation error is not in the spec"); Green: a handler the spec does not declare → NoResourceFoundException → 404 NOT_FOUND. Forwarded errors keeping their status → planned list.
+- T2 SEC-12 (step 9, GrandmaHelpProvidedConsumerTest#unparsablePictureLinkIsDeadLettered): Red RETRY instead of DEAD_LETTER as predicted; Green: GrandmaAnswerMapper turns an unparsable link into InvalidMessage.
+- T3 SEC-13 (step 12, BrokerSettingsTest#hostWithEmptyBrokerHostDoesNotStart): Red as predicted (context starts); the assertion message was corrected before the run ("Expecting actual not to be null", not "to have failed") — the list wording named another assertion. Green: required and non-blank for all three broker variables.
+- Refactor (agent): one operation lookup in OpenApiContract (operationFor), the SEC-09 refusal as its own interceptor OpenApiUndeclaredHandlerRefusal (OpenApiParameterValidation back to its committed state) — kept 2026-11-02; no change to GrandmaAnswerMapper, BrokerEnvironmentCheck. Tests unchanged against the snapshot; full reactor verify green (168 + 55; 4 + 29, 12 skipped). Proposals (unit test for the refusal, interceptor order test) → planned list.

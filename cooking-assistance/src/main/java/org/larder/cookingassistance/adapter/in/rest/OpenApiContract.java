@@ -15,6 +15,7 @@ import java.io.UncheckedIOException;
 import java.lang.reflect.Method;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
@@ -39,20 +40,30 @@ final class OpenApiContract {
       SchemaValidatorsConfig.builder().formatAssertionsEnabled(true).build();
   private final Map<String, JsonSchema> schemas = new ConcurrentHashMap<>();
 
-  /**
-   * The operation a handler serves; the generated interfaces name each method after its
-   * operationId.
-   */
+  /** Whether the spec has an operation for a handler (Spring's own /error handler has none). */
+  boolean declares(Method handler) {
+    return operationFor(handler).isPresent();
+  }
+
+  /** The operation a handler serves. */
   JsonNode operationServedBy(Method handler) {
-    String operationId = handler.getName();
+    return operationFor(handler)
+        .orElseThrow(
+            () ->
+                new IllegalStateException(
+                    "operation " + handler.getName() + " is not in the spec"));
+  }
+
+  /** The generated interfaces name each method after its operationId. */
+  private Optional<JsonNode> operationFor(Method handler) {
     for (JsonNode path : spec.get("paths")) {
       for (JsonNode operation : path) {
-        if (operationId.equals(operation.path("operationId").asText())) {
-          return operation;
+        if (handler.getName().equals(operation.path("operationId").asText())) {
+          return Optional.of(operation);
         }
       }
     }
-    throw new IllegalStateException("operation " + operationId + " is not in the spec");
+    return Optional.empty();
   }
 
   /** The methods the spec declares for a request path, matched against its path templates. */

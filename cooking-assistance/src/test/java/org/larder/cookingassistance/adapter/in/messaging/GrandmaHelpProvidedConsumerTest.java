@@ -124,6 +124,17 @@ class GrandmaHelpProvidedConsumerTest {
   }
 
   @DisplayName(
+      "Grandma's answer with the picture link \"https://\" (passes the schema, no URI) -> DEAD_LETTER at once, nothing changed -- B3-S02 US-CA-03 INV-38 OWASP-A10 op consumeGrandmaHelpProvided")
+  @Test
+  void unparsablePictureLinkIsDeadLettered() {
+    String withUnparsableLink =
+        GRANDMAS_ANSWER.replace(
+            "\"description\":", "\"images\": [\"https://\"],\n    \"description\":");
+
+    expectDeadLetteredWithoutEffect(HEADERS, bytes(withUnparsableLink));
+  }
+
+  @DisplayName(
       "answerTitle missing -> DEAD_LETTER, nothing changed -- B3-S02 US-CA-03 op consumeGrandmaHelpProvided")
   @Test
   void missingAnswerTitleIsDeadLettered() {

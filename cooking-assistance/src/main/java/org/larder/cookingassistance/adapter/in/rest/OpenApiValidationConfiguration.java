@@ -17,6 +17,7 @@ class OpenApiValidationConfiguration implements WebMvcConfigurer {
   @Override
   public void addInterceptors(InterceptorRegistry registry) {
     registry.addInterceptor(new OpenApiOptionsRefusal(openApiContract()));
+    registry.addInterceptor(new OpenApiUndeclaredHandlerRefusal(openApiContract()));
     registry.addInterceptor(new OpenApiParameterValidation(openApiContract()));
   }
 }

@@ -143,6 +143,16 @@ class EdgeTest {
         .andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"));
   }
 
+  @DisplayName(
+      "GET /error -> 404 NOT_FOUND Problem like any path the spec does not declare, never 500 -- B3-S01 US-CA-03 OWASP-A10 edge")
+  @Test
+  void errorPathIsNotFound() throws Exception {
+    mvc.perform(get("/error").header(AUTHORIZATION, LENA).header("version", "1.0.3"))
+        .andExpect(status().isNotFound())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+  }
+
   /** Every operation of the spec with its method, a concrete path and the scope it requires. */
   static Stream<String[]> specOperations() throws Exception {
     JsonNode spec;

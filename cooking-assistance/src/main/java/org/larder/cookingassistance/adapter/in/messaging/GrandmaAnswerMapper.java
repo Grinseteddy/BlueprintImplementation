@@ -1,6 +1,7 @@
 package org.larder.cookingassistance.adapter.in.messaging;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -39,9 +40,20 @@ final class GrandmaAnswerMapper {
               explanation.description(),
               // images are optional in the spec: no images, no pictures
               Objects.requireNonNullElse(explanation.images(), List.<String>of()).stream()
-                  .map(URI::create)
+                  .map(GrandmaAnswerMapper::pictureLink)
                   .toList());
       default -> throw new AnswerKindNotBuilt(answer.getClass().getSimpleName());
     };
+  }
+
+  /**
+   * A link the schema lets through but that is no URI breaks the contract; retrying cannot fix it.
+   */
+  private static URI pictureLink(String link) {
+    try {
+      return new URI(link);
+    } catch (URISyntaxException notAUri) {
+      throw new InvalidMessage(List.of("images: " + link + " is not a URI"));
+    }
   }
 }

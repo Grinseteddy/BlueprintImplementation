@@ -247,3 +247,28 @@ Time spent: about 1 h 45 min.
 | Observations (relay log flooding, consumer retries without backoff, personal data in 500 logs) | planned list (increment 1) | 10, 9 |
 
 The fix status, the re-test and the abuse-case tests are recorded in the ledger and in `ledger/journal-inc0-step14.md`.
+
+## Re-test (separate agent, Fable, 2026-11-02)
+Target: a copy of the repository at HEAD 9ee4dc1 (fixes 732f4c3, 56c17d8, 5e2a536), larder-app on Testcontainers PostgreSQL 16 + RabbitMQ 3.13, connected as a broker user with exactly the ADR0012 permissions through LARDER_BROKER_*; ≈ 200 HTTP requests, 13 AMQP publishes, 2 runs.
+
+| Finding | Status | Evidence (probes) |
+|---|---|---|
+| SEC-01 high | fixed | 1048576 B → 201, 1048577 B → 413, chunked 1 MB+/3 MB → 413, all write operations; gzip not inflated (400); lying Content-Length → 400; 3 MB with Content-Length → connection closed by Tomcat (maxSwallowSize), nothing stored |
+| SEC-02 medium | fixed | HEAD/GET on every read path without help:read → 403; path variants → 403/404/401 (firewall), no bypass |
+| SEC-03 medium | fixed | no exp, exp as string/boolean/0/−1, nbf future, expired → 401 |
+| SEC-04 medium | fixed | host runs as the ADR0012 user; publish/declare/delete on grandma-avatar and amq.default refused |
+| SEC-05 medium | fixed | no variables → start-up fails naming the variable; default port 5671, TLS on |
+| SEC-06 medium | deferred | ≈ 60 refusals, no security log line |
+| SEC-07 medium | fixed | HTTPS://, javascript:, data:, //, http:, whitespace → 400; same in Grandma messages → dead-lettered |
+| SEC-08 low | fixed | source missing/other/case/array → dead-lettered via cooking-assistance.dlx |
+| SEC-09 low | **partially fixed** | OPTIONS → 405 with Allow; **GET/HEAD/POST /error with a valid token → 500 INTERNAL_ERROR** and stack trace ("operation error is not in the spec") |
+| SEC-10 low | fixed | Host, X-Forwarded-*, Forwarded, absolute-form → links always from the public base URL |
+| SEC-11 low | proposal | unchanged |
+
+New findings:
+- **SEC-12 · low · A10 (API10)** — a Grandma message with picture link `"https://"` passes the schema (`^https://`, format uri); `URI::create` throws IllegalArgumentException, classed as transient → 5 deliveries, 5 WARN stack traces, then dead letter (delivery limit). Nothing stored.
+- **SEC-13 · low · API8** — `LARDER_BROKER_HOST=""` passes BrokerEnvironmentCheck; the host would connect to localhost:5671.
+
+Observations: no maximum token lifetime; firewall rejections surface as 401; an existing queue with dead-letter exchange "" refuses the new argument until recreated; the read permission allows binding with "#" to every Grandma Avatar event.
+
+Decisions (user, 2026-11-02): SEC-09 rest, SEC-12, SEC-13 fix now, test-first (steps 9, 9, 12); the four observations → planned list (token lifetime → ADR0012 inc 1; "#" bind → ADR0012 accepted risk; queue migration → README deployment note).
