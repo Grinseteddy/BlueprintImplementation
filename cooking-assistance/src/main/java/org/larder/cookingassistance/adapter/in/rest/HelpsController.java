@@ -21,9 +21,11 @@ import org.springframework.web.bind.annotation.RestController;
 class HelpsController implements HelpsApi {
 
   private final ProvideHelp provideHelp;
+  private final String publicBaseUrl;
 
-  HelpsController(ProvideHelp provideHelp) {
+  HelpsController(ProvideHelp provideHelp, @PublicBaseUrl String publicBaseUrl) {
     this.provideHelp = provideHelp;
+    this.publicBaseUrl = publicBaseUrl;
   }
 
   // op: provideHelp (cooking-assistance.openapi.yaml) · cmd: Provide Help
@@ -33,7 +35,8 @@ class HelpsController implements HelpsApi {
     HelpRequestId requestId = new HelpRequestId(helpRequestId);
     HelpId helpId =
         provideHelp.execute(HelpMapper.toCommand(CurrentActor.get(), requestId, helpCreate));
-    return ResponseEntity.status(HttpStatus.CREATED).body(HelpMapper.toLink(requestId, helpId));
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(HelpMapper.toLink(publicBaseUrl, requestId, helpId));
   }
 
   @Override

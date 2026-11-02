@@ -2,9 +2,9 @@ package org.larder.cookingassistance.adapter.in.messaging;
 
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
+import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
-import org.springframework.amqp.core.TopicExchange;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -16,6 +16,9 @@ class AmqpConsuming {
   static final String GRANDMA_QUEUE = "cooking-assistance.grandma-help-provided";
   // ADR0015: dead letters after 5 deliveries
   static final String DEAD_LETTER_QUEUE = "cooking-assistance.dlq";
+  // the module's own dead-letter exchange: the default exchange would need write rights on
+  // amq.default, which would let the module publish to any queue (ADR0012 addition)
+  static final String DEAD_LETTER_EXCHANGE = "cooking-assistance.dlx";
   // RabbitMQ counts the redeliveries allowed after the first delivery: 4 means 5 deliveries
   static final int DELIVERY_LIMIT = 4;
 
@@ -24,7 +27,7 @@ class AmqpConsuming {
     return QueueBuilder.durable(GRANDMA_QUEUE)
         .quorum()
         .deliveryLimit(DELIVERY_LIMIT)
-        .deadLetterExchange("")
+        .deadLetterExchange(DEAD_LETTER_EXCHANGE)
         .deadLetterRoutingKey(DEAD_LETTER_QUEUE)
         .build();
   }
@@ -34,19 +37,27 @@ class AmqpConsuming {
     return QueueBuilder.durable(DEAD_LETTER_QUEUE).build();
   }
 
-  /**
-   * The Grandma Avatar context owns this exchange; it is declared here too (same arguments, so the
-   * declaration is idempotent) so the binding can be made whichever context starts first.
-   */
   @Bean
-  TopicExchange grandmaAvatarExchange() {
-    return new TopicExchange("grandma-avatar", true, false);
+  DirectExchange deadLetterExchange() {
+    return new DirectExchange(DEAD_LETTER_EXCHANGE, true, false);
   }
 
   @Bean
+  Binding deadLetterBinding() {
+    return BindingBuilder.bind(deadLetterQueue()).to(deadLetterExchange()).with(DEAD_LETTER_QUEUE);
+  }
+
+  /**
+   * The Grandma Avatar context owns and declares its exchange; the module only binds to it by name,
+   * and the binding fails while the exchange is missing (ADR0012 addition, SEC-04).
+   */
+  @Bean
   Binding grandmaHelpProvidedBinding() {
-    return BindingBuilder.bind(grandmaHelpProvidedQueue())
-        .to(grandmaAvatarExchange())
-        .with("grandma-avatar.help.provided");
+    return new Binding(
+        GRANDMA_QUEUE,
+        Binding.DestinationType.QUEUE,
+        "grandma-avatar",
+        "grandma-avatar.help.provided",
+        null);
   }
 }

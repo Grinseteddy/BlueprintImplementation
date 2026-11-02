@@ -102,6 +102,12 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
     return NamedProblem.UNSUPPORTED_MEDIA_TYPE.response(headers);
   }
 
+  /** ADR0019: bodies over 1 MB are refused before they are parsed. */
+  @ExceptionHandler(RequestTooLarge.class)
+  ResponseEntity<Object> handleRequestTooLarge() {
+    return NamedProblem.PAYLOAD_TOO_LARGE.response();
+  }
+
   /** The spec's own violation messages tell the client what to fix; they hold no internal data. */
   @ExceptionHandler(RequestValidationFailed.class)
   ResponseEntity<Object> handleRequestValidationFailed(RequestValidationFailed violations) {

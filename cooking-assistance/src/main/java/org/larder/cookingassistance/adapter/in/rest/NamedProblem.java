@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 enum NamedProblem {
   VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "The request does not match the API contract"),
   NOT_FOUND(HttpStatus.NOT_FOUND, "Resource not found"),
+  PAYLOAD_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "The request body is larger than 1 MB"),
   METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "The method is not allowed for this resource"),
   UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "The content type is not supported"),
   NOT_AUTHORIZED(HttpStatus.FORBIDDEN, "The caller may not issue this command"),

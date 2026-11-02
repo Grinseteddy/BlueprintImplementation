@@ -34,9 +34,9 @@ final class HelpRequestMapper {
             .collect(Collectors.toSet()));
   }
 
-  static HelpRequestLink toLink(HelpRequestId id) {
+  static HelpRequestLink toLink(String publicBaseUrl, HelpRequestId id) {
     return new HelpRequestLink(
-        id.value(), Links.absolute("/help-requests/{helpRequestId}", id.value()));
+        id.value(), Links.absolute(publicBaseUrl, "/help-requests/{helpRequestId}", id.value()));
   }
 
   static HelpRequest toResponse(HelpRequestView view) {

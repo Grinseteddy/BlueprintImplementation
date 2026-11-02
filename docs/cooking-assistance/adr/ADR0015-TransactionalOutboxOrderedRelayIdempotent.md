@@ -36,3 +36,7 @@ AP0002 (honors), ADR0003
 
 ## Quality scenarios
 QS-04, QS-08, QS-10, QS-14
+
+## Addition (step 5 revision from step 14, increment 0, 2026-11-01, decided by the user)
+
+- **Dead letters go through the module's own exchange** `cooking-assistance.dlx` (direct), bound to `cooking-assistance.dlq`. The default exchange would need write rights on `amq.default`, which would let the module's broker user publish to any queue by name (security review SEC-04, ADR0012 addition).

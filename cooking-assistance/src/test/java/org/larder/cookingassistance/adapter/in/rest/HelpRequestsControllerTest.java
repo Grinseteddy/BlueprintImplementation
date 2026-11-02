@@ -85,6 +85,49 @@ class HelpRequestsControllerTest {
   }
 
   @DisplayName(
+      "Lena's request sent with Host evil.example:8443 -> helpRequestLink starts with the public base URL http://localhost -- B3-S01 US-CA-03 OWASP-API8 op createHelpRequest")
+  @Test
+  void linksIgnoreTheRequestHost() throws Exception {
+    mvc.perform(
+            post("/help-requests")
+                .with(
+                    request -> {
+                      request.setServerName("evil.example");
+                      request.setServerPort(8443);
+                      return request;
+                    })
+                .header("Host", "evil.example:8443")
+                .header(AUTHORIZATION, LENA_AS_COOK)
+                .header("version", "1.0.2")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(LENAS_REQUEST))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.helpRequestLink").value("http://localhost/help-requests/" + ID));
+  }
+
+  @DisplayName(
+      "body over 1 MB (1 MB of padding plus the request) -> 413 PAYLOAD_TOO_LARGE Problem, nothing saved -- B3-S01 US-CA-03 OWASP-API4 ADR0019 op createHelpRequest")
+  @Test
+  void bodyOverOneMegabyteIsTooLarge() throws Exception {
+    String padded =
+        "{\"padding\": \""
+            + "x".repeat(1024 * 1024)
+            + "\","
+            + LENAS_REQUEST.substring(LENAS_REQUEST.indexOf('{') + 1);
+
+    mvc.perform(
+            post("/help-requests")
+                .header(AUTHORIZATION, LENA_AS_COOK)
+                .header("version", "1.0.2")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(padded))
+        .andExpect(status().isPayloadTooLarge())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.code").value("PAYLOAD_TOO_LARGE"));
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID)).isEmpty();
+  }
+
+  @DisplayName(
       "title missing -> 400 VALIDATION_FAILED, nothing saved -- B3-S01 US-CA-03 op createHelpRequest")
   @Test
   void missingTitleIsRejected() throws Exception {

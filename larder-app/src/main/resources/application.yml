@@ -10,11 +10,21 @@ spring:
   datasource:
     hikari:
       schema: cooking_assistance
+  # the module's own broker user and TLS, only from the environment (ADR0012, ADR0019, SEC-05)
+  rabbitmq:
+    host: ${LARDER_BROKER_HOST}
+    port: ${LARDER_BROKER_PORT:5671}
+    username: ${LARDER_BROKER_USERNAME}
+    password: ${LARDER_BROKER_PASSWORD}
+    ssl:
+      enabled: ${LARDER_BROKER_SSL:true}
 
 # Cook Assistance: the identity provider's signing keys (ADR0012)
 cooking-assistance:
   security:
     jwk-set-uri: ${LARDER_JWKS_URI}
+  # links in responses start with the public base URL, e.g. https://larder.org/cooking-assistance (SEC-10)
+  public-base-url: ${LARDER_PUBLIC_BASE_URL}
 
 # health and readiness probes for the platform (ADR0020); nothing else is exposed
 management:

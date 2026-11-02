@@ -24,6 +24,9 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestBodyAdviceAd
 @ControllerAdvice
 class OpenApiRequestValidation extends RequestBodyAdviceAdapter {
 
+  // ADR0019: request bodies are limited to 1 MB
+  private static final int MAX_BODY_BYTES = 1024 * 1024;
+
   private final ObjectMapper json = new ObjectMapper();
   private final OpenApiContract contract;
 
@@ -46,7 +49,7 @@ class OpenApiRequestValidation extends RequestBodyAdviceAdapter {
       Type targetType,
       Class<? extends HttpMessageConverter<?>> converterType)
       throws IOException {
-    byte[] body = message.getBody().readAllBytes();
+    byte[] body = readWithinSizeLimit(message);
     List<String> violations =
         requestBodySchema(parameter.getMethod()).validate(parse(body)).stream()
             .map(ValidationMessage::getMessage)
@@ -65,6 +68,21 @@ class OpenApiRequestValidation extends RequestBodyAdviceAdapter {
         return message.getHeaders();
       }
     };
+  }
+
+  /**
+   * ADR0019: a declared size over the limit is refused before a byte is read; a missing or false
+   * Content-Length is caught by reading at most one byte more than the limit.
+   */
+  private static byte[] readWithinSizeLimit(HttpInputMessage message) throws IOException {
+    if (message.getHeaders().getContentLength() > MAX_BODY_BYTES) {
+      throw new RequestTooLarge();
+    }
+    byte[] body = message.getBody().readNBytes(MAX_BODY_BYTES + 1);
+    if (body.length > MAX_BODY_BYTES) {
+      throw new RequestTooLarge();
+    }
+    return body;
   }
 
   private JsonNode parse(byte[] body) {

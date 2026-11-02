@@ -1,5 +1,11 @@
 # Cook Assistance API — changelog
 
+## OpenAPI 1.0.7 — 2026-11-01 (step 4 r9, from step 14 of increment 0)
+
+| Change | Why |
+|---|---|
+| `PAYLOAD_TOO_LARGE` named in the `Problem.code` description (413 for a request body over 1 MB, ADR0019); `version` header accepts 1.0.7 | security review SEC-01: a 3 MB body was accepted. Additive |
+
 ## AsyncAPI 1.0.4 — 2026-11-01 (step 4 r8, from step 14 of increment 0)
 
 | Change | Why |

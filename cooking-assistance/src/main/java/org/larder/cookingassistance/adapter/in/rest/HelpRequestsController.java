@@ -23,11 +23,15 @@ class HelpRequestsController implements HelpRequestsApi {
 
   private final RequestHelpWithPreparationStep requestHelpWithPreparationStep;
   private final HelpRequestQueries queries;
+  private final String publicBaseUrl;
 
   HelpRequestsController(
-      RequestHelpWithPreparationStep requestHelpWithPreparationStep, HelpRequestQueries queries) {
+      RequestHelpWithPreparationStep requestHelpWithPreparationStep,
+      HelpRequestQueries queries,
+      @PublicBaseUrl String publicBaseUrl) {
     this.requestHelpWithPreparationStep = requestHelpWithPreparationStep;
     this.queries = queries;
+    this.publicBaseUrl = publicBaseUrl;
   }
 
   // op: createHelpRequest (cooking-assistance.openapi.yaml) · cmd: Request help Preparation step
@@ -41,7 +45,8 @@ class HelpRequestsController implements HelpRequestsApi {
                   HelpRequestMapper.toCommand(CurrentActor.get(), helpRequestCreate));
           default -> throw new NotImplemented("createHelpRequest " + helpRequestCreate.getType());
         };
-    return ResponseEntity.status(HttpStatus.CREATED).body(HelpRequestMapper.toLink(id));
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(HelpRequestMapper.toLink(publicBaseUrl, id));
   }
 
   // op: getHelpRequestById (cooking-assistance.openapi.yaml) · RM: help request (aggregate tables,
