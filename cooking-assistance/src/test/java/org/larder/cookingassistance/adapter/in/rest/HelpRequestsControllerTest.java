@@ -283,6 +283,29 @@ class HelpRequestsControllerTest {
             .bearer());
   }
 
+  @DisplayName(
+      "Lena's valid token presented as DPoP with a valid DPoP proof -> 401 UNAUTHENTICATED Problem, nothing saved -- B3-S01 US-CA-03 CVE-2026-41707 ADR0012 op createHelpRequest")
+  @Test
+  void dPoPSchemeIsUnauthenticated() throws Exception {
+    TestTokens lena =
+        TestTokens.forCook(HelpRequests.LENA)
+            .roles("cook")
+            .scope("help:write")
+            .boundTo(TestTokens.proofKey());
+
+    mvc.perform(
+            post("/help-requests")
+                .header(AUTHORIZATION, lena.dPoP())
+                .header("DPoP", lena.dPoPProof("POST", "http://localhost/help-requests"))
+                .header("version", "1.0.2")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(LENAS_REQUEST))
+        .andExpect(status().isUnauthorized())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID)).isEmpty();
+  }
+
   private void expectUnauthenticated(String bearer) throws Exception {
     mvc.perform(
             post("/help-requests")
