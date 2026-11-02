@@ -50,4 +50,12 @@
     <cve>CVE-2026-47841</cve>
   </suppress>
 
+  <suppress until="2027-01-31Z">
+    <notes>DPoP replay through DPoPProofJwtDecoderFactory: Spring Security 6.5 enables DPoP on its own,
+      but the service refuses the DPoP scheme before Spring's DPoP filter (bearer only, ADR0012);
+      proven by HelpRequestsControllerTest#dPoPSchemeIsUnauthenticated.</notes>
+    <packageUrl regex="true">^pkg:maven/org\.springframework\.security/spring-security-.*@6\.5\.11$</packageUrl>
+    <cve>CVE-2026-41707</cve>
+  </suppress>
+
 </suppressions>
