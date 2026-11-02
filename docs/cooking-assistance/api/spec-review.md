@@ -4,6 +4,8 @@
 
 ## Lint (Spectral 6.15.0, house-style rulesets)
 
+*Record of step 4 (2026-10-31). Since the skeleton review the build pins Spectral 6.11.1 and runs it in `./mvnw verify` (ADR0018).*
+
 | Spec | Errors | Warnings |
 |---|---|---|
 | OpenAPI | 0 | 1 — tolerant-reader note missing in `info.description` |
