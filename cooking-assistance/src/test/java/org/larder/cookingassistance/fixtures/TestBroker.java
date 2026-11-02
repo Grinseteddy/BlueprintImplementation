@@ -1,6 +1,6 @@
 package org.larder.cookingassistance.fixtures;
 
-import org.testcontainers.containers.RabbitMQContainer;
+import org.testcontainers.rabbitmq.RabbitMQContainer;
 
 /** RabbitMQ for the slow suites, with what other contexts own already declared (ADR0012). */
 public final class TestBroker {

@@ -174,7 +174,9 @@ class AmqpAdaptersIT {
 
   private int messageCount(String queue) {
     Properties properties = admin.getQueueProperties(queue);
-    return properties == null ? -1 : (Integer) properties.get(RabbitAdmin.QUEUE_MESSAGE_COUNT);
+    return properties == null
+        ? -1
+        : ((Number) properties.get(RabbitAdmin.QUEUE_MESSAGE_COUNT)).intValue();
   }
 
   @DisplayName(

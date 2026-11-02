@@ -103,7 +103,7 @@ class AsyncApiContractIT {
 
   private int messageCount(String queue) {
     Properties properties = admin.getQueueProperties(queue);
-    return (Integer) properties.get(RabbitAdmin.QUEUE_MESSAGE_COUNT);
+    return ((Number) properties.get(RabbitAdmin.QUEUE_MESSAGE_COUNT)).intValue();
   }
 
   private static JsonNode asyncApi() throws Exception {

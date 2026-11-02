@@ -13,7 +13,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
  * The module runs with its own database user that owns only its schema (ADR0009): it migrates and
@@ -24,7 +24,7 @@ class DatabasePermissionsIT {
 
   static final String USER = "cooking_assistance";
   static final String PASSWORD = "test-only";
-  static final PostgreSQLContainer<?> POSTGRES = databaseWithTheModulesUser();
+  static final PostgreSQLContainer POSTGRES = databaseWithTheModulesUser();
 
   @DynamicPropertySource
   static void connectAsTheModulesUser(DynamicPropertyRegistry registry) {
@@ -34,8 +34,8 @@ class DatabasePermissionsIT {
   }
 
   /** The database administrator creates the user and its schema; the module owns nothing else. */
-  private static PostgreSQLContainer<?> databaseWithTheModulesUser() {
-    PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
+  private static PostgreSQLContainer databaseWithTheModulesUser() {
+    PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:16-alpine");
     postgres.start();
     try {
       psql(
@@ -49,7 +49,7 @@ class DatabasePermissionsIT {
     return postgres;
   }
 
-  private static void psql(PostgreSQLContainer<?> postgres, String... statements) throws Exception {
+  private static void psql(PostgreSQLContainer postgres, String... statements) throws Exception {
     for (String statement : statements) {
       var result =
           postgres.execInContainer(

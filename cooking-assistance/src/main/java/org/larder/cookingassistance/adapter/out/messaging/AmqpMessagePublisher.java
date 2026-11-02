@@ -32,9 +32,9 @@ class AmqpMessagePublisher implements MessagePublisher {
     CorrelationData correlation = new CorrelationData(message.messageId().toString());
     rabbit.send(AmqpPublishing.EXCHANGE, message.channel(), toAmqp(message), correlation);
     Confirm confirm = awaitConfirm(correlation);
-    if (!confirm.isAck()) {
+    if (!confirm.ack()) {
       throw new AmqpException(
-          "broker refused message " + message.messageId() + ": " + confirm.getReason());
+          "broker refused message " + message.messageId() + ": " + confirm.reason());
     }
     // the broker returns an unroutable mandatory message before it confirms it
     if (correlation.getReturned() != null) {
