@@ -23,10 +23,42 @@
     <jqwik.version>1.9.2</jqwik.version>
     <cucumber.version>7.23.0</cucumber.version>
     <archunit.version>1.4.1</archunit.version>
+    <!-- CVE fixes ahead of the Boot BOM (Dependency-Check, increment 0); drop with the Boot 4 migration -->
+    <tomcat.version>10.1.61</tomcat.version>
+    <postgresql.version>42.7.14</postgresql.version>
+    <log4j2.version>2.25.5</log4j2.version>
   </properties>
 
   <dependencyManagement>
     <dependencies>
+      <!-- declared before the Boot BOM, so these versions win -->
+      <dependency>
+        <groupId>org.apache.tomcat.embed</groupId>
+        <artifactId>tomcat-embed-core</artifactId>
+        <version>${tomcat.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.tomcat.embed</groupId>
+        <artifactId>tomcat-embed-el</artifactId>
+        <version>${tomcat.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.tomcat.embed</groupId>
+        <artifactId>tomcat-embed-websocket</artifactId>
+        <version>${tomcat.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.postgresql</groupId>
+        <artifactId>postgresql</artifactId>
+        <version>${postgresql.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.logging.log4j</groupId>
+        <artifactId>log4j-bom</artifactId>
+        <version>${log4j2.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-dependencies</artifactId>
