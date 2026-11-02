@@ -1,5 +1,11 @@
 # Cook Assistance API — changelog
 
+## AsyncAPI 1.0.5 — 2026-11-02 (step 4 r10, from the skeleton review of increment 0)
+
+| Change | Why |
+|---|---|
+| `GrandmaMessageHeader` declares `type: object` at its top level | Spectral `asyncapi-3-headers-schema-type-object` (1 error) once Spectral ran in `./mvnw verify` (ADR0018). No change in the headers accepted: both `allOf` parts already required an object |
+
 ## OpenAPI 1.0.7 — 2026-11-01 (step 4 r9, from step 14 of increment 0)
 
 | Change | Why |

@@ -212,6 +212,27 @@
               <arguments>run asyncapi-models -- ${cooking-assistance.api}/cooking-assistance.asyncapi.yaml ${project.build.directory}/generated-sources/asyncapi/org/larder/cookingassistance/adapter/messaging/generated org.larder.cookingassistance.adapter.messaging.generated</arguments>
             </configuration>
           </execution>
+          <!-- ADR0018: one command lints both approved specs with the house rulesets -->
+          <execution>
+            <id>spectral-openapi</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>npm</goal>
+            </goals>
+            <configuration>
+              <arguments>run lint-spec -- ${cooking-assistance.api}/cooking-assistance.openapi.yaml -r ${cooking-assistance.api}/rulesets/openapi-house-style.spectral.yaml</arguments>
+            </configuration>
+          </execution>
+          <execution>
+            <id>spectral-asyncapi</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>npm</goal>
+            </goals>
+            <configuration>
+              <arguments>run lint-spec -- ${cooking-assistance.api}/cooking-assistance.asyncapi.yaml -r ${cooking-assistance.api}/rulesets/asyncapi.spectral.yaml</arguments>
+            </configuration>
+          </execution>
         </executions>
       </plugin>
       <plugin>

@@ -21,14 +21,7 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - name: Lint the approved specs
-        run: |
-          npx -y @stoplight/spectral-cli@6.11.1 lint docs/cooking-assistance/api/cooking-assistance.openapi.yaml -r docs/cooking-assistance/api/rulesets/openapi-house-style.spectral.yaml --fail-severity error
-          npx -y @stoplight/spectral-cli@6.11.1 lint docs/cooking-assistance/api/cooking-assistance.asyncapi.yaml -r docs/cooking-assistance/api/rulesets/asyncapi.spectral.yaml --fail-severity error
-      - name: Build, format and Error Prone checks, fast and slow suites (Testcontainers)
+      - name: Build, format and Error Prone checks, fast and slow suites (Testcontainers), Spectral lint of both specs (ADR0018)
         run: ./mvnw -B verify
       - name: Intent coverage of the increment (gaps fail the build)
         run: |

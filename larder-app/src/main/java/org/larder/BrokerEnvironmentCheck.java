@@ -12,12 +12,6 @@ class BrokerEnvironmentCheck {
       List.of("LARDER_BROKER_HOST", "LARDER_BROKER_USERNAME", "LARDER_BROKER_PASSWORD");
 
   BrokerEnvironmentCheck(Environment environment) {
-    // Spring leaves an unresolved ${...} in place; without this the host would connect nowhere
-    for (String variable : REQUIRED_BROKER_VARIABLES) {
-      if (environment.getRequiredProperty(variable).isBlank()) {
-        // an empty host resolves to localhost (security re-test SEC-13)
-        throw new IllegalStateException(variable + " must not be blank");
-      }
-    }
+    RequiredEnvironment.requireEach(environment, REQUIRED_BROKER_VARIABLES);
   }
 }

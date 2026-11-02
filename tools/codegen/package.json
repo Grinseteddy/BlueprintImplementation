@@ -1,12 +1,16 @@
 {
   "name": "larder-codegen",
   "private": true,
-  "description": "Pinned generators run from the Maven build (ADR0014): AsyncAPI message models with Modelina",
+  "description": "Pinned tools run from the Maven build: AsyncAPI message models with Modelina (ADR0014), Spectral lint of both specs (ADR0018)",
   "type": "module",
   "scripts": {
-    "asyncapi-models": "node generate-asyncapi-models.mjs"
+    "asyncapi-models": "node generate-asyncapi-models.mjs",
+    "lint-spec": "spectral lint --fail-severity error"
   },
   "dependencies": {
     "@asyncapi/modelina": "5.10.1"
+  },
+  "devDependencies": {
+    "@stoplight/spectral-cli": "6.11.1"
   }
 }
