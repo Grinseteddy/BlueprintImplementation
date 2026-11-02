@@ -23,12 +23,12 @@ The four per-board briefs are identical in structure and differ only in the vari
 | requester (cook Id) | model | |
 | type | model | Menu proposal (B1) · Ingredient Substitute (B2) · Preparation Step Explanation (B3) · Steps to Mitigate Catastrophe (B4) |
 | status | model v2 | Open · Answered · Closed |
-| preferred Provider(s) | model | Chef · Community · Grandma Avatar |
+| preferred Provider(s) | model | Chef · Community · Grandma Avatar; stored as **asked providers** (`AskedProvider`): per provider type its deadline and state Asked · Answered · Timed out *(step 6 r1, 2026-11-01, reverse check of increment 0)* |
 | recipe | model / map | mandatory for B2 and B3; optional for B4 ("can be provided not mandatory", on board); B1 ⟨open⟩ |
 | howTo Step | model | B3 only: one numbered step of one recipe (map US-CA-03 R2) |
 | ingredients | model | B2 only: one ingredient plus substitute requirements (map US-CA-02 R2 vs model "ingredients" 0..* → contradiction `R_EM02_R2`) |
 | title, description, pictures | model / map | pictures 0..* (model v2) vs 0..10 (glossary v2); text only for B3 (map R3); photos allowed for B4 (map R3) |
-| deadline | map, inferred as state | per type: B3 12 h · B2 24 h · B4 15 min Community / 5 min Grandma · B1 48 h or 24 h before the Occasion |
+| deadline | map, inferred as state | per asked provider, length per type: B3 12 h · B2 24 h · B4 15 min Community / 5 min Grandma · B1 48 h or 24 h before the Occasion |
 | notes | map | rejection notes, kept and shown on future requests (B3 R6, B4 R7); rejected substitutes not proposed again (B2 R5) |
 | Occasion | map, B1 only | US-CA-01 R1 |
 
@@ -36,13 +36,13 @@ The four per-board briefs are identical in structure and differ only in the vari
 
 **State:**
 - help Id
-- help request ref
-- help requester
+- help request ref — the aggregate's id, not stored in Help *(step 6 r1, 2026-11-01, reverse check of increment 0)*
+- help requester — the aggregate's requester
 - help provider type: Chef / Grandma Avatar / Community
 - help provider 0..1
 - answer title
 - answer, with answerType and oneOf: substitutes / preparation step explanation / catastrophe mitigation / menu proposal
-- images
+- images — inside the answer (e.g. the preparation step explanation; `help.answer` is jsonb, ADR0009 addition)
 - isAccepted
 
 **Invariants (model):**
@@ -62,11 +62,11 @@ The four per-board briefs are identical in structure and differ only in the vari
 
 | Slice | Command → aggregate | Preconditions / invariants | Success event | Rejections (inferred names) |
 |---|---|---|---|---|
-| B3-S01 | Request help Preparation step → Help Request | every Cook can ask (map R1) · providers ⊆ {Community, Grandma Avatar}, never Chef (on board; map R1) · recipe mandatory (model) · exactly one howTo step of one recipe (map R2) · text only (map R3) · status := Open, deadline := now + 12 h (map R8) | Help requested | Chef not allowed · step missing · pictures not allowed |
+| B3-S01 | Request help Preparation step → Help Request | every Cook can ask (map R1) · providers ⊆ {Community, Grandma Avatar}, never Chef (on board; map R1) · recipe mandatory (model) · exactly one howTo step of one recipe (map R2) · text only (map R3) · status := Open, deadline := now + 12 h (map R8) | Help requested | Chef not allowed · step missing · pictures not allowed — built: ChefNotAllowed · NoHelpProviderChosen (INV-01) · RecipeRequired · PreparationStepRequired (INV-02); pictures are refused by the request schema (INV-03) *(step 6 r1, 2026-11-01, reverse check of increment 0)* |
 | B2-S01 | Request help ingredients → Help Request | as B3-S01, plus: one ingredient with substitute requirements (map R2) · recipe mandatory (model) · deadline 24 h | Help requested | |
 | B4-S01 | Request help Catastrophe → Help Request | providers Community / Grandma · one catastrophe, one dish, recipe optional (map R2; on board) · photos allowed (map R3) · deadline 15 min / 5 min | Help requested | |
 | B1-S01 | Request help meal plan → Help Request | premium Cook only (on board ×2; map R3) · Chef selected by name (on board; map R4) · Chef can answer in time, in their time zone (map R5) · one Occasion (map R1) · ≥ 48 h before the Occasion (map R9) · Chef exclusive (SADR0001; model) · several open requests allowed (map R4) | Help requested | not premium · Chef not selected · Chef unavailable · Occasion too close |
-| B*-S02 | Provide Help → Help Request (adds a Help entity; D1) | request is Open or Answered (model v2: answered can still be answered) · provider in the request's providers · a Cook never answers their own request (on board; D3) · answerType = request type · same recipe / step / ingredient · B1: Chef only and exclusive (D2), a Chef may review a Grandma Menu (on board; map R6) · B2: several substitutes (map R3) · B3: may include pictures (map R4) | Help provided; Help Request → Answered | request closed or cancelled · wrong provider · type mismatch |
+| B*-S02 | Provide Help → Help Request (adds a Help entity; D1) | request is Open or Answered (model v2: answered can still be answered) · provider in the request's providers · a Cook never answers their own request (on board; D3) · answerType = request type · same recipe / step / ingredient · B1: Chef only and exclusive (D2), a Chef may review a Grandma Menu (on board; map R6) · B2: several substitutes (map R3) · B3: may include pictures (map R4) | Help provided; Help Request → Answered | request closed or cancelled · wrong provider · type mismatch — built for B3: InvalidHelpRequestState (`LIFECYCLE`) · ProviderNotAsked (INV-01) · OwnRequest (INV-36) · TooManyPictures (INV-38) · AnswerDoesNotMatchRequest (INV-37) *(step 6 r1, 2026-11-01, reverse check of increment 0)* |
 | B3-S03 | Cancel help request → Help Request | only the requester (inferred; `Q_ESD_CancelActor`) · request Open or Answered · optional note (map US-CA-03 R7) · at any time while Open or Answered (map US-CA-03 R7; D4) | Help request cancelled | not requester · already closed or cancelled |
 | B3-S04 | Accept help → Help Request (sets Help.isAccepted; one transaction, D1) *added* | requester only · Help belongs to the request · request Answered · accepting closes the whole request (maps 02 R3, 03 R4, 04 R5) · "at least one Help must be accepted" (model v2) | Help accepted → status Closed | not answered · foreign help |
 | B3-S05 | Reject help → Help Request *added* | requester only · a note on what didn't work · resent to the same providers · new deadline (12 h / 24 h / per type) · rejected substitutes kept (B2 R5) · B1: reset gives 48 h (map R8) | Help rejected → status Open | |

@@ -36,3 +36,15 @@ ADR0002 (honors option 1), AP0001
 
 ## Quality scenarios
 QS-01, QS-05, QS-11
+
+## Addition (step 7, increment 0, 2026-10-31, decided by the user)
+
+- **A Help's answer is stored as `jsonb`** in `help.answer`, under the AsyncAPI field names. The four answer types arriving in increments 1–4 need no further migration.
+- **Stored answers and outbox payloads follow one JSON rule set** (`AsyncApiJson`, ISO-8601 times), so the stored answer and the `HelpProvided` answer cannot drift apart.
+- **The module's connection works in schema `cooking_assistance`** (`spring.datasource.hikari.schema`). The module's own database user is set up by operations; tests use the container's user, except `DatabasePermissionsIT` (see the addition below).
+
+## Addition (step 5 revision from the skeleton review of increment 0, 2026-11-02, decided by the user)
+
+- **The database identity comes from the environment:** `LARDER_DB_URL`, `LARDER_DB_USERNAME`, `LARDER_DB_PASSWORD`; the host refuses to start when one is missing or blank (ADR0019).
+- **The database administrator creates the module's role and its schema** `cooking_assistance`, owned by that role; the role may not create anything in `public` (`DatabasePermissionsIT` proves this for `public`). The module's Flyway migrations run as that role, only inside its schema.
+- A test runs the module as such a role (`DatabasePermissionsIT`).

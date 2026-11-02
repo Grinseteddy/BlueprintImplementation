@@ -1,5 +1,84 @@
 # Cook Assistance API — changelog
 
+## AsyncAPI 1.0.5 — 2026-11-02 (step 4 r10, from the skeleton review of increment 0)
+
+| Change | Why |
+|---|---|
+| `GrandmaMessageHeader` declares `type: object` at its top level | Spectral `asyncapi-3-headers-schema-type-object` (1 error) once Spectral ran in `./mvnw verify` (ADR0018). No change in the headers accepted: both `allOf` parts already required an object |
+
+## OpenAPI 1.0.7 — 2026-11-01 (step 4 r9, from step 14 of increment 0)
+
+| Change | Why |
+|---|---|
+| `PAYLOAD_TOO_LARGE` named in the `Problem.code` description (413 for a request body over 1 MB, ADR0019); `version` header accepts 1.0.7 | security review SEC-01: a 3 MB body was accepted. Additive |
+
+## AsyncAPI 1.0.4 — 2026-11-01 (step 4 r8, from step 14 of increment 0)
+
+| Change | Why |
+|---|---|
+| `images` of PreparationStepExplanation and CatastropheMitigation must match `^https://` | security review SEC-07: non-https picture links from the Grandma Avatar were stored and republished. Narrowing, aligned with OpenAPI 1.0.6 |
+
+## OpenAPI 1.0.6 — 2026-11-01 (step 4 r8, from step 14 of increment 0)
+
+| Change | Why |
+|---|---|
+| `Pictures` items must match `^https://`; `INVALID_PICTURE_LINK` named in the `Problem.code` description (422, INV-38); `version` header accepts 1.0.6 | security review SEC-07: `javascript:`, `file:` and metadata URLs were stored and republished as picture links. Narrowing: such links were never meant to be valid |
+
+Note (2026-11-02, reverse check of step 14): over REST the `Pictures` pattern answers first, so a client sees 400 `VALIDATION_FAILED`; `INVALID_PICTURE_LINK` (422) is the domain's code and shows where the schema does not run first (Grandma's messages end as dead letters).
+
+## AsyncAPI 1.0.3 — 2026-11-01 (step 4 r7, from step 14 of increment 0)
+
+| Change | Why |
+|---|---|
+| `GrandmaHelpProvided` headers use the new `GrandmaMessageHeader`: `MessageHeader` with `source` fixed to `grandma-avatar` | security review SEC-08: a message from another source was processed. Narrowing for producers other than the Grandma Avatar, who never had the right to send it |
+
+## OpenAPI 1.0.5 — 2026-11-01 (step 4 r6, from step 13 of increment 0)
+
+| Change | Why |
+|---|---|
+| `NOT_ACCEPTABLE` named in the `Problem.code` description (406 when the client accepts no media type the operation produces); `version` header accepts 1.0.5 | Fagan D-02: every Problem carries a code, also for errors the framework raises. Additive, non-breaking |
+
+## OpenAPI 1.0.4 — 2026-11-01 (step 4 r5, from step 12 of increment 0)
+
+| Change | Why |
+|---|---|
+| Request-body examples for createHelpRequest (`preparationStep`) and provideHelp (`preparationStepExplanation`); examples on the `helpRequestId` and `helpId` path parameters; `version` header accepts 1.0.4 | the example-based contract check (and later Schemathesis) had no test data |
+
+## OpenAPI 1.0.3 — 2026-10-31 (step 4 r4, from step 9 of increment 0)
+
+| Change | Why |
+|---|---|
+| Global security requires `help:read` only (was `help:read` and `help:write` in one requirement); write operations keep their `help:write` override; `version` header accepts 1.0.3 | one requirement listing both scopes means both are needed for every read; the intent is read → help:read, write → help:write. Relaxing, non-breaking |
+
+## 1.0.2 — 2026-10-31 (step 4 r3, from step 9 of increment 0)
+
+Wire format unchanged.
+
+| Spec | Change | Why |
+|---|---|---|
+| OpenAPI | `required: true` on the create-help-request, create-help and rejection request bodies; `version` header accepts 1.0.2 | an empty body was spec-valid; the generator emitted `@RequestBody(required = false)` |
+| AsyncAPI | `asyncapi: 3.0.0` (was 3.1.0); the document uses no 3.1 feature and validates as 3.0.0 | Modelina 5.10.1 supports AsyncAPI up to 3.0.0 and generated nothing from 3.1.0 |
+| AsyncAPI | `title` on the 10 inline const/enum schemas (`*AnswerType`, `*Status`) | Modelina named them `AnonymousSchema_N` |
+
+## 1.0.1 — 2026-10-31 (step 4 r1, from step 9 of increment 0)
+
+Wire format unchanged; no breaking change.
+
+### OpenAPI
+
+| Change | Why |
+|---|---|
+| Inline link responses named `HelpRequestLink` and `HelpLink` (component schemas) | generators invented `CreateHelpRequest201Response` / `ProvideHelp201Response` |
+| Schema violations, including the type-dependent `HelpRequestInvariants`, a chef outside a menu request and more than 10 pictures or images, answer 400 VALIDATION_FAILED; the 422 lists keep only the rules that depend on state | the descriptions promised 422 for rules the schema already rejects with 400 |
+| Problem codes added: CONCURRENT_UPDATE (409), NOT_AUTHORIZED, INSUFFICIENT_SCOPE (403), UNAUTHENTICATED (401), NOT_FOUND (404), METHOD_NOT_ALLOWED (405), UNSUPPORTED_MEDIA_TYPE (415), INTERNAL_ERROR (500), NOT_IMPLEMENTED (501) | errors the adapter produces are named |
+| `version` header accepts `1.0.0` and `1.0.1`, default `1.0.1` | additive |
+
+### AsyncAPI (1.0.1, step 4 r2)
+
+| Change | Why |
+|---|---|
+| The 12 channel and operation `bindings` reference the binding components directly (`bindings: $ref`), not under an extra `amqp:` key | the AsyncAPI parser (CLI 6.2.1) rejected the document with 17 errors; Spectral had not caught it |
+
 ## 1.0.0 — revision 2026-10-31 (step 4, before any consumer)
 
 v1.0.0 had no consumers, so it was revised in place. Sources: `SamplesDddMeetAi/Chapter12/{OpenAPIs,AsyncAPIs}/ClaudeFable51/`. Proposals: `spec-review.md`.

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Generated code is never edited (ADR0014); its findings go to the spec or the generator, not here. -->
+<FindBugsFilter>
+  <Match>
+    <Source name="~.*/generated-sources/.*"/>
+  </Match>
+  <Match>
+    <Package name="~org\.larder\.cookingassistance\.adapter\.(in\.rest|messaging)\.generated(\..*)?"/>
+  </Match>
+</FindBugsFilter>

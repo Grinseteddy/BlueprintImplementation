@@ -12,33 +12,33 @@ Kinds: *quantitative* and *cardinality* rules get a property test in step 6.
 
 #### INV-01 — US-CA-03 R1: Help with a preparation step goes to the Community and/or Grandma Avatar, never to a Chef; every Cook can ask
 - **Slice / command:** B3-S01 · Request help Preparation step · **kind:** cardinality
-- **Guard / outcome:** ChefNotAllowed — a Chef is never offered or accepted as provider; providers ⊆ {Community, Grandma Avatar}, 1..2
+- **Guard / outcome:** ChefNotAllowed — a Chef is never offered or accepted as provider; providers ⊆ {Community, Grandma Avatar}, 1..2; NoHelpProviderChosen when none is chosen. Provide Help side (B3-S02): ProviderNotAsked — only an asked provider answers *(step 3 r2, 2026-11-01, reverse check of increment 0)*
 - **Sources:** map; board 'No Chef support for Preparation step' + 'Help Preparation step can be provided by community, or Grandma'; model 'Chef only for Menu proposal'; glossary preferred Provider 1..2
   - `US-CA-03 R1.E1` **Given/When** Lena asks Grandma about step 4 of Hollandaise **Then** Grandma receives it
   - `US-CA-03 R1.E2` **Given/When** Lena asks the Community and Grandma together **Then** both get the same request
   - `US-CA-03 R1.E3` **Given/When** Tom (free plan) asks about step 2 of his bread **Then** request sent
-  - `US-CA-03 R1.E4` **Given/When** Marco proposed the Hollandaise; Lena looks for help **Then** Marco not offered
+  - `US-CA-03 R1.E4` **Given/When** Marco proposed the Hollandaise; Lena looks for help **Then** a request to chef Marco is refused (a chef only helps with a menu proposal); nobody receives it *(reworded in step 3 r2, 2026-11-01: offering providers is the client's part)*
 
 #### INV-02 — US-CA-03 R2: A request can only have one step: one numbered step of one recipe
 - **Slice / command:** B3-S01 · Request help Preparation step · **kind:** cardinality
-- **Guard / outcome:** exactly one numbered step of one recipe; steps cannot be added to an open request (new request instead)
+- **Guard / outcome:** exactly one numbered step of one recipe (RecipeRequired · PreparationStepRequired); steps cannot be added to an open request (new request instead) *(step 3 r2, 2026-11-01, reverse check of increment 0)*
 - **Sources:** map; model 'howTo Step only for Preparation Step Explanation', 'recipe mandatory'; glossary howTo 0..1
   - `US-CA-03 R2.E1` **Given/When** Step 4: "How do I keep the sauce from splitting?" **Then** shows recipe, step 4, question
   - `US-CA-03 R2.E2` **Given/When** Unsure about steps 4 and 6 **Then** two requests
-  - `US-CA-03 R2.E3` **Given/When** Lena tries to add step 6 to her open request on step 4 **Then** not added, new request offered
+  - `US-CA-03 R2.E3` **Given/When** Lena tries to add step 6 to her open request on step 4 **Then** nothing is added; the request stays about step 4 only *(reworded in step 3 r2, 2026-11-01: offering a new request is the client's part)*
 
 #### INV-03 — US-CA-03 R3: A request is text only
 - **Slice / command:** B3-S01 · Request help Preparation step · **kind:** other
-- **Guard / outcome:** PicturesNotAllowed — the request carries text only
+- **Guard / outcome:** the request carries text only — enforced by the request schema (no picture field; an undeclared field → 400 VALIDATION_FAILED); the Help Request holds no pictures, so there is no domain guard *(step 3 r2, 2026-11-01, reverse check of increment 0)*
 - **Sources:** map; contradicts glossary picture 0..* (resolved per type: maps)
-  - `US-CA-03 R3.E1` **Given/When** Lena tries to attach a photo of the split sauce **Then** not added, sent as text
+  - `US-CA-03 R3.E1` **Given/When** Lena tries to attach a photo of the split sauce **Then** the request with the photo is refused (text only); sent without the photo, it is accepted *(reworded in step 3 r1, 2026-11-01: dropping the photo is the client's part)*
 
 #### INV-04 — US-CA-03 R4: An answer may include pictures; accepting an answer closes the whole request
 - **Slice / command:** B3-S02 · Provide Help · **kind:** other
-- **Guard / outcome:** an answer may carry pictures; several providers may answer (Answered can still be answered)
+- **Guard / outcome:** an answer may carry pictures; several providers may answer (Answered can still be answered); a Closed or Cancelled request takes no answer → InvalidHelpRequestState, rule `LIFECYCLE` (design brief §3) *(step 3 r2, 2026-11-01, reverse check of increment 0)*
 - **Sources:** map R4 (E1, E3); model v2 'Answered help requests can be still answered'
-  - `US-CA-03 R4.E1` **Given/When** Grandma: "butter in a thin stream" + 3 photos **Then** Lena sees answer and photos
-  - `US-CA-03 R4.E3` **Given/When** Jonas and Mia answer; Lena accepts Mia's **Then** closed
+  - `US-CA-03 R4.E1` **Given/When** Grandma: "butter in a thin stream" + 3 photos **Then** Lena sees answer and photos *(increment 0 shows the answer and its 3 photos in the published HelpProvided; reading helps — "Lena sees" — comes with listHelpsOfHelpRequest in increment 1)*
+  - `US-CA-03 R4.E3` **Given/When** Jonas and Mia answer; Lena accepts Mia's **Then** closed *(B3-S02 covers the answering half — both answers announced, request Answered; accepting and closing is INV-05, B3-S04; step 3 r2)*
 
 #### INV-05 — US-CA-03 R4: An answer may include pictures; accepting an answer closes the whole request
 - **Slice / command:** B3-S04 · Accept help · **kind:** other
@@ -69,7 +69,7 @@ Kinds: *quantitative* and *cardinality* rules get a property test in step 6.
   - `US-CA-03 R7.E2` **Given/When** Lena cancels without a note **Then** closed
 
 #### INV-09 — US-CA-03 R8: Unanswered after 12 h: cancelled; a provider not yet asked is suggested
-- **Slice / command:** B3-S06 · Time out help request · **kind:** quantitative
+- **Slice / command:** B3-S06 · Time out help request · **kind:** quantitative — the 12 h deadline of each asked provider is set in B3-S01 (Request help Preparation step); only the timeout is B3-S06 *(step 3 r2, 2026-11-01, reverse check of increment 0)*
 - **Guard / outcome:** no answer within 12 h → Help request timed out (Cancelled); a provider not yet asked is suggested; an answer at 11:59 h counts
 - **Sources:** map; board 'System cancels request when answer takes too long'; hotspot 'Define timeouts'
   - `US-CA-03 R8.E1` **Given/When** Only Community asked Fri 18:00, silent until Sat 06:00 **Then** cancelled, Grandma suggested
@@ -91,7 +91,7 @@ Kinds: *quantitative* and *cardinality* rules get a property test in step 6.
 
 #### INV-38 — added in step 3: At most 10 pictures
 - **Slice / command:** B3-S02 · Provide Help (answer pictures); B4-S01 · Request help Catastrophe (request photos) · **kind:** cardinality
-- **Guard / outcome:** TooManyPictures — 0..10 pictures
+- **Guard / outcome:** TooManyPictures — 0..10 pictures; PictureLinkNotSecure (INVALID_PICTURE_LINK) — every picture is an https link *(step 3 r3, 2026-11-01, from the security review SEC-07)*; the domain compares the scheme case-insensitively (RFC 3986 §3.1), both specs are stricter at the edge (`^https://`) *(step 3 r4, 2026-11-02, reverse check of step 14)*
 - **Sources:** glossary v2 'Help Request contains Picture 0..10' (chosen over model v2 0..*); example added by the user 2026-10-31
   - `US-CA-03 S3.E3` **Given/When** Grandma's answer carries 11 photos **Then** refused, max 10
 

@@ -31,3 +31,7 @@ eventual consistency without a need
 
 ## Quality scenarios
 QS-07, QS-01
+
+## Addition (step 11 revision from step 13, increment 0, 2026-11-01, decided by the user)
+
+- **One query reads one snapshot.** A query that reads several aggregate tables (`help_request` and `asked_provider` for getHelpRequestById) runs in one read-only REPEATABLE READ transaction, so a concurrent command never shows half applied (Fagan D-06; `JdbcHelpRequestQueriesIT`).

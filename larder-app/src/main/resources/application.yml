@@ -1,0 +1,42 @@
+# Larder: one process, its modules wired here (ADR0001, ADR0007). Secrets and endpoints only from the environment (ADR0019).
+spring:
+  application:
+    name: larder
+  # Cook Assistance owns schema cooking_assistance (ADR0002, ADR0009)
+  flyway:
+    schemas: cooking_assistance
+    default-schema: cooking_assistance
+    locations: classpath:db/cooking-assistance/migration
+  # the module's own database user, only from the environment (ADR0009, ADR0019)
+  datasource:
+    url: ${LARDER_DB_URL}
+    username: ${LARDER_DB_USERNAME}
+    password: ${LARDER_DB_PASSWORD}
+    hikari:
+      schema: cooking_assistance
+  # the module's own broker user and TLS, only from the environment (ADR0012, ADR0019, SEC-05)
+  rabbitmq:
+    host: ${LARDER_BROKER_HOST}
+    port: ${LARDER_BROKER_PORT:5671}
+    username: ${LARDER_BROKER_USERNAME}
+    password: ${LARDER_BROKER_PASSWORD}
+    ssl:
+      enabled: ${LARDER_BROKER_SSL:true}
+
+# Cook Assistance: the identity provider's signing keys (ADR0012)
+cooking-assistance:
+  security:
+    jwk-set-uri: ${LARDER_JWKS_URI}
+  # links in responses start with the public base URL, e.g. https://larder.org/cooking-assistance (SEC-10)
+  public-base-url: ${LARDER_PUBLIC_BASE_URL}
+
+# health and readiness probes for the platform (ADR0020); nothing else is exposed
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true

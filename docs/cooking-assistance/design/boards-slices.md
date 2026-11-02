@@ -163,9 +163,9 @@ US-CA-01 is split along its Example Map rules. The parent's "so that" is kept ve
 | Database | Help Request, Help |
 | Outbox → RabbitMQ out | HelpRequestCreated |
 | RabbitMQ in | HelpProvided (Grandma Avatar answer) → Provide Help |
-| Read model | Help request Preparation step · Help Preparation step |
+| Read model | Help request Preparation step (Help Preparation step: increment 1, with listHelpsOfHelpRequest; increment 0 shows the answer in the published HelpProvided) |
 
-Layers not reached: none.
+Layers not reached: none. *(Read model row corrected 2026-11-01, reverse check of increment 0.)*
 
 Open: does the skeleton validate the recipe step against Recipe Catalog, or take recipeId and step number as given? Settled in steps 2 and 5.
 

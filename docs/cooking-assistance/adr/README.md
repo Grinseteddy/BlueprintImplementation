@@ -18,4 +18,5 @@ Format as in Larder's ADR0001–ADR0005. Each ADR names the principles it honors
 | [ADR0017](ADR0017-TestInfrastructureFastAndSlow.md) | Test infrastructure: fast and slow suites on real infrastructure | QS-01, QS-04, QS-05 |
 | [ADR0018](ADR0018-OneBuildCommandHooksAnd.md) | One build command, hooks and CI | QS-16, QS-15 |
 | [ADR0019](ADR0019-SecurityBaselineAndReviewTools.md) | Security baseline and review tools | QS-12, QS-13 |
+| [ADR0020](ADR0020-ObservabilityWithMicrometerTracing.md) | Observability with Micrometer Tracing and OpenTelemetry | QS-14 |
 | [SADR0008](SADR0008-HelpIsPartOfThe.md) | Help is part of the Help Request aggregate | QS-10, QS-01 |

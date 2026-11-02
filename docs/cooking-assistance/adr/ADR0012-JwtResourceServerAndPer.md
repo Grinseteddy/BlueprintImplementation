@@ -32,3 +32,14 @@ AP0008 (honors)
 
 ## Quality scenarios
 QS-12, QS-13
+
+## Addition (step 5 revision from step 14, increment 0, 2026-11-01, decided by the user)
+
+- **Every token expires.** A token without `exp` is refused (security review SEC-03).
+- **The module declares what it owns; it never declares what other contexts own** (security review SEC-04). Its broker user gets, as a regular expression per RabbitMQ permission:
+  - configure `^cooking-assistance(\..*)?$` — the `cooking-assistance` exchange and the module's queues (`cooking-assistance.grandma-help-provided`, `cooking-assistance.dlq`);
+  - write `^cooking-assistance(\..*)?$` — publish to its exchange, bind its own queues;
+  - read `^(cooking-assistance\..*|grandma-avatar)$` — consume its own queues, bind a queue to the Grandma Avatar's exchange.
+- The `grandma-avatar` exchange is declared by its owner. The module binds its queue to it by name; the bind fails while the owner has not declared it. The module never gets configure or write rights on it.
+- HEAD on a read path needs `help:read`, the same as GET (security review SEC-02).
+- A test runs the module with a broker user holding exactly these permissions.

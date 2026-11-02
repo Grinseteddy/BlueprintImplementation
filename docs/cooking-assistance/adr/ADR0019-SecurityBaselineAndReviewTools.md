@@ -31,3 +31,10 @@ AP0008 (honors)
 
 ## Quality scenarios
 QS-12, QS-13
+
+## Addition (step 5 revision from step 14, increment 0, 2026-11-02, decided by the user)
+
+- **Request bodies above 1 MB are refused** with 413 `PAYLOAD_TOO_LARGE`, before validation (security review SEC-01).
+- **OPTIONS is refused** with 405 and `Allow` listing the methods the spec declares for the path (security review SEC-09).
+- **Links in responses start with a configured public base URL** (`cooking-assistance.public-base-url`, in larder-app `LARDER_PUBLIC_BASE_URL`), never the request's Host or forwarded headers (security review SEC-10).
+- **The broker connection comes from the environment**, TLS by default; the host refuses to start without host, user and password (security review SEC-05).
