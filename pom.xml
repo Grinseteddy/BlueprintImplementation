@@ -181,8 +181,6 @@
             <configuration>
               <failBuildOnCVSS>7</failBuildOnCVSS>
               <nvdApiKeyEnvironmentVariable>NVD_API_KEY</nvdApiKeyEnvironmentVariable>
-              <!-- only CVEs that cannot reach the service, each with its reason and expiry -->
-              <suppressionFile>${maven.multiModuleProjectDirectory}/tools/security/dependency-check-suppressions.xml</suppressionFile>
               <formats>
                 <format>HTML</format>
                 <format>JSON</format>
