@@ -124,9 +124,9 @@ Decisions:
 | B3-S01 | B3 | Cook | Request help Preparation step | Help Request | Help requested | board | US-CA-03 |
 | B3-S02 | B3 | Cook / community; Grandma Avatar (external, via broker) | Provide Help | Help | Help provided | board | US-CA-03 |
 | B3-S03 | B3 | Cook | Cancel help request | Help Request | Help request cancelled | board (all 4 boards, merged) | US-CA-03, US-CA-02, US-CA-04, US-CA-01c |
-| B3-S04 | B3 | Cook | Accept help | Help Request | ⟨event name open⟩ | **added** (rule sticky "Cook can accept the answer"; Example Maps) | US-CA-03, US-CA-02, US-CA-04, US-CA-01b |
-| B3-S05 | B3 | Cook | Reject help (resend with note, new deadline) | Help Request | ⟨open⟩ | **added** (Example Maps only) | US-CA-03, US-CA-02, US-CA-04, US-CA-01b, US-CA-01c |
-| B3-S06 | B3 | time (automation) | Time out help request | Help Request | Help request cancelled ⟨to confirm⟩ | **added** (rule "System cancels request when answer takes too long"; hotspot Define timeouts) | US-CA-03, US-CA-02, US-CA-04, US-CA-01c |
+| B3-S04 | B3 | Cook | Accept help | Help Request | Help accepted (HelpAccepted, step 4) | **added** (rule sticky "Cook can accept the answer"; Example Maps) | US-CA-03, US-CA-02, US-CA-04, US-CA-01b |
+| B3-S05 | B3 | Cook | Reject help (resend with note, new deadline) | Help Request | Help rejected (HelpRejected, step 4) | **added** (Example Maps only) | US-CA-03, US-CA-02, US-CA-04, US-CA-01b, US-CA-01c |
+| B3-S06 | B3 | time (automation) | Time out help request | Help Request | Help request timed out (HelpRequestTimedOut, step 4) | **added** (rule "System cancels request when answer takes too long"; hotspot Define timeouts) | US-CA-03, US-CA-02, US-CA-04, US-CA-01c |
 | B2-S01 | B2 | Cook | Request help ingredients | Help Request | Help requested | board | US-CA-02 |
 | B2-S02 | B2 | Cook / community; Grandma Avatar | Provide Help | Help | Help provided | board | US-CA-02 |
 | B4-S01 | B4 | Cook | Request help Catastrophe | Help Request | Help requested | board | US-CA-04 |
