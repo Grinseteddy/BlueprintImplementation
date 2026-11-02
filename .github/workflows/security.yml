@@ -35,7 +35,8 @@ jobs:
   dependency-audit:
     name: OWASP Dependency-Check
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # the first run downloads the whole NVD (about 70 minutes); later runs restore it and fetch updates only
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
@@ -43,10 +44,24 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
+      - name: Restore NVD data
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/dependency-check
+          key: nvd-${{ github.run_id }}
+          restore-keys: nvd-
       - name: Dependency-Check, CVSS 7 or higher fails the job
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-        run: ./mvnw -B -Psecurity -DskipTests org.owasp:dependency-check-maven:13.0.0:aggregate
+        run: ./mvnw -B -Psecurity -DskipTests -DdataDirectory="$HOME/.cache/dependency-check" org.owasp:dependency-check-maven:13.0.0:aggregate
+      # saved also when findings fail the job, so the next run does not download the NVD again;
+      # never after a cancel or timeout, which can leave a half-written database
+      - name: Save NVD data
+        if: ${{ !cancelled() }}
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/dependency-check
+          key: nvd-${{ github.run_id }}
       - name: Report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
