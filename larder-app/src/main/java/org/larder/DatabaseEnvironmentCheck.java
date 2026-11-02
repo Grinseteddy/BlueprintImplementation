@@ -1,6 +1,5 @@
 package org.larder;
 
-import java.util.List;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 
@@ -8,10 +7,8 @@ import org.springframework.core.env.Environment;
 @Configuration(proxyBeanMethods = false)
 class DatabaseEnvironmentCheck {
 
-  static final List<String> REQUIRED_DATABASE_VARIABLES =
-      List.of("LARDER_DB_URL", "LARDER_DB_USERNAME", "LARDER_DB_PASSWORD");
-
   DatabaseEnvironmentCheck(Environment environment) {
-    RequiredEnvironment.requireEach(environment, REQUIRED_DATABASE_VARIABLES);
+    RequiredEnvironment.requireEach(
+        environment, "LARDER_DB_URL", "LARDER_DB_USERNAME", "LARDER_DB_PASSWORD");
   }
 }

@@ -1,6 +1,5 @@
 package org.larder;
 
-import java.util.List;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 
@@ -8,10 +7,8 @@ import org.springframework.core.env.Environment;
 @Configuration(proxyBeanMethods = false)
 class BrokerEnvironmentCheck {
 
-  static final List<String> REQUIRED_BROKER_VARIABLES =
-      List.of("LARDER_BROKER_HOST", "LARDER_BROKER_USERNAME", "LARDER_BROKER_PASSWORD");
-
   BrokerEnvironmentCheck(Environment environment) {
-    RequiredEnvironment.requireEach(environment, REQUIRED_BROKER_VARIABLES);
+    RequiredEnvironment.requireEach(
+        environment, "LARDER_BROKER_HOST", "LARDER_BROKER_USERNAME", "LARDER_BROKER_PASSWORD");
   }
 }
