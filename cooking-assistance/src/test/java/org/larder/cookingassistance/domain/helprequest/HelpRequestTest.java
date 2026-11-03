@@ -66,6 +66,13 @@ class HelpRequestTest {
       new PreparationStepExplanation(
           HOLLANDAISE, STEP_4, "Add the butter in a thin stream", List.of());
 
+  /** A clock fixed at the given local time in Larder's zone (UTC+1 in November). */
+  static Clock at(String localDateTime) {
+    return Clock.fixed(
+        java.time.LocalDateTime.parse(localDateTime).toInstant(ZoneOffset.ofHours(1)),
+        ZoneOffset.UTC);
+  }
+
   /** Links to n distinct pictures in Larder's media store. */
   static List<URI> photos(int n) {
     return java.util.stream.IntStream.rangeClosed(1, n)
@@ -605,63 +612,162 @@ class HelpRequestTest {
       assertThat(closed.helps()).isEmpty();
     }
 
-    @Disabled("step 6 test list")
     @DisplayName(
         "only Community asked Fri 18:00 (deadline Sat 06:00); Jonas answers Sat 05:59 -> the answer counts: one Help, request ANSWERED, Community's side ANSWERED -- B3-S02 US-CA-03 INV-09 R8.E4")
     @Test
-    void jonasAnswersAMinuteBeforeTheDeadline() {}
+    void jonasAnswersAMinuteBeforeTheDeadline() {
+      HelpRequest request = lenaAsksAboutStep4(HelpProviderType.COMMUNITY);
 
-    @Disabled("step 6 test list")
+      request.provideHelp(
+          HELP_ID,
+          HelpProvider.community(JONAS),
+          "Warm the bowl",
+          BUTTER_IN_A_THIN_STREAM,
+          at("2026-11-07T05:59"));
+
+      assertThat(request.helps()).singleElement().extracting(Help::id).isEqualTo(HELP_ID);
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.ANSWERED);
+      assertThat(request.askedProviders())
+          .singleElement()
+          .extracting(AskedProvider::state)
+          .isEqualTo(ProviderState.ANSWERED);
+    }
+
     @DisplayName(
         "Grandma answers at Sat 06:00:00, exactly her deadline -> the answer counts, request ANSWERED -- B3-S02 US-CA-03 INV-09 boundary (step 3 r5)")
     @Test
-    void answerAtTheDeadlineCounts() {}
+    void answerAtTheDeadlineCounts() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
 
-    @Disabled("step 6 test list")
+      request.provideHelp(
+          HELP_ID,
+          HelpProvider.grandmaAvatar(),
+          "Butter in a thin stream",
+          BUTTER_IN_A_THIN_STREAM,
+          at("2026-11-07T06:00:00"));
+
+      assertThat(request.helps()).singleElement().extracting(Help::id).isEqualTo(HELP_ID);
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.ANSWERED);
+    }
+
     @DisplayName(
         "Grandma answers at Sat 06:00:01, after her deadline -> AnswerTooLate (rule INV-09), no Help, request stays OPEN, no event -- B3-S02 US-CA-03 INV-09 (step 3 r5)")
     @Test
-    void answerAfterTheDeadlineIsTooLate() {}
+    void answerAfterTheDeadlineIsTooLate() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      request.pullEvents();
+
+      assertThatThrownBy(
+              () ->
+                  request.provideHelp(
+                      HELP_ID,
+                      HelpProvider.grandmaAvatar(),
+                      "Butter in a thin stream",
+                      BUTTER_IN_A_THIN_STREAM,
+                      at("2026-11-07T06:00:01")))
+          .isInstanceOfSatisfying(
+              AnswerTooLate.class,
+              rejection -> {
+                assertThat(rejection.rule()).isEqualTo("INV-09");
+                assertThat(rejection.code()).isEqualTo("INVALID_STATE");
+              });
+      assertThat(request.helps()).isEmpty();
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.OPEN);
+      assertThat(request.pullEvents()).isEmpty();
+    }
   }
 
   @Nested
   class CancelHelpRequest { // B3-S03, US-CA-03
 
-    @Disabled("step 6 test list")
     @DisplayName(
         "Lena cancels her open request at Fri 18:10 with note 'an ice cube saved it' -> CANCELLED; HelpRequestCancelled {helpRequest, helpRequester Lena, note 'an ice cube saved it', askedProviders [Grandma, deadline Sat 06:00], CANCELLED, occurredAt Fri 18:10} -- B3-S03 US-CA-03 INV-08 R7.E1")
     @Test
-    void lenaCancelsWithANote() {}
+    void lenaCancelsWithANote() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      request.pullEvents();
 
-    @Disabled("step 6 test list")
+      request.cancel(Optional.of("an ice cube saved it"), FRIDAY_18_10);
+
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.CANCELLED);
+      assertThat(request.pullEvents())
+          .containsExactly(
+              new HelpRequestCancelled(
+                  HELP_REQUEST_ID,
+                  LENA,
+                  Optional.of("an ice cube saved it"),
+                  List.of(
+                      new AskedProvider(
+                          HelpProviderType.GRANDMA_AVATAR, at("2026-11-07T06:00").instant())),
+                  HelpRequestStatus.CANCELLED,
+                  FRIDAY_18_10.instant()));
+    }
+
     @DisplayName(
         "Lena cancels without a note -> CANCELLED; HelpRequestCancelled without a note -- B3-S03 US-CA-03 INV-08 R7.E2")
     @Test
-    void lenaCancelsWithoutANote() {}
+    void lenaCancelsWithoutANote() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      request.pullEvents();
 
-    @Disabled("step 6 test list")
+      request.cancel(Optional.empty(), FRIDAY_18_10);
+
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.CANCELLED);
+      assertThat(request.pullEvents())
+          .singleElement()
+          .isInstanceOfSatisfying(
+              HelpRequestCancelled.class, cancelled -> assertThat(cancelled.note()).isEmpty());
+    }
+
     @DisplayName(
         "Grandma answered; Lena cancels -> CANCELLED (Open or Answered may be cancelled) -- B3-S03 US-CA-03 INV-08")
     @Test
-    void answeredRequestCanBeCancelled() {}
+    void answeredRequestCanBeCancelled() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      grandmaExplainsStep4(request);
 
-    @Disabled("step 6 test list")
+      request.cancel(Optional.empty(), FRIDAY_18_10);
+
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.CANCELLED);
+    }
+
     @DisplayName(
         "Lena cancelled; Grandma answers -> InvalidHelpRequestState(CANCELLED), no Help -- B3-S03 US-CA-03 INV-08 lifecycle")
     @Test
-    void cancelledRequestTakesNoAnswer() {}
+    void cancelledRequestTakesNoAnswer() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      request.cancel(Optional.empty(), FRIDAY_18_10);
 
-    @Disabled("step 6 test list")
+      assertThatThrownBy(() -> grandmaExplainsStep4(request))
+          .isInstanceOf(InvalidHelpRequestState.class)
+          .hasMessageContaining("CANCELLED");
+      assertThat(request.helps()).isEmpty();
+    }
+
     @DisplayName(
         "cancel a CLOSED request -> InvalidHelpRequestState(CLOSED), status unchanged, no event -- B3-S03 US-CA-03 lifecycle")
     @Test
-    void closedRequestCannotBeCancelled() {}
+    void closedRequestCannotBeCancelled() {
+      HelpRequest closed = storedRequestToGrandmaIn(HelpRequestStatus.CLOSED);
 
-    @Disabled("step 6 test list")
+      assertThatThrownBy(() -> closed.cancel(Optional.empty(), FRIDAY_18_10))
+          .isInstanceOf(InvalidHelpRequestState.class)
+          .hasMessageContaining("CLOSED");
+      assertThat(closed.status()).isEqualTo(HelpRequestStatus.CLOSED);
+      assertThat(closed.pullEvents()).isEmpty();
+    }
+
     @DisplayName(
         "cancel a CANCELLED request -> InvalidHelpRequestState(CANCELLED), no event -- B3-S03 US-CA-03 lifecycle")
     @Test
-    void cancelledRequestCannotBeCancelledAgain() {}
+    void cancelledRequestCannotBeCancelledAgain() {
+      HelpRequest cancelled = storedRequestToGrandmaIn(HelpRequestStatus.CANCELLED);
+
+      assertThatThrownBy(() -> cancelled.cancel(Optional.of("again"), FRIDAY_18_10))
+          .isInstanceOf(InvalidHelpRequestState.class)
+          .hasMessageContaining("CANCELLED");
+      assertThat(cancelled.pullEvents()).isEmpty();
+    }
   }
 
   @Nested

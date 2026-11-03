@@ -160,8 +160,10 @@ public final class HelpRequest {
       String answerTitle,
       PreparationStepExplanation answer,
       Clock clock) {
-    ensureOpenForAnswers();
+    Instant answeredAt = clock.instant();
+    ensureNotFinal();
     ensureProviderWasAsked(provider);
+    ensureAnsweredInTime(provider, answeredAt);
     ensureNotOwnRequest(provider);
     ensurePicturesMayBeAttached(answer.images());
     ensureAnswerMatchesRequest(answer);
@@ -179,23 +181,32 @@ public final class HelpRequest {
             provider.person(),
             answer,
             status,
-            clock.instant()));
+            answeredAt));
   }
 
   /** Each asked provider has its own state: only the answering provider's side is ANSWERED. */
   private void markSideAnswered(HelpProvider provider) {
     askedProviders =
         askedProviders.stream()
-            .map(asked -> asked.providerType() == provider.type() ? asked.answered() : asked)
+            .map(asked -> asked.isFor(provider) ? asked.answered() : asked)
             .toList();
+  }
+
+  // slice: B3-S03, story: US-CA-03, cmd: Cancel help request
+  public void cancel(Optional<String> note, Clock clock) {
+    ensureNotFinal();
+    status = HelpRequestStatus.CANCELLED;
+    // evt: Help request cancelled
+    pendingEvents.add(
+        new HelpRequestCancelled(id, requester, note, askedProviders, status, clock.instant()));
   }
 
   public List<Help> helps() {
     return List.copyOf(helps);
   }
 
-  // Lifecycle (design brief §3): only OPEN and ANSWERED requests take answers
-  private void ensureOpenForAnswers() {
+  // Lifecycle (design brief §3): a Closed or Cancelled request accepts no further command
+  private void ensureNotFinal() {
     if (status.isFinal()) {
       throw new InvalidHelpRequestState(status);
     }
@@ -205,6 +216,16 @@ public final class HelpRequest {
   private void ensureProviderWasAsked(HelpProvider provider) {
     if (!askedProviderTypes().contains(provider.type())) {
       throw new ProviderNotAsked();
+    }
+  }
+
+  // INV-09: an answer counts at or before the provider's deadline, not after it (step 3 r5)
+  private void ensureAnsweredInTime(HelpProvider provider, Instant answeredAt) {
+    boolean late =
+        askedProviders.stream()
+            .anyMatch(asked -> asked.isFor(provider) && asked.deadlinePassedAt(answeredAt));
+    if (late) {
+      throw new AnswerTooLate();
     }
   }
 

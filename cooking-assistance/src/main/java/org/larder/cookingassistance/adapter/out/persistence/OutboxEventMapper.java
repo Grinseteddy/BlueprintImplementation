@@ -16,6 +16,7 @@ import org.larder.cookingassistance.adapter.messaging.generated.PreparationStepE
 import org.larder.cookingassistance.adapter.messaging.generated.PreparationStepExplanationAnswerType;
 import org.larder.cookingassistance.domain.helprequest.CookId;
 import org.larder.cookingassistance.domain.helprequest.HelpProvided;
+import org.larder.cookingassistance.domain.helprequest.HelpRequestCancelled;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestEvent;
 import org.larder.cookingassistance.domain.helprequest.HelpRequested;
 
@@ -31,6 +32,9 @@ final class OutboxEventMapper {
     return switch (event) {
       case HelpRequested requested -> toOutboxEvent(requested);
       case HelpProvided provided -> toOutboxEvent(provided);
+      // placeholder until step 7 of increment 1 maps it test-first
+      case HelpRequestCancelled cancelled ->
+          throw new UnsupportedOperationException("outbox mapping: step 7, increment 1");
     };
   }
 
