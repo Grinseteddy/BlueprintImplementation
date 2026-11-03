@@ -42,7 +42,7 @@ Kinds: *quantitative* and *cardinality* rules get a property test in step 6.
 
 #### INV-05 — US-CA-03 R4: An answer may include pictures; accepting an answer closes the whole request
 - **Slice / command:** B3-S04 · Accept help · **kind:** other
-- **Guard / outcome:** accepting one answer closes the whole request for every provider → Closed
+- **Guard / outcome:** accepting one answer closes the whole request for every provider → Closed; only a Help given to this request can be accepted or rejected → HelpNotInRequest (B3-S04, B3-S05; design brief §2 'Help belongs to the request') *(step 3 r6, 2026-11-03, document correction from the step 6 refactor review)*
 - **Sources:** map R4 (E2–E4); board 'Cook can accept the answer'; model v2 'At least one Help must be accepted'
   - `US-CA-03 R4.E2` **Given/When** Lena accepts Grandma's answer **Then** closed
   - `US-CA-03 R4.E3` **Given/When** Jonas and Mia answer; Lena accepts Mia's **Then** closed
