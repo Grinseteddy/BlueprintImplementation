@@ -12,7 +12,8 @@ import java.util.Set;
 /** Help Request aggregate. */
 public final class HelpRequest {
 
-  // INV-09: a provider asked about a preparation step answers within 12 h (US-CA-03 R8)
+  // INV-09: a provider asked about a preparation step answers within 12 h (US-CA-03 R8);
+  // INV-06: asked again after a rejection, it has the same 12 h again (US-CA-03 R5)
   private static final Duration PREPARATION_STEP_ANSWER_TIME = Duration.ofHours(12);
 
   // INV-38: a request or an answer carries at most 10 pictures (glossary Picture 0..10)
@@ -201,8 +202,72 @@ public final class HelpRequest {
         new HelpRequestCancelled(id, requester, note, askedProviders, status, clock.instant()));
   }
 
-  public List<Help> helps() {
-    return List.copyOf(helps);
+  // slice: B3-S04, story: US-CA-03, cmd: Accept help
+  public void accept(HelpId helpId, Clock clock) {
+    ensureAnswered();
+    Help help = helpGivenToThisRequest(helpId);
+    ensureNotRejected(help);
+    replaceHelp(help, help.accepted());
+    status = HelpRequestStatus.CLOSED;
+    // evt: Help accepted
+    pendingEvents.add(
+        new HelpAccepted(
+            id, requester, helpId, help.providerType(), help.provider(), status, clock.instant()));
+  }
+
+  // slice: B3-S05, story: US-CA-03, cmd: Reject help
+  public void reject(HelpId helpId, String note, Clock clock) {
+    ensureAnswered();
+    ensureNoteGiven(note);
+    Help help = helpGivenToThisRequest(helpId);
+    ensureNotRejected(help);
+    Instant rejectedAt = clock.instant();
+    replaceHelp(help, help.rejected());
+    askAgain(rejectedAt);
+    status = HelpRequestStatus.OPEN;
+    // evt: Help rejected
+    pendingEvents.add(
+        new HelpRejected(id, requester, helpId, note, askedProviders, status, rejectedAt));
+  }
+
+  // INV-06: sent again to the same providers, each with a new 12 h deadline from the rejection
+  private void askAgain(Instant rejectedAt) {
+    Instant newDeadline = rejectedAt.plus(PREPARATION_STEP_ANSWER_TIME);
+    askedProviders = askedProviders.stream().map(asked -> asked.askedAgain(newDeadline)).toList();
+  }
+
+  /** A Help is immutable: marking it swaps it for its marked copy in this request. */
+  private void replaceHelp(Help help, Help marked) {
+    helps.replaceAll(candidate -> candidate == help ? marked : candidate);
+  }
+
+  // INV-06: a rejection says what didn't work (step 3 r5)
+  private static void ensureNoteGiven(String note) {
+    if (note == null || note.isBlank()) {
+      throw new RejectionNoteRequired();
+    }
+  }
+
+  // INV-39: a rejected answer is never accepted or rejected again (step 3 r5)
+  private static void ensureNotRejected(Help help) {
+    if (help.isRejected()) {
+      throw new HelpAlreadyRejected();
+    }
+  }
+
+  // INV-05: only a Help given to this request can be accepted or rejected
+  private Help helpGivenToThisRequest(HelpId helpId) {
+    return helps.stream()
+        .filter(help -> help.id().equals(helpId))
+        .findFirst()
+        .orElseThrow(HelpNotInRequest::new);
+  }
+
+  // Lifecycle (design brief §3): only an Answered request can be accepted or rejected
+  private void ensureAnswered() {
+    if (status != HelpRequestStatus.ANSWERED) {
+      throw new InvalidHelpRequestState(status);
+    }
   }
 
   // Lifecycle (design brief §3): a Closed or Cancelled request accepts no further command
@@ -301,6 +366,10 @@ public final class HelpRequest {
 
   public List<HelpProviderType> askedProviderTypes() {
     return askedProviders.stream().map(AskedProvider::providerType).toList();
+  }
+
+  public List<Help> helps() {
+    return List.copyOf(helps);
   }
 
   /** Hands over the recorded events once; the application service publishes them. */

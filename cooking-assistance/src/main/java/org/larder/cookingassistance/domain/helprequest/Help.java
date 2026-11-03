@@ -10,9 +10,10 @@ public final class Help {
   private final String answerTitle;
   private final PreparationStepExplanation answer;
   private final boolean accepted;
+  private final boolean rejected;
 
   Help(HelpId id, HelpProvider provider, String answerTitle, PreparationStepExplanation answer) {
-    this(id, provider, answerTitle, answer, false);
+    this(id, provider, answerTitle, answer, false, false);
   }
 
   private Help(
@@ -20,12 +21,14 @@ public final class Help {
       HelpProvider provider,
       String answerTitle,
       PreparationStepExplanation answer,
-      boolean accepted) {
+      boolean accepted,
+      boolean rejected) {
     this.id = id;
     this.provider = provider;
     this.answerTitle = answerTitle;
     this.answer = answer;
     this.accepted = accepted;
+    this.rejected = rejected;
   }
 
   /** Rebuilds a stored Help: no guards. */
@@ -35,7 +38,17 @@ public final class Help {
       String answerTitle,
       PreparationStepExplanation answer,
       boolean accepted) {
-    return new Help(id, provider, answerTitle, answer, accepted);
+    return new Help(id, provider, answerTitle, answer, accepted, false);
+  }
+
+  /** This Help, accepted by the requester. */
+  Help accepted() {
+    return new Help(id, provider, answerTitle, answer, true, rejected);
+  }
+
+  /** This Help, rejected by the requester (INV-39: never accepted later). */
+  Help rejected() {
+    return new Help(id, provider, answerTitle, answer, accepted, true);
   }
 
   public HelpId id() {
@@ -60,5 +73,9 @@ public final class Help {
 
   public boolean isAccepted() {
     return accepted;
+  }
+
+  public boolean isRejected() {
+    return rejected;
   }
 }

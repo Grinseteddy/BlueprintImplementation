@@ -14,6 +14,11 @@ public record AskedProvider(HelpProviderType providerType, Instant deadline, Pro
     return providerType == provider.type();
   }
 
+  /** This provider is asked again, with a new deadline (INV-06). */
+  AskedProvider askedAgain(Instant newDeadline) {
+    return new AskedProvider(providerType, newDeadline, ProviderState.ASKED);
+  }
+
   /** This provider's side has been answered. */
   AskedProvider answered() {
     return new AskedProvider(providerType, deadline, ProviderState.ANSWERED);
