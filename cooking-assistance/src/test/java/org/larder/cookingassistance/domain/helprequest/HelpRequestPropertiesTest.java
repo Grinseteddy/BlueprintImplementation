@@ -8,6 +8,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Set;
+import net.jqwik.api.Disabled;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Label;
 import net.jqwik.api.Property;
@@ -90,4 +91,16 @@ class HelpRequestPropertiesTest {
       assertThat(request.helps()).isEmpty();
     }
   }
+
+  @Disabled("step 6 test list")
+  @Label(
+      "for any request time and any rejection time after the answer, every asked provider's new deadline is exactly rejection time + 12 h, whatever the earlier deadline was -- B3-S05 US-CA-03 INV-06 property")
+  @Property(tries = 1000, seed = SEED)
+  void newDeadlineIsAlwaysRejectionTimePlusTwelveHours() {}
+
+  @Disabled("step 6 test list")
+  @Label(
+      "for any request time r and any instant t: an answer at t counts iff t <= r + 12 h, and timing out at t succeeds iff t > r + 12 h - never both, never neither -- B3-S02,B3-S06 US-CA-03 INV-09 property")
+  @Property(tries = 1000, seed = SEED)
+  void answerCountsExactlyUntilTheDeadline() {}
 }

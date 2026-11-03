@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -603,6 +604,196 @@ class HelpRequestTest {
               rejection -> assertThat(rejection.code()).isEqualTo("INVALID_STATE"));
       assertThat(closed.helps()).isEmpty();
     }
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "only Community asked Fri 18:00 (deadline Sat 06:00); Jonas answers Sat 05:59 -> the answer counts: one Help, request ANSWERED, Community's side ANSWERED -- B3-S02 US-CA-03 INV-09 R8.E4")
+    @Test
+    void jonasAnswersAMinuteBeforeTheDeadline() {}
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "Grandma answers at Sat 06:00:00, exactly her deadline -> the answer counts, request ANSWERED -- B3-S02 US-CA-03 INV-09 boundary (step 3 r5)")
+    @Test
+    void answerAtTheDeadlineCounts() {}
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "Grandma answers at Sat 06:00:01, after her deadline -> AnswerTooLate (rule INV-09), no Help, request stays OPEN, no event -- B3-S02 US-CA-03 INV-09 (step 3 r5)")
+    @Test
+    void answerAfterTheDeadlineIsTooLate() {}
+  }
+
+  @Nested
+  class CancelHelpRequest { // B3-S03, US-CA-03
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "Lena cancels her open request at Fri 18:10 with note 'an ice cube saved it' -> CANCELLED; HelpRequestCancelled {helpRequest, helpRequester Lena, note 'an ice cube saved it', askedProviders [Grandma, deadline Sat 06:00], CANCELLED, occurredAt Fri 18:10} -- B3-S03 US-CA-03 INV-08 R7.E1")
+    @Test
+    void lenaCancelsWithANote() {}
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "Lena cancels without a note -> CANCELLED; HelpRequestCancelled without a note -- B3-S03 US-CA-03 INV-08 R7.E2")
+    @Test
+    void lenaCancelsWithoutANote() {}
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "Grandma answered; Lena cancels -> CANCELLED (Open or Answered may be cancelled) -- B3-S03 US-CA-03 INV-08")
+    @Test
+    void answeredRequestCanBeCancelled() {}
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "Lena cancelled; Grandma answers -> InvalidHelpRequestState(CANCELLED), no Help -- B3-S03 US-CA-03 INV-08 lifecycle")
+    @Test
+    void cancelledRequestTakesNoAnswer() {}
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "cancel a CLOSED request -> InvalidHelpRequestState(CLOSED), status unchanged, no event -- B3-S03 US-CA-03 lifecycle")
+    @Test
+    void closedRequestCannotBeCancelled() {}
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "cancel a CANCELLED request -> InvalidHelpRequestState(CANCELLED), no event -- B3-S03 US-CA-03 lifecycle")
+    @Test
+    void cancelledRequestCannotBeCancelledAgain() {}
+  }
+
+  @Nested
+  class AcceptHelp { // B3-S04, US-CA-03
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "Grandma answered; Lena accepts Grandma's Help at Fri 18:10 -> CLOSED, that Help accepted; HelpAccepted {helpRequest, helpRequester Lena, helpId, GRANDMA_AVATAR, no helpProvider, CLOSED, occurredAt Fri 18:10} -- B3-S04 US-CA-03 INV-05 R4.E2")
+    @Test
+    void lenaAcceptsGrandmasAnswer() {}
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "Jonas and Mia answer; Lena accepts Mia's Help -> CLOSED, only Mia's Help accepted, Jonas's not; HelpAccepted names Mia as helpProvider -- B3-S04 US-CA-03 INV-05 R4.E3")
+    @Test
+    void lenaAcceptsMiasOfTwoAnswers() {}
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "Community and Grandma asked; Lena accepts Grandma's Help; Jonas (Community) answers afterwards -> InvalidHelpRequestState(CLOSED), no Help added -- B3-S04 US-CA-03 INV-05 R4.E4")
+    @Test
+    void acceptingClosesTheRequestForEveryProvider() {}
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "Lena rejected the only answer (request OPEN again) and accepts another Help id of the request -> InvalidHelpRequestState(OPEN), no event -- B3-S04 US-CA-03 lifecycle (accept only from Answered)")
+    @Test
+    void openRequestCannotBeAccepted() {}
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "Lena accepts a Help id that is not part of her request -> HelpNotInRequest, status stays ANSWERED, no event -- B3-S04 US-CA-03 INV-05 foreign help")
+    @Test
+    void helpOfAnotherRequestCannotBeAccepted() {}
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "Lena rejected Grandma's first answer; Grandma answers again; Lena accepts the first answer -> HelpAlreadyRejected (rule INV-39), status stays ANSWERED, no event -- B3-S04 US-CA-03 INV-39 S3.E4")
+    @Test
+    void rejectedAnswerIsNeverAccepted() {}
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "accept on a CANCELLED request -> InvalidHelpRequestState(CANCELLED), no event -- B3-S04 US-CA-03 lifecycle")
+    @Test
+    void cancelledRequestCannotBeAccepted() {}
+  }
+
+  @Nested
+  class RejectHelp { // B3-S05, US-CA-03
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "Grandma answered; Fri 20:00 Lena rejects it: 'warm water didn't help' -> OPEN; Grandma's Help marked rejected; Grandma asked again, deadline Sat 08:00, side ASKED; HelpRejected {helpRequest, helpRequester Lena, helpId, note, askedProviders [Grandma, Sat 08:00], OPEN, occurredAt Fri 20:00} -- B3-S05 US-CA-03 INV-06 R5.E1")
+    @Test
+    void lenaRejectsGrandmasAnswerWithANote() {}
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "Community and Grandma asked; Jonas answered, nothing accepted; Fri 20:00 Lena rejects Jonas's answer -> both asked again, both deadlines Sat 08:00, both sides ASKED -- B3-S05 US-CA-03 INV-06 R5.E2")
+    @Test
+    void bothProvidersAreAskedAgain() {}
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "Lena rejects Grandma's answer with a blank note -> RejectionNoteRequired (rule INV-06), status stays ANSWERED, no event -- B3-S05 US-CA-03 INV-06 (step 3 r5)")
+    @Test
+    void rejectionNeedsANote() {}
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "reject on an OPEN request -> InvalidHelpRequestState(OPEN), no event -- B3-S05 US-CA-03 lifecycle (reject only from Answered)")
+    @Test
+    void openRequestCannotBeRejected() {}
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "Lena rejects a Help id that is not part of her request -> HelpNotInRequest, no event -- B3-S05 US-CA-03 INV-06")
+    @Test
+    void helpOfAnotherRequestCannotBeRejected() {}
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "Lena rejected Grandma's first answer; Grandma answers again; Lena rejects the first answer again -> HelpAlreadyRejected (rule INV-39), no event -- B3-S05 US-CA-03 INV-39")
+    @Test
+    void rejectedAnswerCannotBeRejectedAgain() {}
+  }
+
+  @Nested
+  class TimeOutHelpRequest { // B3-S06, US-CA-03
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "only Community asked Fri 18:00, silent; time out at Sat 06:00:01 -> CANCELLED, Community's side TIMED_OUT; HelpRequestTimedOut {helpRequest, helpRequester Lena, timedOutProviders [COMMUNITY], suggestedProviders [GRANDMA_AVATAR], CANCELLED, occurredAt Sat 06:00:01} -- B3-S06 US-CA-03 INV-09 R8.E1")
+    @Test
+    void silentCommunityTimesOutAndGrandmaIsSuggested() {}
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "only Grandma asked Fri 18:00, silent; time out at Sat 06:00:01 -> CANCELLED; timedOutProviders [GRANDMA_AVATAR], suggestedProviders [COMMUNITY] -- B3-S06 US-CA-03 INV-09 R8.E2")
+    @Test
+    void silentGrandmaTimesOutAndCommunityIsSuggested() {}
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "Community and Grandma asked, both silent 12 h; time out at Sat 06:00:01 -> CANCELLED; timedOutProviders [COMMUNITY, GRANDMA_AVATAR], suggestedProviders [] (Lena is told by the notification policy) -- B3-S06 US-CA-03 INV-09 R8.E3")
+    @Test
+    void bothSilentTimeOutWithNothingToSuggest() {}
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "time out at Sat 06:00:00, exactly the deadline -> DeadlineNotPassed, status stays OPEN, no event -- B3-S06 US-CA-03 INV-09 boundary (step 3 r5)")
+    @Test
+    void timeOutAtTheDeadlineIsTooEarly() {}
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "Grandma answered, Lena rejected Fri 20:00 (new deadline Sat 08:00); time out at Sat 06:00:01 -> DeadlineNotPassed -- B3-S06 US-CA-03 INV-06,INV-09")
+    @Test
+    void rejectionStartsANewDeadline() {}
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "Grandma answered; time out at Sat 06:00:01 -> InvalidHelpRequestState(ANSWERED), no event (only Open times out, D5) -- B3-S06 US-CA-03 lifecycle (step 3 r5)")
+    @Test
+    void answeredRequestDoesNotTimeOut() {}
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "time out a CANCELLED request -> InvalidHelpRequestState(CANCELLED), no event -- B3-S06 US-CA-03 lifecycle")
+    @Test
+    void cancelledRequestDoesNotTimeOut() {}
   }
 
   @Nested
@@ -689,5 +880,11 @@ class HelpRequestTest {
       assertThat(request.askedProviderTypes()).containsExactly(HelpProviderType.CHEF);
       assertThat(request.pullEvents()).isEmpty();
     }
+
+    @Disabled("step 6 test list")
+    @DisplayName(
+        "a request is reconstituted with a rejected Help, an accepted Help and a TIMED_OUT side -> the marks and side states are kept, no guards, no events -- B3-S04,B3-S05,B3-S06 US-CA-03 reconstitution")
+    @Test
+    void reconstitutionKeepsMarksAndSides() {}
   }
 }
