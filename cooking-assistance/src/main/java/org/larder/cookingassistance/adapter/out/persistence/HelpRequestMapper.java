@@ -62,7 +62,8 @@ final class HelpRequestMapper {
         help.provider().map(CookId::value).orElse(null),
         help.answerTitle(),
         AnswerJsonMapper.toJson(help.answer()),
-        help.isAccepted());
+        help.isAccepted(),
+        help.isRejected());
   }
 
   private static Help toDomain(HelpRow row) {
@@ -73,7 +74,8 @@ final class HelpRequestMapper {
             Optional.ofNullable(row.providerPerson()).map(CookId::new)),
         row.answerTitle(),
         AnswerJsonMapper.toAnswer(row.answer()),
-        row.accepted());
+        row.accepted(),
+        row.rejected());
   }
 
   private static AskedProvider toDomain(AskedProviderRow row) {

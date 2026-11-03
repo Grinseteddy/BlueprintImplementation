@@ -5,12 +5,21 @@ import java.net.URI;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import org.larder.cookingassistance.adapter.messaging.generated.AskedProvider;
+import org.larder.cookingassistance.adapter.messaging.generated.HelpAcceptedPayload;
+import org.larder.cookingassistance.adapter.messaging.generated.HelpAcceptedStatus;
 import org.larder.cookingassistance.adapter.messaging.generated.HelpProvidedPayload;
 import org.larder.cookingassistance.adapter.messaging.generated.HelpProvidedStatus;
 import org.larder.cookingassistance.adapter.messaging.generated.HelpProviderType;
+import org.larder.cookingassistance.adapter.messaging.generated.HelpRejectedPayload;
+import org.larder.cookingassistance.adapter.messaging.generated.HelpRejectedStatus;
+import org.larder.cookingassistance.adapter.messaging.generated.HelpRequestCancelledPayload;
+import org.larder.cookingassistance.adapter.messaging.generated.HelpRequestCancelledStatus;
 import org.larder.cookingassistance.adapter.messaging.generated.HelpRequestCreatedPayload;
 import org.larder.cookingassistance.adapter.messaging.generated.HelpRequestCreatedStatus;
+import org.larder.cookingassistance.adapter.messaging.generated.HelpRequestTimedOutPayload;
+import org.larder.cookingassistance.adapter.messaging.generated.HelpRequestTimedOutStatus;
 import org.larder.cookingassistance.adapter.messaging.generated.HelpType;
 import org.larder.cookingassistance.adapter.messaging.generated.PreparationStepExplanation;
 import org.larder.cookingassistance.adapter.messaging.generated.PreparationStepExplanationAnswerType;
@@ -35,41 +44,11 @@ final class OutboxEventMapper {
     return switch (event) {
       case HelpRequested requested -> toOutboxEvent(requested);
       case HelpProvided provided -> toOutboxEvent(provided);
-      // placeholder until step 7 of increment 1 maps it test-first
-      case HelpRequestCancelled cancelled ->
-          throw new UnsupportedOperationException("outbox mapping: step 7, increment 1");
-      case HelpAccepted accepted ->
-          throw new UnsupportedOperationException("outbox mapping: step 7, increment 1");
-      case HelpRejected rejected ->
-          throw new UnsupportedOperationException("outbox mapping: step 7, increment 1");
-      case HelpRequestTimedOut timedOut ->
-          throw new UnsupportedOperationException("outbox mapping: step 7, increment 1");
+      case HelpRequestCancelled cancelled -> toOutboxEvent(cancelled);
+      case HelpAccepted accepted -> toOutboxEvent(accepted);
+      case HelpRejected rejected -> toOutboxEvent(rejected);
+      case HelpRequestTimedOut timedOut -> toOutboxEvent(timedOut);
     };
-  }
-
-  // evt: Help provided -> AsyncAPI HelpProvided
-  private static OutboxEvent toOutboxEvent(HelpProvided event) {
-    return new OutboxEvent(
-        "HelpProvided",
-        json(
-            new HelpProvidedPayload(
-                event.helpId().value(),
-                event.helpRequest().value(),
-                event.helpRequester().value(),
-                event.answerTitle(),
-                HelpProviderType.fromValue(event.helpProviderType().name()),
-                event.helpProvider().map(CookId::value).orElse(null),
-                new PreparationStepExplanation(
-                    PreparationStepExplanationAnswerType.PREPARATION_STEP_EXPLANATION,
-                    event.answer().recipe().value(),
-                    event.answer().howToStep().value(),
-                    event.answer().description(),
-                    event.answer().images().stream().map(URI::toString).toList(),
-                    null),
-                HelpProvidedStatus.fromValue(event.helpRequestStatus().name()),
-                utc(event.occurredAt()),
-                null)),
-        event.occurredAt());
   }
 
   // evt: Help requested -> AsyncAPI HelpRequestCreated
@@ -91,20 +70,118 @@ final class OutboxEventMapper {
                 null,
                 null,
                 null,
-                event.askedProviders().stream()
-                    .map(
-                        asked ->
-                            new AskedProvider(
-                                HelpProviderType.fromValue(asked.providerType().name()),
-                                null,
-                                utc(asked.deadline()),
-                                null))
-                    .toList(),
+                askedProviders(event.askedProviders()),
                 null,
                 HelpRequestCreatedStatus.fromValue(event.status().name()),
                 utc(event.occurredAt()),
                 null)),
         event.occurredAt());
+  }
+
+  // evt: Help provided -> AsyncAPI HelpProvided
+  private static OutboxEvent toOutboxEvent(HelpProvided event) {
+    return new OutboxEvent(
+        "HelpProvided",
+        json(
+            new HelpProvidedPayload(
+                event.helpId().value(),
+                event.helpRequest().value(),
+                event.helpRequester().value(),
+                event.answerTitle(),
+                providerType(event.helpProviderType()),
+                event.helpProvider().map(CookId::value).orElse(null),
+                new PreparationStepExplanation(
+                    PreparationStepExplanationAnswerType.PREPARATION_STEP_EXPLANATION,
+                    event.answer().recipe().value(),
+                    event.answer().howToStep().value(),
+                    event.answer().description(),
+                    event.answer().images().stream().map(URI::toString).toList(),
+                    null),
+                HelpProvidedStatus.fromValue(event.helpRequestStatus().name()),
+                utc(event.occurredAt()),
+                null)),
+        event.occurredAt());
+  }
+
+  // evt: Help request cancelled -> AsyncAPI HelpRequestCancelled
+  private static OutboxEvent toOutboxEvent(HelpRequestCancelled event) {
+    return new OutboxEvent(
+        "HelpRequestCancelled",
+        json(
+            new HelpRequestCancelledPayload(
+                event.helpRequest().value(),
+                event.helpRequester().value(),
+                event.note().orElse(null),
+                askedProviders(event.askedProviders()),
+                HelpRequestCancelledStatus.fromValue(event.helpRequestStatus().name()),
+                utc(event.occurredAt()),
+                null)),
+        event.occurredAt());
+  }
+
+  // evt: Help accepted -> AsyncAPI HelpAccepted
+  private static OutboxEvent toOutboxEvent(HelpAccepted event) {
+    return new OutboxEvent(
+        "HelpAccepted",
+        json(
+            new HelpAcceptedPayload(
+                event.helpRequest().value(),
+                event.helpRequester().value(),
+                event.helpId().value(),
+                providerType(event.helpProviderType()),
+                event.helpProvider().map(CookId::value).orElse(null),
+                HelpAcceptedStatus.fromValue(event.helpRequestStatus().name()),
+                utc(event.occurredAt()),
+                null)),
+        event.occurredAt());
+  }
+
+  // evt: Help rejected -> AsyncAPI HelpRejected
+  private static OutboxEvent toOutboxEvent(HelpRejected event) {
+    return new OutboxEvent(
+        "HelpRejected",
+        json(
+            new HelpRejectedPayload(
+                event.helpRequest().value(),
+                event.helpRequester().value(),
+                event.helpId().value(),
+                event.note(),
+                askedProviders(event.askedProviders()),
+                HelpRejectedStatus.fromValue(event.helpRequestStatus().name()),
+                utc(event.occurredAt()),
+                null)),
+        event.occurredAt());
+  }
+
+  // evt: Help request timed out -> AsyncAPI HelpRequestTimedOut
+  private static OutboxEvent toOutboxEvent(HelpRequestTimedOut event) {
+    return new OutboxEvent(
+        "HelpRequestTimedOut",
+        json(
+            new HelpRequestTimedOutPayload(
+                event.helpRequest().value(),
+                event.helpRequester().value(),
+                event.timedOutProviders().stream().map(OutboxEventMapper::providerType).toList(),
+                event.suggestedProviders().stream().map(OutboxEventMapper::providerType).toList(),
+                HelpRequestTimedOutStatus.fromValue(event.helpRequestStatus().name()),
+                utc(event.occurredAt()),
+                null)),
+        event.occurredAt());
+  }
+
+  private static List<AskedProvider> askedProviders(
+      List<org.larder.cookingassistance.domain.helprequest.AskedProvider> asked) {
+    return asked.stream()
+        .map(
+            provider ->
+                new AskedProvider(
+                    providerType(provider.providerType()), null, utc(provider.deadline()), null))
+        .toList();
+  }
+
+  private static HelpProviderType providerType(
+      org.larder.cookingassistance.domain.helprequest.HelpProviderType type) {
+    return HelpProviderType.fromValue(type.name());
   }
 
   private static OffsetDateTime utc(Instant instant) {

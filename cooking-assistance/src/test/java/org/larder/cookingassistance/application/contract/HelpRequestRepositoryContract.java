@@ -3,14 +3,20 @@ package org.larder.cookingassistance.application.contract;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.larder.cookingassistance.domain.helprequest.AskedProvider;
 import org.larder.cookingassistance.domain.helprequest.ConcurrencyConflict;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequest;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestRepository;
+import org.larder.cookingassistance.domain.helprequest.HelpRequestStatus;
+import org.larder.cookingassistance.domain.helprequest.ProviderState;
 import org.larder.cookingassistance.fixtures.HelpRequests;
 
 /**
@@ -96,5 +102,38 @@ public abstract class HelpRequestRepositoryContract {
     repository().save(loaded);
 
     assertThat(recordedEventCount()).isEqualTo(2);
+  }
+
+  @DisplayName(
+      "a request whose Help Lena rejected at Fri 20:00 is found again OPEN with the Help rejected and not accepted, and Grandma's side ASKED with the new deadline Sat 08:00 -- B3-S05 US-CA-03 INV-06 INV-39 contract")
+  @Test
+  void rejectedHelpAndReaskedProvidersAreFoundAgain() {
+    repository().save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR));
+    HelpRequest answered = repository().findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    HelpRequests.grandmaExplainsStep4(answered);
+    repository().save(answered);
+    HelpRequest loaded = repository().findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    loaded.reject(
+        HelpRequests.HELP_ID,
+        "warm water didn't help",
+        Clock.fixed(Instant.parse("2026-11-06T19:00:00Z"), ZoneOffset.UTC));
+
+    repository().save(loaded);
+
+    HelpRequest found = repository().findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    assertThat(found.status()).isEqualTo(HelpRequestStatus.OPEN);
+    assertThat(found.helps())
+        .singleElement()
+        .satisfies(
+            help -> {
+              assertThat(help.isRejected()).isTrue();
+              assertThat(help.isAccepted()).isFalse();
+            });
+    assertThat(found.askedProviders())
+        .containsExactly(
+            new AskedProvider(
+                HelpProviderType.GRANDMA_AVATAR,
+                Instant.parse("2026-11-07T07:00:00Z"),
+                ProviderState.ASKED));
   }
 }

@@ -12,4 +12,5 @@ record HelpRow(
     UUID providerPerson,
     String answerTitle,
     AnswerJson answer,
-    boolean accepted) {}
+    boolean accepted,
+    boolean rejected) {}

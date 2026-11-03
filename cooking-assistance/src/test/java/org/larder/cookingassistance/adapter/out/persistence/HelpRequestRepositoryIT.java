@@ -2,10 +2,13 @@ package org.larder.cookingassistance.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -14,6 +17,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.larder.cookingassistance.domain.helprequest.AskedProvider;
 import org.larder.cookingassistance.domain.helprequest.ConcurrencyConflict;
+import org.larder.cookingassistance.domain.helprequest.Help;
+import org.larder.cookingassistance.domain.helprequest.HelpProvider;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequest;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
@@ -369,5 +374,229 @@ class HelpRequestRepositoryIT {
         .extracting(help -> help.provider().orElseThrow())
         .containsExactly(HelpRequests.JONAS, HelpRequests.MIA);
     assertThat(jdbc.sql("select count(*) from help").query(Integer.class).single()).isEqualTo(2);
+  }
+
+  @DisplayName(
+      "the V2 migration adds help.rejected (boolean, not null, default false) -- B3-S05 US-CA-03 INV-39 ADR0009")
+  @Test
+  void v2MigrationAddsTheRejectedMark() {
+    List<String> column =
+        jdbc.sql(
+                "select data_type || ' ' || is_nullable || ' ' || column_default"
+                    + " from information_schema.columns where table_schema = 'cooking_assistance'"
+                    + " and table_name = 'help' and column_name = 'rejected'")
+            .query(String.class)
+            .list();
+
+    assertThat(column).containsExactly("boolean NO false");
+  }
+
+  @DisplayName(
+      "Lena cancelled her open request -> found again CANCELLED with Grandma's side unchanged (ASKED, deadline Sat 06:00) -- B3-S03 US-CA-03 INV-08 state CANCELLED")
+  @Test
+  void cancelledRequestRoundTrips() {
+    repository.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR));
+    HelpRequest loaded = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    loaded.cancel(Optional.empty(), HelpRequests.FRIDAY_18_10);
+
+    repository.save(loaded);
+
+    HelpRequest found = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    assertThat(found.status()).isEqualTo(HelpRequestStatus.CANCELLED);
+    assertThat(found.askedProviders())
+        .containsExactly(
+            new AskedProvider(
+                HelpProviderType.GRANDMA_AVATAR,
+                Instant.parse("2026-11-07T05:00:00Z"),
+                ProviderState.ASKED));
+  }
+
+  @DisplayName(
+      "Lena accepted Grandma's Help -> found again CLOSED with the Help accepted and not rejected; one help row -- B3-S04 US-CA-03 INV-05 state CLOSED, changed child row")
+  @Test
+  void closedRequestWithAnAcceptedHelpRoundTrips() {
+    repository.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR));
+    HelpRequest answered = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    HelpRequests.grandmaExplainsStep4(answered);
+    repository.save(answered);
+    HelpRequest loaded = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    loaded.accept(HelpRequests.HELP_ID, HelpRequests.FRIDAY_18_10);
+
+    repository.save(loaded);
+
+    HelpRequest found = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    assertThat(found.status()).isEqualTo(HelpRequestStatus.CLOSED);
+    assertThat(found.helps())
+        .singleElement()
+        .satisfies(
+            help -> {
+              assertThat(help.isAccepted()).isTrue();
+              assertThat(help.isRejected()).isFalse();
+            });
+    assertThat(jdbc.sql("select count(*) from help").query(Integer.class).single()).isEqualTo(1);
+  }
+
+  @DisplayName(
+      "Grandma answered, Lena rejected (Fri 20:00), Grandma answered again, Lena accepted -> found again CLOSED with two Helps [first rejected, second accepted], Grandma's side ANSWERED with deadline Sat 08:00; two help rows -- B3-S04,B3-S05 US-CA-03 INV-06 INV-39 changed child rows")
+  @Test
+  void rejectedThenAcceptedHelpsRoundTripWithoutOrphans() {
+    repository.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR));
+    HelpRequest answered = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    HelpRequests.grandmaExplainsStep4(answered);
+    repository.save(answered);
+    HelpRequest rejected = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    rejected.reject(HelpRequests.HELP_ID, "warm water didn't help", utc("2026-11-06T19:00:00Z"));
+    repository.save(rejected);
+    HelpRequest answeredAgain = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    answeredAgain.provideHelp(
+        HelpRequests.OTHER_HELP_ID,
+        HelpProvider.grandmaAvatar(),
+        "Warm the butter first",
+        HelpRequests.BUTTER_WITH_THREE_PHOTOS,
+        utc("2026-11-06T20:00:00Z"));
+    repository.save(answeredAgain);
+    HelpRequest loaded = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    loaded.accept(HelpRequests.OTHER_HELP_ID, utc("2026-11-06T20:30:00Z"));
+
+    repository.save(loaded);
+
+    HelpRequest found = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    assertThat(found.status()).isEqualTo(HelpRequestStatus.CLOSED);
+    assertThat(found.helps())
+        .extracting(Help::id, Help::isRejected, Help::isAccepted)
+        .containsExactly(
+            tuple(HelpRequests.HELP_ID, true, false),
+            tuple(HelpRequests.OTHER_HELP_ID, false, true));
+    assertThat(found.askedProviders())
+        .containsExactly(
+            new AskedProvider(
+                HelpProviderType.GRANDMA_AVATAR,
+                Instant.parse("2026-11-07T07:00:00Z"),
+                ProviderState.ANSWERED));
+    assertThat(jdbc.sql("select count(*) from help").query(Integer.class).single()).isEqualTo(2);
+  }
+
+  private static Clock utc(String instant) {
+    return Clock.fixed(Instant.parse(instant), ZoneOffset.UTC);
+  }
+
+  @DisplayName(
+      "only Community asked, timed out at Sat 06:00:01 -> found again CANCELLED with Community's side TIMED_OUT -- B3-S06 US-CA-03 INV-09 R8.E1 state TIMED_OUT")
+  @Test
+  void timedOutRequestRoundTrips() {
+    repository.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.COMMUNITY));
+    HelpRequest loaded = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    loaded.timeOut(utc("2026-11-07T05:00:01Z"));
+
+    repository.save(loaded);
+
+    HelpRequest found = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    assertThat(found.status()).isEqualTo(HelpRequestStatus.CANCELLED);
+    assertThat(found.askedProviders())
+        .containsExactly(
+            new AskedProvider(
+                HelpProviderType.COMMUNITY,
+                Instant.parse("2026-11-07T05:00:00Z"),
+                ProviderState.TIMED_OUT));
+  }
+
+  @DisplayName(
+      "saving after Lena cancelled appends one outbox row HelpRequestCancelled with helpRequest, helpRequester Lena, note, helpRequestStatus CANCELLED, occurredAt 2026-11-06T17:10:00Z, delivery columns at their start values -- B3-S03 US-CA-03 ADR0015 AsyncAPI HelpRequestCancelled")
+  @Test
+  void savingAfterCancelAppendsHelpRequestCancelledToTheOutbox() throws Exception {
+    repository.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR));
+    HelpRequest loaded = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    loaded.cancel(Optional.of("an ice cube saved it"), HelpRequests.FRIDAY_18_10);
+
+    repository.save(loaded);
+
+    List<OutboxRow> rows = outboxRows();
+    assertThat(rows)
+        .extracting(OutboxRow::eventType)
+        .containsExactly("HelpRequestCreated", "HelpRequestCancelled");
+    OutboxRow row = rows.getLast();
+    assertThat(row.aggregateId()).isEqualTo(HelpRequests.HELP_REQUEST_ID.value());
+    assertThat(row.publishedAt()).isNull();
+    assertThat(row.attempts()).isZero();
+    assertThat(row.nextAttemptAt()).isEqualTo("-infinity");
+    JsonNode payload = new ObjectMapper().readTree(row.payload());
+    assertThat(payload.get("helpRequest").asText())
+        .isEqualTo(HelpRequests.HELP_REQUEST_ID.value().toString());
+    assertThat(payload.get("helpRequester").asText())
+        .isEqualTo(HelpRequests.LENA.value().toString());
+    assertThat(payload.get("note").asText()).isEqualTo("an ice cube saved it");
+    assertThat(payload.get("helpRequestStatus").asText()).isEqualTo("CANCELLED");
+    assertThat(payload.get("occurredAt").asText()).isEqualTo("2026-11-06T17:10:00Z");
+  }
+
+  @DisplayName(
+      "saving after Lena accepted Grandma's Help appends one outbox row HelpAccepted with helpId, helpProviderType GRANDMA_AVATAR, helpRequestStatus CLOSED -- B3-S04 US-CA-03 ADR0015 AsyncAPI HelpAccepted")
+  @Test
+  void savingAfterAcceptAppendsHelpAcceptedToTheOutbox() throws Exception {
+    repository.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR));
+    HelpRequest answered = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    HelpRequests.grandmaExplainsStep4(answered);
+    repository.save(answered);
+    HelpRequest loaded = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    loaded.accept(HelpRequests.HELP_ID, HelpRequests.FRIDAY_18_10);
+
+    repository.save(loaded);
+
+    List<OutboxRow> rows = outboxRows();
+    assertThat(rows)
+        .extracting(OutboxRow::eventType)
+        .containsExactly("HelpRequestCreated", "HelpProvided", "HelpAccepted");
+    JsonNode payload = new ObjectMapper().readTree(rows.getLast().payload());
+    assertThat(payload.get("helpId").asText()).isEqualTo(HelpRequests.HELP_ID.value().toString());
+    assertThat(payload.get("helpProviderType").asText()).isEqualTo("GRANDMA_AVATAR");
+    assertThat(payload.get("helpRequestStatus").asText()).isEqualTo("CLOSED");
+  }
+
+  @DisplayName(
+      "saving after Lena rejected Grandma's Help at Fri 20:00 appends one outbox row HelpRejected with helpId, note, askedProviders[GRANDMA_AVATAR, deadline 2026-11-07T07:00:00Z], helpRequestStatus OPEN -- B3-S05 US-CA-03 ADR0015 AsyncAPI HelpRejected")
+  @Test
+  void savingAfterRejectAppendsHelpRejectedToTheOutbox() throws Exception {
+    repository.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR));
+    HelpRequest answered = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    HelpRequests.grandmaExplainsStep4(answered);
+    repository.save(answered);
+    HelpRequest loaded = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    loaded.reject(HelpRequests.HELP_ID, "warm water didn't help", utc("2026-11-06T19:00:00Z"));
+
+    repository.save(loaded);
+
+    List<OutboxRow> rows = outboxRows();
+    assertThat(rows)
+        .extracting(OutboxRow::eventType)
+        .containsExactly("HelpRequestCreated", "HelpProvided", "HelpRejected");
+    JsonNode payload = new ObjectMapper().readTree(rows.getLast().payload());
+    assertThat(payload.get("helpId").asText()).isEqualTo(HelpRequests.HELP_ID.value().toString());
+    assertThat(payload.get("note").asText()).isEqualTo("warm water didn't help");
+    assertThat(payload.get("askedProviders").get(0).get("providerType").asText())
+        .isEqualTo("GRANDMA_AVATAR");
+    assertThat(payload.get("askedProviders").get(0).get("deadline").asText())
+        .isEqualTo("2026-11-07T07:00:00Z");
+    assertThat(payload.get("helpRequestStatus").asText()).isEqualTo("OPEN");
+  }
+
+  @DisplayName(
+      "saving after the request timed out appends one outbox row HelpRequestTimedOut with timedOutProviders [COMMUNITY], suggestedProviders [GRANDMA_AVATAR], helpRequestStatus CANCELLED, occurredAt 2026-11-07T05:00:01Z -- B3-S06 US-CA-03 ADR0015 AsyncAPI HelpRequestTimedOut")
+  @Test
+  void savingAfterTimeOutAppendsHelpRequestTimedOutToTheOutbox() throws Exception {
+    repository.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.COMMUNITY));
+    HelpRequest loaded = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    loaded.timeOut(utc("2026-11-07T05:00:01Z"));
+
+    repository.save(loaded);
+
+    List<OutboxRow> rows = outboxRows();
+    assertThat(rows)
+        .extracting(OutboxRow::eventType)
+        .containsExactly("HelpRequestCreated", "HelpRequestTimedOut");
+    JsonNode payload = new ObjectMapper().readTree(rows.getLast().payload());
+    assertThat(payload.get("timedOutProviders").toString()).isEqualTo("[\"COMMUNITY\"]");
+    assertThat(payload.get("suggestedProviders").toString()).isEqualTo("[\"GRANDMA_AVATAR\"]");
+    assertThat(payload.get("helpRequestStatus").asText()).isEqualTo("CANCELLED");
+    assertThat(payload.get("occurredAt").asText()).isEqualTo("2026-11-07T05:00:01Z");
   }
 }
