@@ -2,6 +2,7 @@ package org.larder.cookingassistance.domain.helprequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import java.net.URI;
 import java.time.Clock;
@@ -11,7 +12,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -1088,47 +1088,139 @@ class HelpRequestTest {
   @Nested
   class TimeOutHelpRequest { // B3-S06, US-CA-03
 
-    @Disabled("step 6 test list")
     @DisplayName(
         "only Community asked Fri 18:00, silent; time out at Sat 06:00:01 -> CANCELLED, Community's side TIMED_OUT; HelpRequestTimedOut {helpRequest, helpRequester Lena, timedOutProviders [COMMUNITY], suggestedProviders [GRANDMA_AVATAR], CANCELLED, occurredAt Sat 06:00:01} -- B3-S06 US-CA-03 INV-09 R8.E1")
     @Test
-    void silentCommunityTimesOutAndGrandmaIsSuggested() {}
+    void silentCommunityTimesOutAndGrandmaIsSuggested() {
+      HelpRequest request = lenaAsksAboutStep4(HelpProviderType.COMMUNITY);
+      request.pullEvents();
 
-    @Disabled("step 6 test list")
+      request.timeOut(at("2026-11-07T06:00:01"));
+
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.CANCELLED);
+      assertThat(request.askedProviders())
+          .singleElement()
+          .extracting(AskedProvider::state)
+          .isEqualTo(ProviderState.TIMED_OUT);
+      assertThat(request.pullEvents())
+          .containsExactly(
+              new HelpRequestTimedOut(
+                  HELP_REQUEST_ID,
+                  LENA,
+                  List.of(HelpProviderType.COMMUNITY),
+                  List.of(HelpProviderType.GRANDMA_AVATAR),
+                  HelpRequestStatus.CANCELLED,
+                  at("2026-11-07T06:00:01").instant()));
+    }
+
     @DisplayName(
         "only Grandma asked Fri 18:00, silent; time out at Sat 06:00:01 -> CANCELLED; timedOutProviders [GRANDMA_AVATAR], suggestedProviders [COMMUNITY] -- B3-S06 US-CA-03 INV-09 R8.E2")
     @Test
-    void silentGrandmaTimesOutAndCommunityIsSuggested() {}
+    void silentGrandmaTimesOutAndCommunityIsSuggested() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      request.pullEvents();
 
-    @Disabled("step 6 test list")
+      request.timeOut(at("2026-11-07T06:00:01"));
+
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.CANCELLED);
+      assertThat(request.pullEvents())
+          .singleElement()
+          .isInstanceOfSatisfying(
+              HelpRequestTimedOut.class,
+              timedOut -> {
+                assertThat(timedOut.timedOutProviders())
+                    .containsExactly(HelpProviderType.GRANDMA_AVATAR);
+                assertThat(timedOut.suggestedProviders())
+                    .containsExactly(HelpProviderType.COMMUNITY);
+              });
+    }
+
     @DisplayName(
         "Community and Grandma asked, both silent 12 h; time out at Sat 06:00:01 -> CANCELLED; timedOutProviders [COMMUNITY, GRANDMA_AVATAR], suggestedProviders [] (Lena is told by the notification policy) -- B3-S06 US-CA-03 INV-09 R8.E3")
     @Test
-    void bothSilentTimeOutWithNothingToSuggest() {}
+    void bothSilentTimeOutWithNothingToSuggest() {
+      HelpRequest request =
+          lenaAsksAboutStep4(HelpProviderType.COMMUNITY, HelpProviderType.GRANDMA_AVATAR);
+      request.pullEvents();
 
-    @Disabled("step 6 test list")
+      request.timeOut(at("2026-11-07T06:00:01"));
+
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.CANCELLED);
+      assertThat(request.askedProviders())
+          .extracting(AskedProvider::state)
+          .containsOnly(ProviderState.TIMED_OUT);
+      assertThat(request.pullEvents())
+          .singleElement()
+          .isInstanceOfSatisfying(
+              HelpRequestTimedOut.class,
+              timedOut -> {
+                assertThat(timedOut.timedOutProviders())
+                    .containsExactlyInAnyOrder(
+                        HelpProviderType.COMMUNITY, HelpProviderType.GRANDMA_AVATAR);
+                assertThat(timedOut.suggestedProviders()).isEmpty();
+              });
+    }
+
     @DisplayName(
         "time out at Sat 06:00:00, exactly the deadline -> DeadlineNotPassed, status stays OPEN, no event -- B3-S06 US-CA-03 INV-09 boundary (step 3 r5)")
     @Test
-    void timeOutAtTheDeadlineIsTooEarly() {}
+    void timeOutAtTheDeadlineIsTooEarly() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      request.pullEvents();
 
-    @Disabled("step 6 test list")
+      assertThatThrownBy(() -> request.timeOut(at("2026-11-07T06:00:00")))
+          .isInstanceOfSatisfying(
+              DeadlineNotPassed.class,
+              rejection -> assertThat(rejection.rule()).isEqualTo("INV-09"));
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.OPEN);
+      assertThat(request.askedProviders())
+          .extracting(AskedProvider::state)
+          .containsOnly(ProviderState.ASKED);
+      assertThat(request.pullEvents()).isEmpty();
+    }
+
     @DisplayName(
         "Grandma answered, Lena rejected Fri 20:00 (new deadline Sat 08:00); time out at Sat 06:00:01 -> DeadlineNotPassed -- B3-S06 US-CA-03 INV-06,INV-09")
     @Test
-    void rejectionStartsANewDeadline() {}
+    void rejectionStartsANewDeadline() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      grandmaExplainsStep4(request);
+      request.reject(HELP_ID, "warm water didn't help", at("2026-11-06T20:00"));
 
-    @Disabled("step 6 test list")
+      assertThatThrownBy(() -> request.timeOut(at("2026-11-07T06:00:01")))
+          .isInstanceOf(DeadlineNotPassed.class);
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.OPEN);
+    }
+
     @DisplayName(
         "Grandma answered; time out at Sat 06:00:01 -> InvalidHelpRequestState(ANSWERED), no event (only Open times out, D5) -- B3-S06 US-CA-03 lifecycle (step 3 r5)")
     @Test
-    void answeredRequestDoesNotTimeOut() {}
+    void answeredRequestDoesNotTimeOut() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      grandmaExplainsStep4(request);
+      request.pullEvents();
 
-    @Disabled("step 6 test list")
+      assertThatThrownBy(() -> request.timeOut(at("2026-11-07T06:00:01")))
+          .isInstanceOf(InvalidHelpRequestState.class)
+          .hasMessageContaining("ANSWERED");
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.ANSWERED);
+      assertThat(request.pullEvents()).isEmpty();
+    }
+
     @DisplayName(
         "time out a CANCELLED request -> InvalidHelpRequestState(CANCELLED), no event -- B3-S06 US-CA-03 lifecycle")
     @Test
-    void cancelledRequestDoesNotTimeOut() {}
+    void cancelledRequestDoesNotTimeOut() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      request.cancel(Optional.empty(), FRIDAY_18_10);
+      request.pullEvents();
+
+      assertThatThrownBy(() -> request.timeOut(at("2026-11-07T06:00:01")))
+          .isInstanceOf(InvalidHelpRequestState.class)
+          .hasMessageContaining("CANCELLED");
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.CANCELLED);
+      assertThat(request.pullEvents()).isEmpty();
+    }
   }
 
   @Nested
@@ -1216,10 +1308,54 @@ class HelpRequestTest {
       assertThat(request.pullEvents()).isEmpty();
     }
 
-    @Disabled("step 6 test list")
     @DisplayName(
         "a request is reconstituted with a rejected Help, an accepted Help and a TIMED_OUT side -> the marks and side states are kept, no guards, no events -- B3-S04,B3-S05,B3-S06 US-CA-03 reconstitution")
     @Test
-    void reconstitutionKeepsMarksAndSides() {}
+    void reconstitutionKeepsMarksAndSides() {
+      Instant saturday0600 = Instant.parse("2026-11-07T05:00:00Z");
+      AskedProvider communityTimedOut =
+          new AskedProvider(HelpProviderType.COMMUNITY, saturday0600, ProviderState.TIMED_OUT);
+      AskedProvider grandmaAnswered =
+          new AskedProvider(HelpProviderType.GRANDMA_AVATAR, saturday0600, ProviderState.ANSWERED);
+      Help rejectedHelp =
+          Help.reconstitute(
+              HELP_ID,
+              HelpProvider.grandmaAvatar(),
+              "Butter in a thin stream",
+              BUTTER_IN_A_THIN_STREAM,
+              false,
+              true);
+      Help acceptedHelp =
+          Help.reconstitute(
+              OTHER_HELP_ID,
+              HelpProvider.grandmaAvatar(),
+              "Warm the butter first",
+              BUTTER_IN_A_THIN_STREAM,
+              true,
+              false);
+
+      HelpRequest request =
+          HelpRequest.reconstitute(
+              HELP_REQUEST_ID,
+              LENA,
+              "How do I keep the sauce from splitting?",
+              "Step 4 of my Hollandaise keeps splitting",
+              HelpType.PREPARATION_STEP_EXPLANATION,
+              HOLLANDAISE,
+              STEP_4,
+              List.of(communityTimedOut, grandmaAnswered),
+              HelpRequestStatus.CLOSED,
+              List.of(rejectedHelp, acceptedHelp),
+              5L);
+
+      assertThat(request.helps())
+          .extracting(Help::id, Help::isAccepted, Help::isRejected)
+          .containsExactly(tuple(HELP_ID, false, true), tuple(OTHER_HELP_ID, true, false));
+      assertThat(request.askedProviders())
+          .extracting(AskedProvider::state)
+          .containsExactly(ProviderState.TIMED_OUT, ProviderState.ANSWERED);
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.CLOSED);
+      assertThat(request.pullEvents()).isEmpty();
+    }
   }
 }

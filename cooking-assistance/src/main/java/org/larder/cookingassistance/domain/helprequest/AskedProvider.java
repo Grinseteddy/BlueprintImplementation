@@ -19,6 +19,11 @@ public record AskedProvider(HelpProviderType providerType, Instant deadline, Pro
     return new AskedProvider(providerType, newDeadline, ProviderState.ASKED);
   }
 
+  /** This provider's side timed out: no answer by the deadline (INV-09). */
+  AskedProvider timedOut() {
+    return new AskedProvider(providerType, deadline, ProviderState.TIMED_OUT);
+  }
+
   /** This provider's side has been answered. */
   AskedProvider answered() {
     return new AskedProvider(providerType, deadline, ProviderState.ANSWERED);

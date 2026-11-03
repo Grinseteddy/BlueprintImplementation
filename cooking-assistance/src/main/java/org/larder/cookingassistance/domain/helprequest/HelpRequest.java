@@ -16,6 +16,10 @@ public final class HelpRequest {
   // INV-06: asked again after a rejection, it has the same 12 h again (US-CA-03 R5)
   private static final Duration PREPARATION_STEP_ANSWER_TIME = Duration.ofHours(12);
 
+  // INV-01: help with a preparation step comes from the Community or Grandma Avatar, never a Chef
+  private static final List<HelpProviderType> PREPARATION_STEP_PROVIDERS =
+      List.of(HelpProviderType.COMMUNITY, HelpProviderType.GRANDMA_AVATAR);
+
   // INV-38: a request or an answer carries at most 10 pictures (glossary Picture 0..10)
   private static final int MAX_PICTURES = 10;
 
@@ -263,9 +267,46 @@ public final class HelpRequest {
         .orElseThrow(HelpNotInRequest::new);
   }
 
+  // slice: B3-S06, story: US-CA-03, cmd: Time out help request (clock)
+  public void timeOut(Clock clock) {
+    Instant timedOutAt = clock.instant();
+    ensureOpen();
+    ensureEveryDeadlinePassed(timedOutAt);
+    List<HelpProviderType> timedOutProviders = askedProviderTypes();
+    List<HelpProviderType> suggestedProviders = providersNotYetAsked();
+    askedProviders = askedProviders.stream().map(AskedProvider::timedOut).toList();
+    status = HelpRequestStatus.CANCELLED;
+    // evt: Help request timed out
+    pendingEvents.add(
+        new HelpRequestTimedOut(
+            id, requester, timedOutProviders, suggestedProviders, status, timedOutAt));
+  }
+
+  // INV-09: after a time-out, a preparation-step provider not yet asked is suggested
+  private List<HelpProviderType> providersNotYetAsked() {
+    List<HelpProviderType> asked = askedProviderTypes();
+    return PREPARATION_STEP_PROVIDERS.stream()
+        .filter(provider -> !asked.contains(provider))
+        .toList();
+  }
+
+  // INV-09: a request times out only after every asked provider's deadline (step 3 r5)
+  private void ensureEveryDeadlinePassed(Instant timedOutAt) {
+    if (!askedProviders.stream().allMatch(asked -> asked.deadlinePassedAt(timedOutAt))) {
+      throw new DeadlineNotPassed();
+    }
+  }
+
   // Lifecycle (design brief §3): only an Answered request can be accepted or rejected
   private void ensureAnswered() {
     if (status != HelpRequestStatus.ANSWERED) {
+      throw new InvalidHelpRequestState(status);
+    }
+  }
+
+  // Lifecycle (D5, step 3 r5): only an Open request times out
+  private void ensureOpen() {
+    if (status != HelpRequestStatus.OPEN) {
       throw new InvalidHelpRequestState(status);
     }
   }

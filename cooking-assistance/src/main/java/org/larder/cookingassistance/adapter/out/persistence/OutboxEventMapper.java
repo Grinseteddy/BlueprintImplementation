@@ -20,6 +20,7 @@ import org.larder.cookingassistance.domain.helprequest.HelpProvided;
 import org.larder.cookingassistance.domain.helprequest.HelpRejected;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestCancelled;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestEvent;
+import org.larder.cookingassistance.domain.helprequest.HelpRequestTimedOut;
 import org.larder.cookingassistance.domain.helprequest.HelpRequested;
 
 /**
@@ -40,6 +41,8 @@ final class OutboxEventMapper {
       case HelpAccepted accepted ->
           throw new UnsupportedOperationException("outbox mapping: step 7, increment 1");
       case HelpRejected rejected ->
+          throw new UnsupportedOperationException("outbox mapping: step 7, increment 1");
+      case HelpRequestTimedOut timedOut ->
           throw new UnsupportedOperationException("outbox mapping: step 7, increment 1");
     };
   }

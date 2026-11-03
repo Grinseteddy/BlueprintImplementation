@@ -38,7 +38,18 @@ public final class Help {
       String answerTitle,
       PreparationStepExplanation answer,
       boolean accepted) {
-    return new Help(id, provider, answerTitle, answer, accepted, false);
+    return reconstitute(id, provider, answerTitle, answer, accepted, false);
+  }
+
+  /** Rebuilds a stored Help with its rejection mark: no guards. */
+  public static Help reconstitute(
+      HelpId id,
+      HelpProvider provider,
+      String answerTitle,
+      PreparationStepExplanation answer,
+      boolean accepted,
+      boolean rejected) {
+    return new Help(id, provider, answerTitle, answer, accepted, rejected);
   }
 
   /** This Help, accepted by the requester. */
