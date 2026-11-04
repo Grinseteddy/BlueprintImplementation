@@ -66,7 +66,7 @@ class ApplicationConfiguration {
     return new RejectHelp(helpRequests, clock);
   }
 
-  /** ADR0021: one poll times out at most this many due requests; the poller comes in step 9. */
+  /** ADR0021: one run (one unit of work) times out at most this many due requests. */
   static final int TIME_OUT_BATCH_SIZE = 100;
 
   @Bean

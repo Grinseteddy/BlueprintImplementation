@@ -9,7 +9,9 @@ import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpPage;
 import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpRequestLink;
 import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpType;
 import org.larder.cookingassistance.adapter.in.rest.generated.model.Rejection;
+import org.larder.cookingassistance.application.AcceptHelp;
 import org.larder.cookingassistance.application.ProvideHelp;
+import org.larder.cookingassistance.application.RejectHelp;
 import org.larder.cookingassistance.domain.helprequest.HelpId;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.springframework.http.HttpStatus;
@@ -21,10 +23,18 @@ import org.springframework.web.bind.annotation.RestController;
 class HelpsController implements HelpsApi {
 
   private final ProvideHelp provideHelp;
+  private final AcceptHelp acceptHelp;
+  private final RejectHelp rejectHelp;
   private final String publicBaseUrl;
 
-  HelpsController(ProvideHelp provideHelp, @PublicBaseUrl String publicBaseUrl) {
+  HelpsController(
+      ProvideHelp provideHelp,
+      AcceptHelp acceptHelp,
+      RejectHelp rejectHelp,
+      @PublicBaseUrl String publicBaseUrl) {
     this.provideHelp = provideHelp;
+    this.acceptHelp = acceptHelp;
+    this.rejectHelp = rejectHelp;
     this.publicBaseUrl = publicBaseUrl;
   }
 
@@ -39,10 +49,13 @@ class HelpsController implements HelpsApi {
         .body(HelpMapper.toLink(publicBaseUrl, requestId, helpId));
   }
 
+  // op: acceptHelp (cooking-assistance.openapi.yaml) · cmd: Accept help
   @Override
   public ResponseEntity<HelpRequestLink> acceptHelp(
       UUID helpRequestId, UUID helpId, String version) {
-    throw new NotImplemented("acceptHelp");
+    HelpRequestId requestId = new HelpRequestId(helpRequestId);
+    acceptHelp.execute(HelpMapper.toAcceptance(CurrentActor.get(), requestId, new HelpId(helpId)));
+    return ResponseEntity.ok(HelpRequestMapper.toLink(publicBaseUrl, requestId));
   }
 
   @Override
@@ -63,9 +76,13 @@ class HelpsController implements HelpsApi {
     throw new NotImplemented("listHelpsOfHelpRequest");
   }
 
+  // op: rejectHelp (cooking-assistance.openapi.yaml) · cmd: Reject help
   @Override
   public ResponseEntity<HelpRequestLink> rejectHelp(
       UUID helpRequestId, UUID helpId, String version, Rejection rejection) {
-    throw new NotImplemented("rejectHelp");
+    HelpRequestId requestId = new HelpRequestId(helpRequestId);
+    rejectHelp.execute(
+        HelpMapper.toRejection(CurrentActor.get(), requestId, new HelpId(helpId), rejection));
+    return ResponseEntity.ok(HelpRequestMapper.toLink(publicBaseUrl, requestId));
   }
 }

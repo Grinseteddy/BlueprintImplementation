@@ -158,4 +158,15 @@ class CancelHelpRequestTest {
         HelpRequests.FRIDAY_18_10);
     helpRequests.save(meanwhile);
   }
+
+  @DisplayName(
+      "N1 Tom (not the requester) cancels Lena's request -> NotAuthorized with code NOT_REQUESTER (spec 403 NOT_REQUESTER); a provider type refused in ProvideHelp keeps NOT_AUTHORIZED -- B3-S03 US-CA-03 ADR0013 (step 8 r1 from step 9)")
+  @Test
+  void theRequesterCheckCarriesCodeNotRequester() {
+    assertThatThrownBy(() -> useCase.execute(cancellationBy(TOM)))
+        .isInstanceOfSatisfying(
+            NotAuthorized.class, refusal -> assertThat(refusal.code()).isEqualTo("NOT_REQUESTER"));
+    assertThat(new NotAuthorized("Provide Help as CHEF", Role.COMMUNITY).code())
+        .isEqualTo("NOT_AUTHORIZED");
+  }
 }

@@ -5,8 +5,11 @@ import java.util.Objects;
 import org.larder.cookingassistance.adapter.in.rest.generated.model.Answer;
 import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpCreate;
 import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpLink;
+import org.larder.cookingassistance.adapter.in.rest.generated.model.Rejection;
+import org.larder.cookingassistance.application.AcceptHelp;
 import org.larder.cookingassistance.application.Actor;
 import org.larder.cookingassistance.application.ProvideHelp;
+import org.larder.cookingassistance.application.RejectHelp;
 import org.larder.cookingassistance.domain.helprequest.HelpId;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
@@ -41,6 +44,19 @@ final class HelpMapper {
               Objects.requireNonNullElse(explanation.getImages(), List.of()));
       default -> throw new NotImplemented("provideHelp with " + answer.getClass().getSimpleName());
     };
+  }
+
+  static AcceptHelp.Command toAcceptance(Actor actor, HelpRequestId helpRequestId, HelpId helpId) {
+    return new AcceptHelp.Command(actor, helpRequestId, helpId);
+  }
+
+  static RejectHelp.Command toRejection(
+      Actor actor, HelpRequestId helpRequestId, HelpId helpId, Rejection body) {
+    // F3: nextChef belongs to menu requests (increment 4)
+    if (body.getNextChef() != null) {
+      throw new NotImplemented("rejectHelp nextChef");
+    }
+    return new RejectHelp.Command(actor, helpRequestId, helpId, body.getNote());
   }
 
   static HelpLink toLink(String publicBaseUrl, HelpRequestId helpRequestId, HelpId helpId) {

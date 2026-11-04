@@ -15,6 +15,7 @@ enum NamedProblem {
   METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "The method is not allowed for this resource"),
   UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "The content type is not supported"),
   NOT_AUTHORIZED(HttpStatus.FORBIDDEN, "The caller may not issue this command"),
+  NOT_REQUESTER(HttpStatus.FORBIDDEN, "Only the requester may issue this command"),
   CONCURRENT_UPDATE(HttpStatus.CONFLICT, "The help request was changed concurrently"),
   INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error"),
   NOT_IMPLEMENTED(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");

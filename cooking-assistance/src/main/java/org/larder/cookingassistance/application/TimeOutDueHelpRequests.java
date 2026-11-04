@@ -28,6 +28,14 @@ public class TimeOutDueHelpRequests {
     return unitOfWork.transactionally(this::timeOutOneBatch);
   }
 
+  /**
+   * Whether more help requests may still be due after a run that timed out this many: a full batch
+   * means the claim stopped at its limit (ADR0021).
+   */
+  public boolean moreMayBeDueAfter(int timedOut) {
+    return timedOut == batchSize;
+  }
+
   private int timeOutOneBatch() {
     List<HelpRequest> due = helpRequests.findDueForTimeOut(clock.instant(), batchSize);
     for (HelpRequest request : due) {

@@ -125,10 +125,13 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
     return ResponseEntity.status(status).body(problem);
   }
 
-  /** Spec P11: actor rules 403, the request's state 409, every other rule 422. */
+  /**
+   * Spec P11: actor rules 403, a missing part 404, the request's state 409, every other rule 422.
+   */
   private static HttpStatus statusOf(String code) {
     return switch (code) {
       case "OWN_REQUEST", "PROVIDER_NOT_ASKED" -> HttpStatus.FORBIDDEN;
+      case "NOT_FOUND" -> HttpStatus.NOT_FOUND;
       case "INVALID_STATE" -> HttpStatus.CONFLICT;
       default -> HttpStatus.UNPROCESSABLE_ENTITY;
     };
@@ -145,9 +148,10 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
     return NamedProblem.NOT_FOUND.response();
   }
 
+  /** ADR0013: the refusal names its own code (NOT_AUTHORIZED, NOT_REQUESTER). */
   @ExceptionHandler(NotAuthorized.class)
-  ResponseEntity<Object> handleNotAuthorized() {
-    return NamedProblem.NOT_AUTHORIZED.response();
+  ResponseEntity<Object> handleNotAuthorized(NotAuthorized refusal) {
+    return NamedProblem.valueOf(refusal.code()).response();
   }
 
   @ExceptionHandler(NotImplemented.class)

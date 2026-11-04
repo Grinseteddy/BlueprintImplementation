@@ -1,8 +1,11 @@
 package org.larder.cookingassistance.adapter.in.rest;
 
 import java.util.Optional;
+import org.larder.cookingassistance.application.AcceptHelp;
+import org.larder.cookingassistance.application.CancelHelpRequest;
 import org.larder.cookingassistance.application.HelpRequestQueries;
 import org.larder.cookingassistance.application.ProvideHelp;
+import org.larder.cookingassistance.application.RejectHelp;
 import org.larder.cookingassistance.application.RequestHelpWithPreparationStep;
 import org.larder.cookingassistance.application.fakes.InMemoryHelpRequestRepository;
 import org.larder.cookingassistance.fixtures.HelpRequests;
@@ -35,5 +38,20 @@ class RestTestConfiguration {
   ProvideHelp provideHelp(InMemoryHelpRequestRepository helpRequests) {
     return new ProvideHelp(
         helpRequests, () -> HelpRequests.HELP_ID.value(), HelpRequests.FRIDAY_18_10);
+  }
+
+  @Bean
+  CancelHelpRequest cancelHelpRequest(InMemoryHelpRequestRepository helpRequests) {
+    return new CancelHelpRequest(helpRequests, HelpRequests.FRIDAY_18_10);
+  }
+
+  @Bean
+  AcceptHelp acceptHelp(InMemoryHelpRequestRepository helpRequests) {
+    return new AcceptHelp(helpRequests, HelpRequests.FRIDAY_18_10);
+  }
+
+  @Bean
+  RejectHelp rejectHelp(InMemoryHelpRequestRepository helpRequests) {
+    return new RejectHelp(helpRequests, HelpRequests.FRIDAY_18_10);
   }
 }

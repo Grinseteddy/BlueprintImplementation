@@ -420,17 +420,14 @@ class HelpsControllerTest {
   }
 
   @DisplayName(
-      "each of the 7 unbuilt operations of both interfaces -> 501 NOT_IMPLEMENTED (parameterized) -- B3-S02 US-CA-03 ADR0014")
+      "each of the 4 unbuilt operations of both interfaces -> 501 NOT_IMPLEMENTED (parameterized) -- B3-S02 US-CA-03 ADR0014")
   @ParameterizedTest(name = "{0} {1}")
   @CsvSource(
       delimiter = '|',
       value = {
         "GET  | /help-requests                          |",
-        "POST | /help-requests/{id}/cancellation         | {}",
         "GET  | /help-requests/{id}/helps                |",
         "GET  | /help-requests/{id}/helps/{helpId}       |",
-        "POST | /help-requests/{id}/helps/{helpId}/acceptance |",
-        "POST | /help-requests/{id}/helps/{helpId}/rejection  | {\"note\": \"warm water didn't help\"}",
         "GET  | /helps                                   |"
       })
   void unbuiltOperationsAreNotImplementedYet(String method, String path, String body)

@@ -9,6 +9,7 @@ import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpRequestL
 import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpRequestPage;
 import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpRequestStatus;
 import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpType;
+import org.larder.cookingassistance.application.CancelHelpRequest;
 import org.larder.cookingassistance.application.HelpRequestNotFound;
 import org.larder.cookingassistance.application.HelpRequestQueries;
 import org.larder.cookingassistance.application.RequestHelpWithPreparationStep;
@@ -22,14 +23,17 @@ import org.springframework.web.bind.annotation.RestController;
 class HelpRequestsController implements HelpRequestsApi {
 
   private final RequestHelpWithPreparationStep requestHelpWithPreparationStep;
+  private final CancelHelpRequest cancelHelpRequest;
   private final HelpRequestQueries queries;
   private final String publicBaseUrl;
 
   HelpRequestsController(
       RequestHelpWithPreparationStep requestHelpWithPreparationStep,
+      CancelHelpRequest cancelHelpRequest,
       HelpRequestQueries queries,
       @PublicBaseUrl String publicBaseUrl) {
     this.requestHelpWithPreparationStep = requestHelpWithPreparationStep;
+    this.cancelHelpRequest = cancelHelpRequest;
     this.queries = queries;
     this.publicBaseUrl = publicBaseUrl;
   }
@@ -59,10 +63,13 @@ class HelpRequestsController implements HelpRequestsApi {
             queries.byId(id).orElseThrow(() -> new HelpRequestNotFound(id))));
   }
 
+  // op: cancelHelpRequest (cooking-assistance.openapi.yaml) · cmd: Cancel help request
   @Override
   public ResponseEntity<HelpRequestLink> cancelHelpRequest(
       UUID helpRequestId, String version, Cancellation cancellation) {
-    throw new NotImplemented("cancelHelpRequest");
+    HelpRequestId id = new HelpRequestId(helpRequestId);
+    cancelHelpRequest.execute(HelpRequestMapper.toCommand(CurrentActor.get(), id, cancellation));
+    return ResponseEntity.ok(HelpRequestMapper.toLink(publicBaseUrl, id));
   }
 
   @Override

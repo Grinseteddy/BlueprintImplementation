@@ -2,14 +2,17 @@ package org.larder.cookingassistance.adapter.in.rest;
 
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.larder.cookingassistance.adapter.in.rest.generated.model.AskedProvider;
+import org.larder.cookingassistance.adapter.in.rest.generated.model.Cancellation;
 import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpRequest;
 import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpRequestCreate;
 import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpRequestLink;
 import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpRequestStatus;
 import org.larder.cookingassistance.adapter.in.rest.generated.model.ProviderState;
 import org.larder.cookingassistance.application.Actor;
+import org.larder.cookingassistance.application.CancelHelpRequest;
 import org.larder.cookingassistance.application.HelpRequestView;
 import org.larder.cookingassistance.application.RequestHelpWithPreparationStep;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
@@ -32,6 +35,12 @@ final class HelpRequestMapper {
         body.getPreferredProvider().stream()
             .map(provider -> HelpProviderType.valueOf(provider.name()))
             .collect(Collectors.toSet()));
+  }
+
+  static CancelHelpRequest.Command toCommand(
+      Actor actor, HelpRequestId helpRequestId, Cancellation body) {
+    return new CancelHelpRequest.Command(
+        actor, helpRequestId, Optional.ofNullable(body).map(Cancellation::getNote));
   }
 
   static HelpRequestLink toLink(String publicBaseUrl, HelpRequestId id) {
