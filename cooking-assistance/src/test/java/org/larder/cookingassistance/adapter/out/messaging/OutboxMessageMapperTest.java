@@ -7,10 +7,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -110,16 +108,6 @@ class OutboxMessageMapperTest {
         .isInstanceOf(UnmappedEvent.class);
   }
 
-  @DisplayName(
-      "the send operations of the spec = built (publishHelpRequestCreated, publishHelpProvided) + planned for increment 1 (publishHelpAccepted, publishHelpRejected, publishHelpRequestCancelled, publishHelpRequestTimedOut) -- B3-S01,B3-S02 US-CA-03 ADR0014")
-  @Test
-  void everySendOperationIsBuiltOrPlanned() throws Exception {
-    Set<String> builtOrPlanned = new HashSet<>(SendOperations.BUILT);
-    builtOrPlanned.addAll(SendOperations.PLANNED_FOR_INCREMENT_1);
-
-    assertThat(builtOrPlanned).containsExactlyInAnyOrderElementsOf(sendOperationsOfTheSpec());
-  }
-
   private static List<String> sendOperationsOfTheSpec() throws Exception {
     try (InputStream in =
         OutboxMessageMapperTest.class
@@ -138,5 +126,100 @@ class OutboxMessageMapperTest {
               });
       return send;
     }
+  }
+
+  @DisplayName(
+      "M1 HelpRequestCancelled row with note 'an ice cube saved it' -> channel cooking-assistance.help-request.cancelled, headers by the same rules, payload unchanged and valid against HelpRequestCancelledPayload -- B3-S03 US-CA-03 op publishHelpRequestCancelled")
+  @Test
+  void helpRequestCancelledGoesToItsChannel() {
+    String cancelled = OutboxPayloads.helpRequestCancelled(REQUEST);
+
+    OutgoingMessage message =
+        mapper.toMessage(new OutboxRecord(44, REQUEST, "HelpRequestCancelled", cancelled));
+
+    UUID messageId = UUID.fromString("18667099-df50-3ac1-a195-d17459263712");
+    assertThat(message)
+        .isEqualTo(
+            new OutgoingMessage(
+                "cooking-assistance.help-request.cancelled",
+                messageId,
+                Map.of(
+                    "messageId", messageId.toString(),
+                    "correlationId", REQUEST.toString(),
+                    "source", "cooking-assistance"),
+                cancelled));
+  }
+
+  @DisplayName(
+      "M2 HelpAccepted row -> channel cooking-assistance.help.accepted, headers by the same rules, payload unchanged and valid against HelpAcceptedPayload -- B3-S04 US-CA-03 op publishHelpAccepted")
+  @Test
+  void helpAcceptedGoesToItsChannel() {
+    String accepted = OutboxPayloads.helpAccepted(REQUEST);
+
+    OutgoingMessage message =
+        mapper.toMessage(new OutboxRecord(45, REQUEST, "HelpAccepted", accepted));
+
+    UUID messageId = UUID.fromString("be1f93d8-d2e4-3fe6-9628-bbe7142bfd69");
+    assertThat(message)
+        .isEqualTo(
+            new OutgoingMessage(
+                "cooking-assistance.help.accepted",
+                messageId,
+                Map.of(
+                    "messageId", messageId.toString(),
+                    "correlationId", REQUEST.toString(),
+                    "source", "cooking-assistance"),
+                accepted));
+  }
+
+  @DisplayName(
+      "M3 HelpRejected row with note 'warm water didn't help' -> channel cooking-assistance.help.rejected, headers by the same rules, payload unchanged and valid against HelpRejectedPayload -- B3-S05 US-CA-03 op publishHelpRejected")
+  @Test
+  void helpRejectedGoesToItsChannel() {
+    String rejected = OutboxPayloads.helpRejected(REQUEST);
+
+    OutgoingMessage message =
+        mapper.toMessage(new OutboxRecord(46, REQUEST, "HelpRejected", rejected));
+
+    UUID messageId = UUID.fromString("577cbd3d-8b41-3202-83f8-1590b0c6d9b9");
+    assertThat(message)
+        .isEqualTo(
+            new OutgoingMessage(
+                "cooking-assistance.help.rejected",
+                messageId,
+                Map.of(
+                    "messageId", messageId.toString(),
+                    "correlationId", REQUEST.toString(),
+                    "source", "cooking-assistance"),
+                rejected));
+  }
+
+  @DisplayName(
+      "M4 HelpRequestTimedOut row (suggestedProviders []) -> channel cooking-assistance.help-request.timed-out, headers by the same rules, payload unchanged and valid against HelpRequestTimedOutPayload -- B3-S06 US-CA-03 op publishHelpRequestTimedOut")
+  @Test
+  void helpRequestTimedOutGoesToItsChannel() {
+    String timedOut = OutboxPayloads.helpRequestTimedOut(REQUEST);
+
+    OutgoingMessage message =
+        mapper.toMessage(new OutboxRecord(47, REQUEST, "HelpRequestTimedOut", timedOut));
+
+    UUID messageId = UUID.fromString("557a5b88-5edd-31f8-967a-8e65db32acc8");
+    assertThat(message)
+        .isEqualTo(
+            new OutgoingMessage(
+                "cooking-assistance.help-request.timed-out",
+                messageId,
+                Map.of(
+                    "messageId", messageId.toString(),
+                    "correlationId", REQUEST.toString(),
+                    "source", "cooking-assistance"),
+                timedOut));
+  }
+
+  @DisplayName(
+      "M5 the send operations of the spec = built (all six); none planned any more (replaces the increment-0 coverage item) -- B3-S03..S06 US-CA-03 ADR0014")
+  @Test
+  void everySendOperationIsBuilt() throws Exception {
+    assertThat(SendOperations.BUILT).containsExactlyInAnyOrderElementsOf(sendOperationsOfTheSpec());
   }
 }

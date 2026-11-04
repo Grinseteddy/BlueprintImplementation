@@ -5,6 +5,9 @@ import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Clock;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,6 +37,8 @@ class OutboundWiringIT {
   @Autowired MockMvc mvc;
   @Autowired JdbcClient jdbc;
   @Autowired TransactionTemplate transactions;
+  @Autowired Clock clock;
+  @Autowired ObjectMapper json;
 
   final RecordingPublisher publisher = new RecordingPublisher();
 
@@ -46,22 +51,21 @@ class OutboundWiringIT {
     jdbc.sql("delete from help_request").update();
   }
 
-  @DisplayName(
-      "POST /help-requests -> one relay run -> the fake received exactly one HelpRequestCreated on cooking-assistance.help-request.created; no pending rows -- B3-S01 US-CA-03 op publishHelpRequestCreated")
-  @Test
-  void createdHelpRequestReachesItsChannel() throws Exception {
-    mvc.perform(
-            post("/help-requests")
-                .header(
-                    AUTHORIZATION,
-                    TestTokens.forCook(HelpRequests.LENA)
-                        .roles("cook")
-                        .scope("help:write")
-                        .bearer())
-                .header("version", "1.0.3")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    """
+  /** Lena asks the Community about step 4 through the API; returns the new request's id. */
+  private UUID lenaRequestsHelp() throws Exception {
+    String response =
+        mvc.perform(
+                post("/help-requests")
+                    .header(
+                        AUTHORIZATION,
+                        TestTokens.forCook(HelpRequests.LENA)
+                            .roles("cook")
+                            .scope("help:write")
+                            .bearer())
+                    .header("version", "1.0.3")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        """
                     {
                       "title": "Sauce splits",
                       "type": "PREPARATION_STEP_EXPLANATION",
@@ -71,16 +75,61 @@ class OutboundWiringIT {
                       "preferredProvider": ["COMMUNITY"]
                     }
                     """
-                        .formatted(HelpRequests.HOLLANDAISE.value(), HelpRequests.STEP_4.value())))
-        .andExpect(status().isCreated());
+                            .formatted(
+                                HelpRequests.HOLLANDAISE.value(), HelpRequests.STEP_4.value())))
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    return UUID.fromString(json.readTree(response).get("helpRequestId").asText());
+  }
 
-    new OutboxRelay(jdbc, transactions, publisher).runOnce();
+  @DisplayName(
+      "POST /help-requests -> one relay run -> the fake received exactly one HelpRequestCreated on cooking-assistance.help-request.created; no pending rows -- B3-S01 US-CA-03 op publishHelpRequestCreated")
+  @Test
+  void createdHelpRequestReachesItsChannel() throws Exception {
+    lenaRequestsHelp();
+
+    new OutboxRelay(jdbc, transactions, publisher, clock).runOnce();
 
     assertThat(publisher.published())
         .singleElement()
         .satisfies(
             message ->
                 assertThat(message.channel()).isEqualTo("cooking-assistance.help-request.created"));
+    assertThat(
+            jdbc.sql("select count(*) from outbox where published_at is null")
+                .query(Integer.class)
+                .single())
+        .isZero();
+  }
+
+  @DisplayName(
+      "W2 POST /help-requests, then POST .../cancellation by Lena -> one relay run -> the fake received HelpRequestCreated then exactly one HelpRequestCancelled on cooking-assistance.help-request.cancelled; no pending rows -- B3-S03 US-CA-03 op publishHelpRequestCancelled wiring")
+  @Test
+  void cancellationReachesItsChannel() throws Exception {
+    UUID helpRequestId = lenaRequestsHelp();
+    mvc.perform(
+            post("/help-requests/" + helpRequestId + "/cancellation")
+                .header(
+                    AUTHORIZATION,
+                    TestTokens.forCook(HelpRequests.LENA)
+                        .roles("cook")
+                        .scope("help:write")
+                        .bearer())
+                .header("version", "1.0.7")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"note\": \"an ice cube saved it\"}"))
+        .andExpect(status().isOk());
+
+    new OutboxRelay(jdbc, transactions, publisher, clock).runOnce();
+
+    assertThat(publisher.published())
+        .extracting(OutgoingMessage::channel)
+        .containsExactly(
+            "cooking-assistance.help-request.created", "cooking-assistance.help-request.cancelled");
+    assertThat(publisher.published().getLast().headers().get("correlationId"))
+        .isEqualTo(helpRequestId.toString());
     assertThat(
             jdbc.sql("select count(*) from outbox where published_at is null")
                 .query(Integer.class)
