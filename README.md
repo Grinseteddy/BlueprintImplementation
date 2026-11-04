@@ -61,3 +61,34 @@ Only the health and readiness probes are exposed (`/actuator/health/**`, ADR0020
   `cooking-assistance.dlx`. A queue `cooking-assistance.grandma-help-provided` declared by an
   earlier build with the default dead-letter exchange refuses the new arguments
   (`PRECONDITION_FAILED`); delete it once, empty, before starting this version.
+
+## Replay a dead-lettered outbox row
+
+The relay dead-letters a row only when it can never be published: it breaks the AsyncAPI spec or
+its event type is unknown (ADR0015, addition L5). Each dead letter is logged at ERROR with row id,
+event type and reason. Broker errors are never dead-lettered; they are retried with a backoff of
+1 s doubling up to 60 s.
+
+1. Fix the defect and deploy the fix first. A row replayed against the old build is dead-lettered
+   again.
+2. Find the dead letters:
+
+   ```sql
+   select id, aggregate_id, event_type, last_error, dead_lettered_at
+     from cooking_assistance.outbox
+    where dead_lettered_at is not null
+    order by id;
+   ```
+
+3. Release the row; the next relay run publishes it:
+
+   ```sql
+   update cooking_assistance.outbox
+      set dead_lettered_at = null, attempts = 0, next_attempt_at = '-infinity'
+    where id = :id;
+   ```
+
+The message keeps its message id (derived from the row id), so consumers that already saw it drop
+it. The replayed message arrives after the help request's later messages, which went out while it
+was dead-lettered; until it is published, it holds back that help request's rows that are still
+pending. A replay tool is on the planned list.
