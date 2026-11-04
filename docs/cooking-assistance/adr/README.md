@@ -19,4 +19,5 @@ Format as in Larder's ADR0001–ADR0005. Each ADR names the principles it honors
 | [ADR0018](ADR0018-OneBuildCommandHooksAnd.md) | One build command, hooks and CI | QS-16, QS-15 |
 | [ADR0019](ADR0019-SecurityBaselineAndReviewTools.md) | Security baseline and review tools | QS-12, QS-13 |
 | [ADR0020](ADR0020-ObservabilityWithMicrometerTracing.md) | Observability with Micrometer Tracing and OpenTelemetry | QS-14 |
+| [ADR0021](ADR0021-TimeoutSchedulerPollsDueRequests.md) | Timeout scheduler polls due help requests with SKIP LOCKED (increment 1, L4) | QS-09, QS-10 |
 | [SADR0008](SADR0008-HelpIsPartOfThe.md) | Help is part of the Help Request aggregate | QS-10, QS-01 |
