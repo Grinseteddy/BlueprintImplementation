@@ -1,5 +1,6 @@
 package org.larder.cookingassistance.application.fakes;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -33,6 +34,18 @@ public class InMemoryHelpRequestRepository implements HelpRequestRepository {
   @Override
   public Optional<HelpRequest> findById(HelpRequestId id) {
     return Optional.ofNullable(snapshots.get(id)).map(Snapshot::reconstitute);
+  }
+
+  @Override
+  public List<HelpRequest> findDueForTimeOut(Instant now, int limit) {
+    return snapshots.values().stream()
+        .map(Snapshot::reconstitute)
+        .filter(request -> request.status() == HelpRequestStatus.OPEN)
+        .filter(
+            request ->
+                request.askedProviders().stream().allMatch(asked -> now.isAfter(asked.deadline())))
+        .limit(limit)
+        .toList();
   }
 
   @Override

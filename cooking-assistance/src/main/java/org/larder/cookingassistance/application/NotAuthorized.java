@@ -4,6 +4,15 @@ package org.larder.cookingassistance.application;
 public final class NotAuthorized extends RuntimeException {
 
   public NotAuthorized(String command, Role requiredRole) {
-    super(command + " needs role " + requiredRole);
+    this(command + " needs role " + requiredRole);
+  }
+
+  private NotAuthorized(String message) {
+    super(message);
+  }
+
+  /** ADR0013: the command is for the help request's requester only. */
+  public static NotAuthorized requesterOnly(String command) {
+    return new NotAuthorized(command + " is for the requester only");
   }
 }

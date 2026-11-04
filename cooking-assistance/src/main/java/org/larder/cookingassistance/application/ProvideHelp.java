@@ -1,7 +1,6 @@
 package org.larder.cookingassistance.application;
 
 import java.time.Clock;
-import org.larder.cookingassistance.domain.helprequest.ConcurrencyConflict;
 import org.larder.cookingassistance.domain.helprequest.HelpId;
 import org.larder.cookingassistance.domain.helprequest.HelpProvider;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
@@ -26,12 +25,8 @@ public class ProvideHelp {
 
   public HelpId execute(Command command) {
     admitCommunityAnswer(command);
-    try {
-      return provideHelpOnce(command);
-    } catch (ConcurrencyConflict conflict) {
-      // ADR0010: another writer saved first — reload and retry once
-      return provideHelpOnce(command);
-    }
+    // ADR0010: another writer saved first — reload and retry once
+    return RetryOnConflict.once(() -> provideHelpOnce(command));
   }
 
   /** ADR0013, deny by default: decided before the help request is loaded. */

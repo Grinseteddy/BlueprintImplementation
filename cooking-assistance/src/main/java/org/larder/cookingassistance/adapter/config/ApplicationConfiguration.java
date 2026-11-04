@@ -2,11 +2,15 @@ package org.larder.cookingassistance.adapter.config;
 
 import java.time.Clock;
 import org.larder.cookingassistance.adapter.out.id.UuidV7IdGenerator;
+import org.larder.cookingassistance.application.AcceptHelp;
+import org.larder.cookingassistance.application.CancelHelpRequest;
 import org.larder.cookingassistance.application.IdGenerator;
 import org.larder.cookingassistance.application.ProcessedMessages;
 import org.larder.cookingassistance.application.ProvideGrandmaAvatarHelp;
 import org.larder.cookingassistance.application.ProvideHelp;
+import org.larder.cookingassistance.application.RejectHelp;
 import org.larder.cookingassistance.application.RequestHelpWithPreparationStep;
+import org.larder.cookingassistance.application.TimeOutDueHelpRequests;
 import org.larder.cookingassistance.application.UnitOfWork;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestRepository;
 import org.springframework.context.annotation.Bean;
@@ -45,5 +49,29 @@ class ApplicationConfiguration {
       IdGenerator ids,
       Clock clock) {
     return new ProvideGrandmaAvatarHelp(helpRequests, processedMessages, unitOfWork, ids, clock);
+  }
+
+  @Bean
+  CancelHelpRequest cancelHelpRequest(HelpRequestRepository helpRequests, Clock clock) {
+    return new CancelHelpRequest(helpRequests, clock);
+  }
+
+  @Bean
+  AcceptHelp acceptHelp(HelpRequestRepository helpRequests, Clock clock) {
+    return new AcceptHelp(helpRequests, clock);
+  }
+
+  @Bean
+  RejectHelp rejectHelp(HelpRequestRepository helpRequests, Clock clock) {
+    return new RejectHelp(helpRequests, clock);
+  }
+
+  /** ADR0021: one poll times out at most this many due requests; the poller comes in step 9. */
+  static final int TIME_OUT_BATCH_SIZE = 100;
+
+  @Bean
+  TimeOutDueHelpRequests timeOutDueHelpRequests(
+      HelpRequestRepository helpRequests, UnitOfWork unitOfWork, Clock clock) {
+    return new TimeOutDueHelpRequests(helpRequests, unitOfWork, clock, TIME_OUT_BATCH_SIZE);
   }
 }

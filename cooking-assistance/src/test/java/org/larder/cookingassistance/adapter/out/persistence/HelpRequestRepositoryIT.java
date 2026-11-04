@@ -12,6 +12,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -31,6 +32,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Help Request repository against PostgreSQL 16 (Testcontainers) — increment 0, walking skeleton
@@ -44,6 +47,7 @@ class HelpRequestRepositoryIT {
 
   @Autowired JdbcClient jdbc;
   @Autowired HelpRequestRepository repository;
+  @Autowired PlatformTransactionManager transactions;
 
   @BeforeEach
   void emptyTables() {
@@ -598,5 +602,34 @@ class HelpRequestRepositoryIT {
     assertThat(payload.get("suggestedProviders").toString()).isEqualTo("[\"GRANDMA_AVATAR\"]");
     assertThat(payload.get("helpRequestStatus").asText()).isEqualTo("CANCELLED");
     assertThat(payload.get("occurredAt").asText()).isEqualTo("2026-11-07T05:00:01Z");
+  }
+
+  @DisplayName(
+      "a due request claimed in an open transaction -> a second transaction's findDueForTimeOut skips it (FOR UPDATE SKIP LOCKED) and returns it once the first commits without a time-out -- B3-S06 US-CA-03 ADR0021 QS-09 (step 7 r1 from step 8)")
+  @Test
+  void claimedDueRequestsAreSkippedByASecondClaim() {
+    repository.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.COMMUNITY));
+    Instant saturday060001 = Instant.parse("2026-11-07T05:00:01Z");
+    TransactionTemplate first = new TransactionTemplate(transactions);
+
+    List<HelpRequestId> seenBySecondClaim =
+        first.execute(
+            claim -> {
+              assertThat(repository.findDueForTimeOut(saturday060001, 10)).hasSize(1);
+              return CompletableFuture.supplyAsync(
+                      () ->
+                          new TransactionTemplate(transactions)
+                              .execute(
+                                  second ->
+                                      repository.findDueForTimeOut(saturday060001, 10).stream()
+                                          .map(HelpRequest::id)
+                                          .toList()))
+                  .join();
+            });
+
+    assertThat(seenBySecondClaim).isEmpty();
+    assertThat(repository.findDueForTimeOut(saturday060001, 10))
+        .extracting(HelpRequest::id)
+        .containsExactly(HelpRequests.HELP_REQUEST_ID);
   }
 }

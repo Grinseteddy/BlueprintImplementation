@@ -2,19 +2,29 @@ package org.larder.cookingassistance.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Clock;
+import java.time.Duration;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.larder.cookingassistance.application.AcceptHelp;
 import org.larder.cookingassistance.application.Actor;
+import org.larder.cookingassistance.application.CancelHelpRequest;
 import org.larder.cookingassistance.application.ProvideGrandmaAvatarHelp;
 import org.larder.cookingassistance.application.ProvideHelp;
+import org.larder.cookingassistance.application.RejectHelp;
 import org.larder.cookingassistance.application.RequestHelpWithPreparationStep;
 import org.larder.cookingassistance.application.Role;
+import org.larder.cookingassistance.application.TimeOutDueHelpRequests;
+import org.larder.cookingassistance.domain.helprequest.HelpProvider;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
+import org.larder.cookingassistance.domain.helprequest.HelpRequest;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestRepository;
+import org.larder.cookingassistance.domain.helprequest.HelpRequestStatus;
 import org.larder.cookingassistance.fixtures.HelpRequests;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -34,6 +44,10 @@ class ApplicationWiringIT {
   @Autowired RequestHelpWithPreparationStep requestHelp;
   @Autowired ProvideHelp provideHelp;
   @Autowired ProvideGrandmaAvatarHelp provideGrandmaAvatarHelp;
+  @Autowired CancelHelpRequest cancelHelpRequest;
+  @Autowired AcceptHelp acceptHelp;
+  @Autowired RejectHelp rejectHelp;
+  @Autowired TimeOutDueHelpRequests timeOutDueHelpRequests;
 
   @BeforeEach
   void emptyTables() {
@@ -116,4 +130,76 @@ class ApplicationWiringIT {
   }
 
   static final UUID MESSAGE_ID = UUID.fromString("8d9e0f1a-2b3c-4d5e-8f6a-7b8c9d0e1f77");
+
+  @DisplayName(
+      "Lena cancels her stored request through CancelHelpRequest and the PostgreSQL repository -> stored CANCELLED, one HelpRequestCancelled outbox row -- B3-S03 US-CA-03 wiring")
+  @Test
+  void cancelThroughTheRealAdapter() {
+    helpRequests.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR));
+
+    cancelHelpRequest.execute(
+        new CancelHelpRequest.Command(LENA, HelpRequests.HELP_REQUEST_ID, Optional.empty()));
+
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().status())
+        .isEqualTo(HelpRequestStatus.CANCELLED);
+    assertThat(outboxRows("HelpRequestCancelled")).isEqualTo(1);
+  }
+
+  static final Actor LENA = new Actor(HelpRequests.LENA, Set.of(Role.COOK), false);
+
+  @DisplayName(
+      "Lena rejects Grandma's first Help and accepts the second through RejectHelp and AcceptHelp -> stored CLOSED, outbox rows HelpRejected then HelpAccepted -- B3-S04,B3-S05 US-CA-03 wiring")
+  @Test
+  void acceptAndRejectThroughTheRealAdapter() {
+    HelpRequest request = HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR);
+    HelpRequests.grandmaExplainsStep4(request);
+    helpRequests.save(request);
+
+    rejectHelp.execute(
+        new RejectHelp.Command(
+            LENA, HelpRequests.HELP_REQUEST_ID, HelpRequests.HELP_ID, "warm water didn't help"));
+    HelpRequest rejected = helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    rejected.provideHelp(
+        HelpRequests.OTHER_HELP_ID,
+        HelpProvider.grandmaAvatar(),
+        "Warm the butter first",
+        HelpRequests.BUTTER_WITH_THREE_PHOTOS,
+        Clock.systemUTC());
+    helpRequests.save(rejected);
+    acceptHelp.execute(
+        new AcceptHelp.Command(LENA, HelpRequests.HELP_REQUEST_ID, HelpRequests.OTHER_HELP_ID));
+
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().status())
+        .isEqualTo(HelpRequestStatus.CLOSED);
+    assertThat(
+            jdbc.sql(
+                    "select event_type from outbox where event_type in"
+                        + " ('HelpRejected', 'HelpAccepted') order by id")
+                .query(String.class)
+                .list())
+        .containsExactly("HelpRejected", "HelpAccepted");
+  }
+
+  @DisplayName(
+      "a stored due request timed out by TimeOutDueHelpRequests on PostgreSQL -> stored CANCELLED, one HelpRequestTimedOut outbox row -- B3-S06 US-CA-03 ADR0021 wiring")
+  @Test
+  void timeOutThroughTheRealAdapter() {
+    helpRequests.save(
+        HelpRequest.requestHelpWithPreparationStep(
+            HelpRequests.HELP_REQUEST_ID,
+            HelpRequests.LENA,
+            "How do I keep the sauce from splitting?",
+            "Step 4 of my Hollandaise keeps splitting",
+            HelpRequests.HOLLANDAISE,
+            HelpRequests.STEP_4,
+            Set.of(HelpProviderType.COMMUNITY),
+            Clock.offset(Clock.systemUTC(), Duration.ofHours(-13))));
+
+    int timedOut = timeOutDueHelpRequests.execute();
+
+    assertThat(timedOut).isEqualTo(1);
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().status())
+        .isEqualTo(HelpRequestStatus.CANCELLED);
+    assertThat(outboxRows("HelpRequestTimedOut")).isEqualTo(1);
+  }
 }
