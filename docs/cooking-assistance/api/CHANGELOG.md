@@ -1,5 +1,11 @@
 # Cook Assistance API — changelog
 
+## OpenAPI 1.0.8 — 2026-11-04 (step 4 r11, from step 11 of increment 1, later question L6)
+
+| Change | Why |
+|---|---|
+| `listHelpRequests`, `listHelpsOfHelpRequest` and `listHelps` state their order: oldest first, in creation order, no item repeated on a later page; `cursor` states that a cursor the API did not issue answers 400; `version` header accepts 1.0.8 | keyset paging needs a stated order (L6, decided by the user 2026-11-04). Clarification: no request or response shape changes |
+
 ## AsyncAPI 1.0.5 — 2026-11-02 (step 4 r10, from the skeleton review of increment 0)
 
 | Change | Why |

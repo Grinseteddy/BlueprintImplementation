@@ -9,7 +9,7 @@ info:
 
     Clients must be tolerant readers: ignore unknown fields and handle unknown enum values
     (status, type and error codes can grow in later minor versions).
-  version: 1.0.7
+  version: 1.0.8
   contact:
     name: Annegret Junker
     email: annegret.junker@larder.org
@@ -39,6 +39,7 @@ paths:
       description: |
         Retrieve help requests, optionally filtered by the requesting cook, by status and by type.
         Help providers use the status filter to find open requests they can answer.
+        Items come oldest first, in the order they were created; a later page never repeats an item.
       parameters:
         - $ref: '#/components/parameters/RequesterParameter'
         - $ref: '#/components/parameters/StatusParameter'
@@ -175,6 +176,7 @@ paths:
         Retrieve the helps given to one help request.
         If the help provider is a chef, only the original requester can see the help;
         such helps are left out of the list for every other caller.
+        Items come oldest first, in the order they were created; a later page never repeats an item.
       parameters:
         - $ref: '#/components/parameters/HelpRequestIdParameter'
         - $ref: '#/components/parameters/LimitParameter'
@@ -357,6 +359,7 @@ paths:
         (e.g. a provider looking up their own answers).
         If the help provider is a chef, only the original requester can see the help;
         such helps are left out of the list for every other caller.
+        Items come oldest first, in the order they were created; a later page never repeats an item.
       parameters:
         - $ref: '#/components/parameters/HelpProviderParameter'
         - $ref: '#/components/parameters/AnswerTypeParameter'
@@ -456,7 +459,7 @@ components:
       name: cursor
       in: query
       required: false
-      description: Opaque cursor from the nextCursor of the previous page; omitted for the first page.
+      description: Opaque cursor from the nextCursor of the previous page; omitted for the first page. A cursor this API did not issue answers 400.
       schema:
         type: string
         maxLength: 500
@@ -468,8 +471,8 @@ components:
       description: Version of the API the client was built against.
       schema:
         type: string
-        default: "1.0.7"
-        enum: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6", "1.0.7"]
+        default: "1.0.8"
+        enum: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6", "1.0.7", "1.0.8"]
 
   schemas:
     HelpType:
