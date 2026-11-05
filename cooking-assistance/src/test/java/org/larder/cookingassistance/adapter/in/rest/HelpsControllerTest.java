@@ -5,7 +5,6 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -17,8 +16,6 @@ import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.larder.cookingassistance.application.fakes.InMemoryHelpRequestRepository;
 import org.larder.cookingassistance.domain.helprequest.CookId;
 import org.larder.cookingassistance.domain.helprequest.HelpId;
@@ -31,11 +28,9 @@ import org.larder.cookingassistance.fixtures.TestTokens;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 /**
  * Operations of tag Helps (provideHelp) through the real web layer, real resource-server security
@@ -252,6 +247,7 @@ class HelpsControllerTest {
             open.askedProviders(),
             HelpRequestStatus.CANCELLED,
             List.of(),
+            List.of(),
             0L));
 
     expectRejection(JONAS_AS_COMMUNITY, JONAS_ANSWER, 409, "INVALID_STATE", "LIFECYCLE");
@@ -417,39 +413,5 @@ class HelpsControllerTest {
         .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
         .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
         .andExpect(content().string(not(containsString("connection refused"))));
-  }
-
-  @DisplayName(
-      "each of the 4 unbuilt operations of both interfaces -> 501 NOT_IMPLEMENTED (parameterized) -- B3-S02 US-CA-03 ADR0014")
-  @ParameterizedTest(name = "{0} {1}")
-  @CsvSource(
-      delimiter = '|',
-      value = {
-        "GET  | /help-requests                          |",
-        "GET  | /help-requests/{id}/helps                |",
-        "GET  | /help-requests/{id}/helps/{helpId}       |",
-        "GET  | /helps                                   |"
-      })
-  void unbuiltOperationsAreNotImplementedYet(String method, String path, String body)
-      throws Exception {
-    MockHttpServletRequestBuilder request =
-        request(
-                HttpMethod.valueOf(method),
-                path.replace("{id}", REQUEST_ID)
-                    .replace("{helpId}", HelpRequests.HELP_ID.value().toString()))
-            .header(
-                AUTHORIZATION,
-                TestTokens.forCook(HelpRequests.LENA)
-                    .roles("cook")
-                    .scope("help:read help:write")
-                    .bearer())
-            .header("version", "1.0.3");
-    if (body != null) {
-      request = request.contentType(MediaType.APPLICATION_JSON).content(body);
-    }
-
-    mvc.perform(request)
-        .andExpect(status().isNotImplemented())
-        .andExpect(jsonPath("$.code").value("NOT_IMPLEMENTED"));
   }
 }

@@ -104,6 +104,7 @@ class HelpRequestTest {
         List.of(new AskedProvider(askedProvider, Instant.parse("2026-11-07T05:00:00Z"))),
         status,
         List.of(),
+        List.of(),
         1L);
   }
 
@@ -687,6 +688,7 @@ class HelpRequestTest {
                       HelpProviderType.GRANDMA_AVATAR, at("2026-11-07T08:00").instant())),
               HelpRequestStatus.OPEN,
               List.of(),
+              List.of(),
               1L);
 
       request.provideHelp(
@@ -1221,6 +1223,223 @@ class HelpRequestTest {
       assertThat(request.status()).isEqualTo(HelpRequestStatus.CANCELLED);
       assertThat(request.pullEvents()).isEmpty();
     }
+
+    @DisplayName(
+        "D12 suggestions after a time-out: asked [COMMUNITY TIMED_OUT] -> [GRANDMA_AVATAR]; asked [COMMUNITY ASKED] -> []; asked [COMMUNITY TIMED_OUT, GRANDMA_AVATAR TIMED_OUT] -> [] -- B3-S06 US-CA-03 INV-09 R8.E1 op getHelpRequestById suggestedProviders")
+    @Test
+    void suggestionsFollowTheTimedOutProviders() {
+      Instant deadline = at("2026-11-07T06:00").instant();
+
+      assertThat(
+              HelpRequest.suggestionsAfterTimeOut(
+                  List.of(
+                      new AskedProvider(
+                          HelpProviderType.COMMUNITY, deadline, ProviderState.TIMED_OUT))))
+          .containsExactly(HelpProviderType.GRANDMA_AVATAR);
+      assertThat(
+              HelpRequest.suggestionsAfterTimeOut(
+                  List.of(
+                      new AskedProvider(
+                          HelpProviderType.COMMUNITY, deadline, ProviderState.ASKED))))
+          .isEmpty();
+      assertThat(
+              HelpRequest.suggestionsAfterTimeOut(
+                  List.of(
+                      new AskedProvider(
+                          HelpProviderType.COMMUNITY, deadline, ProviderState.TIMED_OUT),
+                      new AskedProvider(
+                          HelpProviderType.GRANDMA_AVATAR, deadline, ProviderState.TIMED_OUT))))
+          .isEmpty();
+    }
+  }
+
+  @Nested
+  class Notes { // B3-S03, B3-S05, US-CA-03 (step 6 r1 of increment 1, from step 11, ADR0016 L6)
+
+    @DisplayName(
+        "D1 a new request (Lena asks Grandma about step 4) has no notes -- B3-S01 US-CA-03 INV-07")
+    @Test
+    void aNewRequestHasNoNotes() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+
+      assertThat(request.notes()).isEmpty();
+    }
+
+    @DisplayName(
+        "D2 Lena cancels at Fri 18:10 with 'an ice cube saved it' -> notes [CANCELLATION 'an ice cube saved it' Fri 18:10] -- B3-S03 US-CA-03 INV-08 R7.E1, INV-07")
+    @Test
+    void cancellationWritesItsNote() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+
+      request.cancel(Optional.of("an ice cube saved it"), FRIDAY_18_10);
+
+      assertThat(request.notes())
+          .containsExactly(
+              new Note(
+                  NoteKind.CANCELLATION,
+                  "an ice cube saved it",
+                  FRIDAY_18_10.instant(),
+                  Optional.empty()));
+    }
+
+    @DisplayName("D3 Lena cancels without a note -> no notes -- B3-S03 US-CA-03 INV-08 R7.E2")
+    @Test
+    void cancellationWithoutANoteWritesNone() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+
+      request.cancel(Optional.empty(), FRIDAY_18_10);
+
+      assertThat(request.notes()).isEmpty();
+    }
+
+    @DisplayName(
+        "D4 Lena rejects Grandma's answer at Fri 20:00: 'warm water didn't help' -> notes [REJECTION 'warm water didn't help' Fri 20:00] -- B3-S05 US-CA-03 INV-06 R5.E1, INV-07 R6.E1")
+    @Test
+    void rejectionWritesItsNote() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      grandmaExplainsStep4(request);
+
+      request.reject(HELP_ID, "warm water didn't help", at("2026-11-06T20:00"));
+
+      assertThat(request.notes())
+          .containsExactly(
+              new Note(
+                  NoteKind.REJECTION,
+                  "warm water didn't help",
+                  at("2026-11-06T20:00").instant(),
+                  Optional.of(HELP_ID)));
+    }
+
+    @DisplayName(
+        "D5 rejected at Fri 20:00 ('warm water didn't help'), cancelled at Fri 21:00 ('an ice cube saved it') -> notes [REJECTION Fri 20:00, CANCELLATION Fri 21:00], in the order written -- B3-S03,B3-S05 US-CA-03 INV-07")
+    @Test
+    void notesKeepTheOrderTheyWereWritten() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      grandmaExplainsStep4(request);
+
+      request.reject(HELP_ID, "warm water didn't help", at("2026-11-06T20:00"));
+      request.cancel(Optional.of("an ice cube saved it"), at("2026-11-06T21:00"));
+
+      assertThat(request.notes())
+          .containsExactly(
+              new Note(
+                  NoteKind.REJECTION,
+                  "warm water didn't help",
+                  at("2026-11-06T20:00").instant(),
+                  Optional.of(HELP_ID)),
+              new Note(
+                  NoteKind.CANCELLATION,
+                  "an ice cube saved it",
+                  at("2026-11-06T21:00").instant(),
+                  Optional.empty()));
+    }
+
+    @DisplayName(
+        "D6 Lena cancels a CLOSED request with a note -> InvalidHelpRequestState; notes stay empty -- B3-S03 US-CA-03 INV-08")
+    @Test
+    void refusedCancellationWritesNoNote() {
+      HelpRequest request = storedRequestToGrandmaIn(HelpRequestStatus.CLOSED);
+
+      assertThatThrownBy(() -> request.cancel(Optional.of("an ice cube saved it"), FRIDAY_18_10))
+          .isInstanceOf(InvalidHelpRequestState.class);
+      assertThat(request.notes()).isEmpty();
+    }
+
+    @DisplayName(
+        "D7 Lena rejects the already rejected Help again with 'still splits' -> HelpAlreadyRejected; notes stay [REJECTION 'warm water didn't help'] -- B3-S05 US-CA-03 INV-39")
+    @Test
+    void refusedRejectionWritesNoNote() {
+      HelpRequest request = grandmaAnsweredTwiceAfterARejection();
+
+      assertThatThrownBy(() -> request.reject(HELP_ID, "still splits", at("2026-11-06T21:00")))
+          .isInstanceOf(HelpAlreadyRejected.class);
+      assertThat(request.notes())
+          .containsExactly(
+              new Note(
+                  NoteKind.REJECTION,
+                  "warm water didn't help",
+                  at("2026-11-06T20:00").instant(),
+                  Optional.of(HELP_ID)));
+    }
+
+    @DisplayName(
+        "D8 reconstituting an OPEN request with notes [REJECTION 'warm water didn't help' (HELP_ID) Fri 20:00] restores the notes and records no event -- B3-S05 US-CA-03 INV-07 reconstitution")
+    @Test
+    void reconstitutionRestoresTheNotes() {
+      Note warmWater =
+          new Note(
+              NoteKind.REJECTION,
+              "warm water didn't help",
+              at("2026-11-06T20:00").instant(),
+              Optional.of(HELP_ID));
+
+      HelpRequest request =
+          HelpRequest.reconstitute(
+              HELP_REQUEST_ID,
+              LENA,
+              "How do I keep the sauce from splitting?",
+              "Step 4 of my Hollandaise keeps splitting",
+              HelpType.PREPARATION_STEP_EXPLANATION,
+              HOLLANDAISE,
+              STEP_4,
+              List.of(
+                  new AskedProvider(
+                      HelpProviderType.GRANDMA_AVATAR, at("2026-11-07T08:00").instant())),
+              HelpRequestStatus.OPEN,
+              List.of(),
+              List.of(warmWater),
+              2L);
+
+      assertThat(request.notes()).containsExactly(warmWater);
+      assertThat(request.pullEvents()).isEmpty();
+    }
+
+    @DisplayName(
+        "D9 a rejection note names the rejected Help (HELP_ID); a cancellation note names none -- B3-S05,B3-S03 US-CA-03 INV-06 op getHelpOfHelpRequest rejectionNote")
+    @Test
+    void rejectionNoteNamesTheRejectedHelp() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      grandmaExplainsStep4(request);
+
+      request.reject(HELP_ID, "warm water didn't help", at("2026-11-06T20:00"));
+      request.cancel(Optional.of("an ice cube saved it"), at("2026-11-06T21:00"));
+
+      assertThat(request.notes())
+          .extracting(Note::kind, Note::help)
+          .containsExactly(
+              tuple(NoteKind.REJECTION, Optional.of(HELP_ID)),
+              tuple(NoteKind.CANCELLATION, Optional.empty()));
+    }
+
+    @DisplayName(
+        "D10 a REJECTION note without a Help -> IllegalArgumentException 'a rejection note names the rejected Help' -- B3-S05 US-CA-03 INV-06 note shape")
+    @Test
+    void rejectionNoteWithoutAHelpIsRefused() {
+      assertThatThrownBy(
+              () ->
+                  new Note(
+                      NoteKind.REJECTION,
+                      "warm water didn't help",
+                      at("2026-11-06T20:00").instant(),
+                      Optional.empty()))
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessage("a rejection note names the rejected Help");
+    }
+
+    @DisplayName(
+        "D11 a CANCELLATION note naming a Help -> IllegalArgumentException 'a cancellation note names no Help' -- B3-S03 US-CA-03 INV-08 note shape")
+    @Test
+    void cancellationNoteWithAHelpIsRefused() {
+      assertThatThrownBy(
+              () ->
+                  new Note(
+                      NoteKind.CANCELLATION,
+                      "an ice cube saved it",
+                      at("2026-11-06T21:00").instant(),
+                      Optional.of(HELP_ID)))
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessage("a cancellation note names no Help");
+    }
   }
 
   @Nested
@@ -1262,6 +1481,7 @@ class HelpRequestTest {
               List.of(grandmaAnswered),
               HelpRequestStatus.ANSWERED,
               List.of(grandmasHelp),
+              List.of(),
               3L);
 
       assertThat(request.id()).isEqualTo(HELP_REQUEST_ID);
@@ -1346,6 +1566,7 @@ class HelpRequestTest {
               List.of(communityTimedOut, grandmaAnswered),
               HelpRequestStatus.CLOSED,
               List.of(rejectedHelp, acceptedHelp),
+              List.of(),
               5L);
 
       assertThat(request.helps())

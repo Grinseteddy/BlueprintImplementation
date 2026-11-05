@@ -203,6 +203,7 @@ class ProvideHelpTest {
             open.askedProviders(),
             HelpRequestStatus.CANCELLED,
             List.of(),
+            List.of(),
             0L));
     ProvideHelp provideHelp =
         new ProvideHelp(

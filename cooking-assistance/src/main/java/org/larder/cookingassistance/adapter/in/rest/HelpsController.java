@@ -10,6 +10,9 @@ import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpRequestL
 import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpType;
 import org.larder.cookingassistance.adapter.in.rest.generated.model.Rejection;
 import org.larder.cookingassistance.application.AcceptHelp;
+import org.larder.cookingassistance.application.HelpNotFound;
+import org.larder.cookingassistance.application.HelpRequestNotFound;
+import org.larder.cookingassistance.application.HelpRequestQueries;
 import org.larder.cookingassistance.application.ProvideHelp;
 import org.larder.cookingassistance.application.RejectHelp;
 import org.larder.cookingassistance.domain.helprequest.HelpId;
@@ -25,16 +28,19 @@ class HelpsController implements HelpsApi {
   private final ProvideHelp provideHelp;
   private final AcceptHelp acceptHelp;
   private final RejectHelp rejectHelp;
+  private final HelpRequestQueries queries;
   private final String publicBaseUrl;
 
   HelpsController(
       ProvideHelp provideHelp,
       AcceptHelp acceptHelp,
       RejectHelp rejectHelp,
+      HelpRequestQueries queries,
       @PublicBaseUrl String publicBaseUrl) {
     this.provideHelp = provideHelp;
     this.acceptHelp = acceptHelp;
     this.rejectHelp = rejectHelp;
+    this.queries = queries;
     this.publicBaseUrl = publicBaseUrl;
   }
 
@@ -58,22 +64,41 @@ class HelpsController implements HelpsApi {
     return ResponseEntity.ok(HelpRequestMapper.toLink(publicBaseUrl, requestId));
   }
 
+  // op: getHelpOfHelpRequest (cooking-assistance.openapi.yaml) · RM: help (aggregate tables,
+  // ADR0016)
   @Override
   public ResponseEntity<Help> getHelpOfHelpRequest(
       UUID helpRequestId, UUID helpId, String version) {
-    throw new NotImplemented("getHelpOfHelpRequest");
+    HelpRequestId request = new HelpRequestId(helpRequestId);
+    HelpId help = new HelpId(helpId);
+    return ResponseEntity.ok(
+        HelpMapper.toResponse(
+            queries.helpOf(request, help).orElseThrow(() -> new HelpNotFound(request, help))));
   }
 
+  // op: listHelps (cooking-assistance.openapi.yaml) · RM: help (aggregate tables, ADR0016 L6)
   @Override
   public ResponseEntity<HelpPage> listHelps(
       String version, UUID helpProvider, HelpType type, Integer limit, String cursor) {
-    throw new NotImplemented("listHelps");
+    return ResponseEntity.ok(
+        HelpMapper.toPage(
+            queries.helps(
+                HelpMapper.toFilter(helpProvider, type),
+                limit,
+                Cursors.after(cursor).map(HelpId::new))));
   }
 
+  // op: listHelpsOfHelpRequest (cooking-assistance.openapi.yaml) · RM: help (aggregate tables,
+  // ADR0016 L6)
   @Override
   public ResponseEntity<HelpPage> listHelpsOfHelpRequest(
       UUID helpRequestId, String version, Integer limit, String cursor) {
-    throw new NotImplemented("listHelpsOfHelpRequest");
+    HelpRequestId id = new HelpRequestId(helpRequestId);
+    return ResponseEntity.ok(
+        HelpMapper.toPage(
+            queries
+                .helpsOf(id, limit, Cursors.after(cursor).map(HelpId::new))
+                .orElseThrow(() -> new HelpRequestNotFound(id))));
   }
 
   // op: rejectHelp (cooking-assistance.openapi.yaml) · cmd: Reject help

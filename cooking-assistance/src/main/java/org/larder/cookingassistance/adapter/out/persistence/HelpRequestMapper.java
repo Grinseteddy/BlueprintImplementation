@@ -12,10 +12,15 @@ import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestStatus;
 import org.larder.cookingassistance.domain.helprequest.HelpType;
 import org.larder.cookingassistance.domain.helprequest.HowToStepId;
+import org.larder.cookingassistance.domain.helprequest.Note;
+import org.larder.cookingassistance.domain.helprequest.NoteKind;
 import org.larder.cookingassistance.domain.helprequest.ProviderState;
 import org.larder.cookingassistance.domain.helprequest.RecipeId;
 
-/** Maps the Help Request aggregate to its persistence model and back (via reconstitute). */
+/**
+ * Maps the Help Request aggregate to its persistence model and back (via reconstitute); the query
+ * side reads note and asked-provider rows through the same conversions (ADR0016).
+ */
 final class HelpRequestMapper {
 
   private HelpRequestMapper() {}
@@ -32,7 +37,8 @@ final class HelpRequestMapper {
         request.status().name(),
         request.version(),
         request.askedProviders().stream().map(HelpRequestMapper::toRow).toList(),
-        request.helps().stream().map(HelpRequestMapper::toRow).toList());
+        request.helps().stream().map(HelpRequestMapper::toRow).toList(),
+        request.notes().stream().map(HelpRequestMapper::toRow).toList());
   }
 
   static HelpRequest toDomain(HelpRequestRow row) {
@@ -47,7 +53,24 @@ final class HelpRequestMapper {
         row.askedProviders().stream().map(HelpRequestMapper::toDomain).toList(),
         HelpRequestStatus.valueOf(row.status()),
         row.helps().stream().map(HelpRequestMapper::toDomain).toList(),
+        row.notes().stream().map(HelpRequestMapper::toDomain).toList(),
         row.version());
+  }
+
+  private static NoteRow toRow(Note note) {
+    return new NoteRow(
+        note.kind().name(),
+        note.text(),
+        note.writtenAt(),
+        note.help().map(HelpId::value).orElse(null));
+  }
+
+  static Note toDomain(NoteRow row) {
+    return new Note(
+        NoteKind.valueOf(row.kind()),
+        row.text(),
+        row.writtenAt(),
+        Optional.ofNullable(row.helpId()).map(HelpId::new));
   }
 
   private static AskedProviderRow toRow(AskedProvider asked) {
@@ -66,7 +89,7 @@ final class HelpRequestMapper {
         help.isRejected());
   }
 
-  private static Help toDomain(HelpRow row) {
+  static Help toDomain(HelpRow row) {
     return Help.reconstitute(
         new HelpId(row.id()),
         new HelpProvider(
@@ -78,7 +101,7 @@ final class HelpRequestMapper {
         row.rejected());
   }
 
-  private static AskedProvider toDomain(AskedProviderRow row) {
+  static AskedProvider toDomain(AskedProviderRow row) {
     return new AskedProvider(
         HelpProviderType.valueOf(row.providerType()),
         row.deadline(),

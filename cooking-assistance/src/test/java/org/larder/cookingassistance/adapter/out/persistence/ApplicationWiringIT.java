@@ -53,6 +53,7 @@ class ApplicationWiringIT {
   void emptyTables() {
     jdbc.sql("delete from processed_message").update();
     jdbc.sql("delete from outbox").update();
+    jdbc.sql("delete from help_request_note").update();
     jdbc.sql("delete from help").update();
     jdbc.sql("delete from asked_provider").update();
     jdbc.sql("delete from help_request").update();

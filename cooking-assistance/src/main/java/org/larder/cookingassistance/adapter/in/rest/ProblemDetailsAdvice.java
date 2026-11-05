@@ -1,5 +1,7 @@
 package org.larder.cookingassistance.adapter.in.rest;
 
+import jakarta.validation.ConstraintViolationException;
+import org.larder.cookingassistance.application.HelpNotFound;
 import org.larder.cookingassistance.application.HelpRequestNotFound;
 import org.larder.cookingassistance.application.NotAuthorized;
 import org.larder.cookingassistance.domain.helprequest.ConcurrencyConflict;
@@ -102,6 +104,17 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
     return NamedProblem.UNSUPPORTED_MEDIA_TYPE.response(headers);
   }
 
+  /** Q-02: method validation of the generated, @Validated interfaces (limit, cursor size). */
+  @ExceptionHandler(ConstraintViolationException.class)
+  ResponseEntity<Object> handleConstraintViolation() {
+    return NamedProblem.VALIDATION_FAILED.response();
+  }
+
+  @ExceptionHandler(InvalidCursor.class)
+  ResponseEntity<Object> handleInvalidCursor() {
+    return NamedProblem.VALIDATION_FAILED.response();
+  }
+
   /** ADR0019: bodies over 1 MB are refused before they are parsed. */
   @ExceptionHandler(RequestTooLarge.class)
   ResponseEntity<Object> handleRequestTooLarge() {
@@ -143,7 +156,7 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
     return NamedProblem.CONCURRENT_UPDATE.response();
   }
 
-  @ExceptionHandler(HelpRequestNotFound.class)
+  @ExceptionHandler({HelpRequestNotFound.class, HelpNotFound.class})
   ResponseEntity<Object> handleNotFound() {
     return NamedProblem.NOT_FOUND.response();
   }

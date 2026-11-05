@@ -26,11 +26,14 @@ import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestRepository;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestStatus;
 import org.larder.cookingassistance.domain.helprequest.HelpType;
+import org.larder.cookingassistance.domain.helprequest.Note;
+import org.larder.cookingassistance.domain.helprequest.NoteKind;
 import org.larder.cookingassistance.domain.helprequest.ProviderState;
 import org.larder.cookingassistance.fixtures.HelpRequests;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -52,6 +55,7 @@ class HelpRequestRepositoryIT {
   @BeforeEach
   void emptyTables() {
     jdbc.sql("delete from outbox").update();
+    jdbc.sql("delete from help_request_note").update();
     jdbc.sql("delete from help").update();
     jdbc.sql("delete from asked_provider").update();
     jdbc.sql("delete from help_request").update();
@@ -631,5 +635,173 @@ class HelpRequestRepositoryIT {
     assertThat(repository.findDueForTimeOut(saturday060001, 10))
         .extracting(HelpRequest::id)
         .containsExactly(HelpRequests.HELP_REQUEST_ID);
+  }
+
+  @DisplayName(
+      "P11 the V3 migration creates help_request_note (help_request_id references help_request, position, kind, text, written_at timestamptz, primary key (help_request_id, position)) -- B3-S03,B3-S05 US-CA-03 INV-07 ADR0016 L6 ADR0009")
+  @Test
+  void v3CreatesTheNoteTable() {
+    List<String> columns =
+        jdbc.sql(
+                "select column_name || ' ' || data_type || ' ' || is_nullable"
+                    + " from information_schema.columns where table_schema = 'cooking_assistance'"
+                    + " and table_name = 'help_request_note' order by ordinal_position")
+            .query(String.class)
+            .list();
+    List<String> constraints =
+        jdbc.sql(
+                "select constraint_type from information_schema.table_constraints"
+                    + " where table_schema = 'cooking_assistance'"
+                    + " and table_name = 'help_request_note' and constraint_type <> 'CHECK'")
+            .query(String.class)
+            .list();
+    List<String> primaryKey =
+        jdbc.sql(
+                "select k.column_name from information_schema.key_column_usage k"
+                    + " join information_schema.table_constraints c"
+                    + " on c.constraint_name = k.constraint_name"
+                    + " and c.table_schema = k.table_schema"
+                    + " where c.table_schema = 'cooking_assistance'"
+                    + " and c.table_name = 'help_request_note' and c.constraint_type = 'PRIMARY KEY'"
+                    + " order by k.ordinal_position")
+            .query(String.class)
+            .list();
+
+    assertThat(columns)
+        .startsWith(
+            "help_request_id uuid NO",
+            "position integer NO",
+            "kind text NO",
+            "text text NO",
+            "written_at timestamp with time zone NO");
+    List<String> foreignKeys =
+        jdbc.sql(
+                "select k.column_name || ' -> ' || u.table_name from information_schema.table_constraints c"
+                    + " join information_schema.key_column_usage k"
+                    + " on k.constraint_name = c.constraint_name and k.table_schema = c.table_schema"
+                    + " join information_schema.constraint_column_usage u"
+                    + " on u.constraint_name = c.constraint_name and u.table_schema = c.table_schema"
+                    + " where c.table_schema = 'cooking_assistance'"
+                    + " and c.table_name = 'help_request_note' and c.constraint_type = 'FOREIGN KEY'")
+            .query(String.class)
+            .list();
+    assertThat(constraints).contains("PRIMARY KEY", "FOREIGN KEY");
+    assertThat(foreignKeys).contains("help_request_id -> help_request");
+    assertThat(primaryKey).containsExactly("help_request_id", "position");
+  }
+
+  @DisplayName(
+      "P12 Lena rejected Grandma's Help (Fri 20:00 'warm water didn't help') and cancelled (Fri 21:00 'an ice cube saved it') -> found again with notes [REJECTION Fri 20:00, CANCELLATION Fri 21:00] in the order written; two help_request_note rows -- B3-S03,B3-S05 US-CA-03 INV-07 child rows")
+  @Test
+  void bothNotesRoundTripInOrder() {
+    Clock friday2000 = Clock.fixed(Instant.parse("2026-11-06T19:00:00Z"), ZoneOffset.UTC);
+    Clock friday2100 = Clock.fixed(Instant.parse("2026-11-06T20:00:00Z"), ZoneOffset.UTC);
+    HelpRequest request = HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR);
+    HelpRequests.grandmaExplainsStep4(request);
+    request.reject(HelpRequests.HELP_ID, "warm water didn't help", friday2000);
+    request.cancel(Optional.of("an ice cube saved it"), friday2100);
+
+    repository.save(request);
+
+    assertThat(repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().notes())
+        .containsExactly(
+            new Note(
+                NoteKind.REJECTION,
+                "warm water didn't help",
+                friday2000.instant(),
+                Optional.of(HelpRequests.HELP_ID)),
+            new Note(
+                NoteKind.CANCELLATION,
+                "an ice cube saved it",
+                friday2100.instant(),
+                Optional.empty()));
+    assertThat(jdbc.sql("select count(*) from help_request_note").query(Integer.class).single())
+        .isEqualTo(2);
+  }
+
+  @DisplayName(
+      "P13 a cancellation with a note whose save fails with ConcurrencyConflict leaves no help_request_note row -- B3-S03 US-CA-03 INV-08 ADR0010")
+  @Test
+  void failedSaveLeavesNoNote() {
+    repository.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.COMMUNITY));
+    HelpRequest loadedForJonas = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    HelpRequest loadedForLena = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    HelpRequests.communityMemberExplainsStep4(
+        loadedForJonas, HelpRequests.HELP_ID, HelpRequests.JONAS);
+    loadedForLena.cancel(Optional.of("an ice cube saved it"), HelpRequests.FRIDAY_18_10);
+    repository.save(loadedForJonas);
+
+    assertThatThrownBy(() -> repository.save(loadedForLena))
+        .isInstanceOf(ConcurrencyConflict.class);
+
+    assertThat(jdbc.sql("select count(*) from help_request_note").query(Integer.class).single())
+        .isZero();
+  }
+
+  @DisplayName(
+      "P14 the V4 migration adds help_request_note.help_id (uuid, nullable; its foreign key comes with V5, P15) -- B3-S05 US-CA-03 INV-06 ADR0009 (added: F5)")
+  @Test
+  void v4AddsTheRejectedHelpToTheNote() {
+    List<String> column =
+        jdbc.sql(
+                "select data_type || ' ' || is_nullable"
+                    + " from information_schema.columns where table_schema = 'cooking_assistance'"
+                    + " and table_name = 'help_request_note' and column_name = 'help_id'")
+            .query(String.class)
+            .list();
+
+    assertThat(column).containsExactly("uuid YES");
+  }
+
+  @DisplayName(
+      "P15 the V5 migration adds a foreign key help_request_note.help_id -> help(id); a note naming a Help that is not stored is refused by the database; a rejected request saved again (K7) still saves -- B3-S05 US-CA-03 INV-06 ADR0009")
+  @Test
+  void v5ReferencesTheRejectedHelp() {
+    List<String> foreignKeys =
+        jdbc.sql(
+                "select k.column_name || ' -> ' || u.table_name from information_schema.table_constraints c"
+                    + " join information_schema.key_column_usage k"
+                    + " on k.constraint_name = c.constraint_name and k.table_schema = c.table_schema"
+                    + " join information_schema.constraint_column_usage u"
+                    + " on u.constraint_name = c.constraint_name and u.table_schema = c.table_schema"
+                    + " where c.table_schema = 'cooking_assistance'"
+                    + " and c.table_name = 'help_request_note' and c.constraint_type = 'FOREIGN KEY'")
+            .query(String.class)
+            .list();
+    List<String> deferral =
+        jdbc.sql(
+                "select is_deferrable || ' ' || initially_deferred"
+                    + " from information_schema.table_constraints"
+                    + " where table_schema = 'cooking_assistance'"
+                    + " and constraint_name = 'fk_help_request_note_help'")
+            .query(String.class)
+            .list();
+    Clock friday2000 = Clock.fixed(Instant.parse("2026-11-06T19:00:00Z"), ZoneOffset.UTC);
+    Clock friday2100 = Clock.fixed(Instant.parse("2026-11-06T20:00:00Z"), ZoneOffset.UTC);
+    HelpRequest asked = HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR);
+    HelpRequests.grandmaExplainsStep4(asked);
+    repository.save(asked);
+    HelpRequest rejected = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    rejected.reject(HelpRequests.HELP_ID, "warm water didn't help", friday2000);
+    repository.save(rejected);
+    HelpRequest cancelled = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    cancelled.cancel(Optional.of("an ice cube saved it"), friday2100);
+    repository.save(cancelled);
+
+    assertThat(foreignKeys).contains("help_id -> help");
+    assertThat(deferral).containsExactly("YES YES");
+    assertThat(repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().notes())
+        .extracting(Note::kind)
+        .containsExactly(NoteKind.REJECTION, NoteKind.CANCELLATION);
+    assertThatThrownBy(
+            () ->
+                jdbc.sql(
+                        "insert into help_request_note"
+                            + " (help_request_id, position, kind, text, written_at, help_id)"
+                            + " values (:request, 2, 'REJECTION', 'no such Help', now(), :help)")
+                    .param("request", HelpRequests.HELP_REQUEST_ID.value())
+                    .param("help", UUID.fromString("00000000-0000-7000-8000-0000000000ff"))
+                    .update())
+        .isInstanceOf(DataIntegrityViolationException.class);
   }
 }

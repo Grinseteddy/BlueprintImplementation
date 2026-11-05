@@ -159,6 +159,7 @@ class ProvideGrandmaAvatarHelpTest {
             open.askedProviders(),
             HelpRequestStatus.CANCELLED,
             List.of(),
+            List.of(),
             0L));
     ProvideGrandmaAvatarHelp cancelledHandler =
         new ProvideGrandmaAvatarHelp(

@@ -34,6 +34,7 @@ public final class HelpRequest {
   private HelpRequestStatus status;
   private final long version;
   private final List<Help> helps = new ArrayList<>();
+  private final List<Note> notes = new ArrayList<>();
   private final List<HelpRequestEvent> pendingEvents = new ArrayList<>();
 
   private HelpRequest(
@@ -113,6 +114,7 @@ public final class HelpRequest {
       List<AskedProvider> askedProviders,
       HelpRequestStatus status,
       List<Help> helps,
+      List<Note> notes,
       long version) {
     HelpRequest request =
         new HelpRequest(
@@ -127,6 +129,7 @@ public final class HelpRequest {
             status,
             version);
     request.helps.addAll(helps);
+    request.notes.addAll(notes);
     return request;
   }
 
@@ -200,10 +203,13 @@ public final class HelpRequest {
   // slice: B3-S03, story: US-CA-03, cmd: Cancel help request
   public void cancel(Optional<String> note, Clock clock) {
     ensureNotFinal();
+    Instant cancelledAt = clock.instant();
+    // INV-07, INV-08: the cancellation note is kept and shown to providers and on future requests
+    note.ifPresent(text -> notes.add(Note.cancellation(text, cancelledAt)));
     status = HelpRequestStatus.CANCELLED;
     // evt: Help request cancelled
     pendingEvents.add(
-        new HelpRequestCancelled(id, requester, note, askedProviders, status, clock.instant()));
+        new HelpRequestCancelled(id, requester, note, askedProviders, status, cancelledAt));
   }
 
   // slice: B3-S04, story: US-CA-03, cmd: Accept help
@@ -226,6 +232,8 @@ public final class HelpRequest {
     Help help = helpGivenToThisRequest(helpId);
     ensureNotRejected(help);
     Instant rejectedAt = clock.instant();
+    // INV-06, INV-07: what didn't work is kept and shown to providers and on future requests
+    notes.add(Note.rejection(note, rejectedAt, helpId));
     replaceHelp(help, help.rejected());
     askAgain(rejectedAt);
     status = HelpRequestStatus.OPEN;
@@ -273,20 +281,30 @@ public final class HelpRequest {
     ensureOpen();
     ensureEveryDeadlinePassed(timedOutAt);
     List<HelpProviderType> timedOutProviders = askedProviderTypes();
-    List<HelpProviderType> suggestedProviders = providersNotYetAsked();
     askedProviders = askedProviders.stream().map(AskedProvider::timedOut).toList();
     status = HelpRequestStatus.CANCELLED;
     // evt: Help request timed out
     pendingEvents.add(
         new HelpRequestTimedOut(
-            id, requester, timedOutProviders, suggestedProviders, status, timedOutAt));
+            id,
+            requester,
+            timedOutProviders,
+            suggestionsAfterTimeOut(askedProviders),
+            status,
+            timedOutAt));
   }
 
-  // INV-09: after a time-out, a preparation-step provider not yet asked is suggested
-  private List<HelpProviderType> providersNotYetAsked() {
-    List<HelpProviderType> asked = askedProviderTypes();
+  /**
+   * INV-09: the providers suggested to the requester after a time-out (event and read side): the
+   * preparation-step providers not yet asked, once every asked provider has timed out.
+   */
+  public static List<HelpProviderType> suggestionsAfterTimeOut(List<AskedProvider> asked) {
+    if (asked.stream().anyMatch(provider -> provider.state() != ProviderState.TIMED_OUT)) {
+      return List.of();
+    }
+    List<HelpProviderType> askedTypes = asked.stream().map(AskedProvider::providerType).toList();
     return PREPARATION_STEP_PROVIDERS.stream()
-        .filter(provider -> !asked.contains(provider))
+        .filter(provider -> !askedTypes.contains(provider))
         .toList();
   }
 
@@ -411,6 +429,10 @@ public final class HelpRequest {
 
   public List<Help> helps() {
     return List.copyOf(helps);
+  }
+
+  public List<Note> notes() {
+    return List.copyOf(notes);
   }
 
   /** Hands over the recorded events once; the application service publishes them. */

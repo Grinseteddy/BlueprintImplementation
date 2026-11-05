@@ -22,6 +22,8 @@ import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestRepository;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestStatus;
 import org.larder.cookingassistance.domain.helprequest.HelpType;
+import org.larder.cookingassistance.domain.helprequest.Note;
+import org.larder.cookingassistance.domain.helprequest.NoteKind;
 import org.larder.cookingassistance.domain.helprequest.ProviderState;
 import org.larder.cookingassistance.fixtures.HelpRequests;
 
@@ -232,6 +234,7 @@ public abstract class HelpRequestRepositoryContract {
                         ProviderState.ASKED)),
                 HelpRequestStatus.OPEN,
                 List.of(),
+                List.of(),
                 0L));
 
     assertThat(repository().findDueForTimeOut(Instant.parse("2026-11-07T06:00:00Z"), 10)).isEmpty();
@@ -246,5 +249,76 @@ public abstract class HelpRequestRepositoryContract {
     repository().save(lenasRequestToGrandma(3));
 
     assertThat(repository().findDueForTimeOut(Instant.parse("2026-11-07T05:00:01Z"), 2)).hasSize(2);
+  }
+
+  @DisplayName(
+      "K6 Lena cancelled at Fri 18:10 with 'an ice cube saved it' -> found again with notes [CANCELLATION 'an ice cube saved it' Fri 18:10] -- B3-S03 US-CA-03 INV-08 R7.E1 INV-07 contract (step 7 r1 of increment 1)")
+  @Test
+  void cancellationNoteIsFoundAgain() {
+    repository().save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR));
+    HelpRequest loaded = repository().findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    loaded.cancel(Optional.of("an ice cube saved it"), HelpRequests.FRIDAY_18_10);
+
+    repository().save(loaded);
+
+    assertThat(repository().findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().notes())
+        .containsExactly(
+            new Note(
+                NoteKind.CANCELLATION,
+                "an ice cube saved it",
+                HelpRequests.FRIDAY_18_10.instant(),
+                Optional.empty()));
+  }
+
+  @DisplayName(
+      "K7 a request with the note [REJECTION 'warm water didn't help' Fri 20:00], saved again after Grandma answered again -> found with that one note, not doubled -- B3-S05 US-CA-03 INV-06 INV-07 contract (step 7 r1 of increment 1)")
+  @Test
+  void notesAreNotDoubledBySavingAgain() {
+    Clock friday2000 = Clock.fixed(Instant.parse("2026-11-06T19:00:00Z"), ZoneOffset.UTC);
+    repository().save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR));
+    HelpRequest answered = repository().findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    HelpRequests.grandmaExplainsStep4(answered);
+    repository().save(answered);
+    HelpRequest rejected = repository().findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    rejected.reject(HelpRequests.HELP_ID, "warm water didn't help", friday2000);
+    repository().save(rejected);
+    HelpRequest answeredAgain = repository().findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    answeredAgain.provideHelp(
+        new HelpId(UUID.fromString("8d9e0f1a-2b3c-4d5e-8f6a-7b8c9d0e1f81")),
+        HelpProvider.grandmaAvatar(),
+        "Cool the butter first",
+        HelpRequests.BUTTER_WITH_THREE_PHOTOS,
+        Clock.fixed(Instant.parse("2026-11-06T19:30:00Z"), ZoneOffset.UTC));
+
+    repository().save(answeredAgain);
+
+    assertThat(repository().findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().notes())
+        .containsExactly(
+            new Note(
+                NoteKind.REJECTION,
+                "warm water didn't help",
+                friday2000.instant(),
+                Optional.of(HelpRequests.HELP_ID)));
+  }
+
+  @DisplayName(
+      "K8 Lena rejected Grandma's Help (HELP_ID) with 'warm water didn't help' -> found again with the note naming HELP_ID -- B3-S05 US-CA-03 INV-06 contract (step 7 r1 of increment 1, added: F5)")
+  @Test
+  void rejectionNoteKeepsItsHelp() {
+    repository().save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR));
+    HelpRequest answered = repository().findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    HelpRequests.grandmaExplainsStep4(answered);
+    repository().save(answered);
+    HelpRequest loaded = repository().findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    loaded.reject(
+        HelpRequests.HELP_ID,
+        "warm water didn't help",
+        Clock.fixed(Instant.parse("2026-11-06T19:00:00Z"), ZoneOffset.UTC));
+
+    repository().save(loaded);
+
+    assertThat(repository().findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().notes())
+        .extracting(Note::help)
+        .containsExactly(Optional.of(HelpRequests.HELP_ID));
   }
 }
