@@ -32,3 +32,12 @@ AP0007
 
 ## Quality scenarios
 QS-14
+
+## Addition (QS-14 backlog metric, step 12 of increment 1, 2026-11-05, decided by the user)
+
+- **Outbox backlog as Micrometer gauges:** the number of outbox rows neither published nor
+  dead-lettered, and the age of the oldest such row in seconds. The alert thresholds of QS-14
+  (backlog > 100 or oldest entry > 1 min) are tested against these values.
+- **Exposed on `/actuator/prometheus`** next to the health probes (`management.endpoints.web.exposure`
+  adds `prometheus`), with the same protection as the probes; nothing else of Actuator is exposed.
+- Alert rules and their routing stay an operations choice (open verification).

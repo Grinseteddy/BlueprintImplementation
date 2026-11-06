@@ -53,7 +53,7 @@ Kinds: *quantitative* and *cardinality* rules get a property test in step 6.
 - **Guard / outcome:** resent to the same providers with a note; new deadline = rejection time + 12 h; only an Answered request can be rejected (design brief §3); the note is required → RejectionNoteRequired *(step 3 r5, 2026-11-03, increment 1 test list)*
 - **Sources:** map; board 'Define timeouts' answered
   - `US-CA-03 R5.E1` **Given/When** Fri 20:00, Lena: "warm water didn't help" **Then** sent again to Grandma with note, deadline Sat 08:00
-  - `US-CA-03 R5.E2` **Given/When** Both asked, nothing accepted **Then** sent again to both
+  - `US-CA-03 R5.E2` **Given/When** Both asked, Jonas answered, nothing accepted; Lena rejects Jonas's answer **Then** sent again to both
 
 #### INV-07 — US-CA-03 R6: Notes are kept and shown on future requests for the same step
 - **Slice / command:** B3-S01 (policy/read model) · Request help Preparation step · **kind:** other
@@ -65,8 +65,8 @@ Kinds: *quantitative* and *cardinality* rules get a property test in step 6.
 - **Slice / command:** B3-S03 · Cancel help request · **kind:** other
 - **Guard / outcome:** the requester can cancel an Open or Answered request at any time, optional note; providers see the note → Cancelled
 - **Sources:** map (US-CA-02 R6, US-CA-03 R7, US-CA-04 R8 — one card); board 'Cook can cancel their request'; decision D4
-  - `US-CA-03 R7.E1` **Given/When** Lena cancels: "an ice cube saved it" **Then** closed, providers see the note
-  - `US-CA-03 R7.E2` **Given/When** Lena cancels without a note **Then** closed
+  - `US-CA-03 R7.E1` **Given/When** Lena cancels: "an ice cube saved it" **Then** cancelled, providers see the note
+  - `US-CA-03 R7.E2` **Given/When** Lena cancels without a note **Then** cancelled
 
 #### INV-09 — US-CA-03 R8: Unanswered after 12 h: cancelled; a provider not yet asked is suggested
 - **Slice / command:** B3-S06 · Time out help request · **kind:** quantitative — the 12 h deadline of each asked provider is set in B3-S01 (Request help Preparation step); only the timeout is B3-S06 *(step 3 r2, 2026-11-01, reverse check of increment 0)*
