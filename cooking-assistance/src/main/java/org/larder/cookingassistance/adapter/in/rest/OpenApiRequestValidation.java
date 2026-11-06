@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.List;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpHeaders;
@@ -26,6 +27,7 @@ class OpenApiRequestValidation extends RequestBodyAdviceAdapter {
 
   // ADR0019: request bodies are limited to 1 MB
   private static final int MAX_BODY_BYTES = 1024 * 1024;
+  private static final char NUL = 0;
 
   private final ObjectMapper json = new ObjectMapper();
   private final OpenApiContract contract;
@@ -50,10 +52,16 @@ class OpenApiRequestValidation extends RequestBodyAdviceAdapter {
       Class<? extends HttpMessageConverter<?>> converterType)
       throws IOException {
     byte[] body = readWithinSizeLimit(message);
+    JsonNode parsed = parse(body);
     List<String> violations =
-        requestBodySchema(parameter.getMethod()).validate(parse(body)).stream()
-            .map(ValidationMessage::getMessage)
-            .toList();
+        new ArrayList<>(
+            requestBodySchema(parameter.getMethod()).validate(parsed).stream()
+                .map(ValidationMessage::getMessage)
+                .toList());
+    // PostgreSQL text cannot hold U+0000: refused at the edge, never a 500 from the database
+    if (containsNul(parsed)) {
+      violations.add("text must not contain U+0000");
+    }
     if (!violations.isEmpty()) {
       throw new RequestValidationFailed(violations);
     }
@@ -68,6 +76,24 @@ class OpenApiRequestValidation extends RequestBodyAdviceAdapter {
         return message.getHeaders();
       }
     };
+  }
+
+  /** A text value or a property name anywhere in the body; iterating a node visits its children. */
+  private static boolean containsNul(JsonNode node) {
+    if (node.isTextual()) {
+      return node.textValue().indexOf(NUL) >= 0;
+    }
+    for (var field : node.properties()) {
+      if (field.getKey().indexOf(NUL) >= 0) {
+        return true;
+      }
+    }
+    for (JsonNode child : node) {
+      if (containsNul(child)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

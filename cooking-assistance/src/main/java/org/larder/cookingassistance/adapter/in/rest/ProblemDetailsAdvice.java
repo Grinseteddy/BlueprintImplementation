@@ -9,6 +9,7 @@ import org.larder.cookingassistance.domain.helprequest.DomainRejection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.TypeMismatchException;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -16,6 +17,8 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.lang.Nullable;
+import org.springframework.transaction.CannotCreateTransactionException;
+import org.springframework.transaction.TransactionSystemException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -113,6 +116,24 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
   @ExceptionHandler(InvalidCursor.class)
   ResponseEntity<Object> handleInvalidCursor() {
     return NamedProblem.VALIDATION_FAILED.response();
+  }
+
+  /** QS-05: no database connection (Hikari timeout, refused) answers 503 without detail. */
+  @ExceptionHandler({
+    DataAccessResourceFailureException.class,
+    CannotCreateTransactionException.class
+  })
+  ResponseEntity<Object> handleDatabaseUnavailable() {
+    return NamedProblem.SERVICE_UNAVAILABLE.response();
+  }
+
+  /** A rollback that failed after a lost connection keeps the outage's answer (QS-05). */
+  @ExceptionHandler(TransactionSystemException.class)
+  ResponseEntity<Object> handleTransactionSystem(TransactionSystemException failure) {
+    if (failure.getApplicationException() instanceof DataAccessResourceFailureException) {
+      return handleDatabaseUnavailable();
+    }
+    return handleUnexpected(failure);
   }
 
   /** ADR0019: bodies over 1 MB are refused before they are parsed. */

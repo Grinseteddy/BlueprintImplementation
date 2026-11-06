@@ -50,6 +50,11 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-amqp</artifactId>
     </dependency>
+    <!-- the outbox backlog gauges (QS-14, ADR0020 addition) -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-core</artifactId>
+    </dependency>
     <!-- JWT resource server (ADR0012, ADR0013) -->
     <dependency>
       <groupId>org.springframework.boot</groupId>

@@ -17,7 +17,7 @@ class ProbeSecurity {
   @Bean
   @Order(Ordered.HIGHEST_PRECEDENCE)
   SecurityFilterChain probes(HttpSecurity http) throws Exception {
-    return http.securityMatcher("/actuator/health/**")
+    return http.securityMatcher("/actuator/health/**", "/actuator/prometheus")
         .authorizeHttpRequests(requests -> requests.anyRequest().permitAll())
         .build();
   }

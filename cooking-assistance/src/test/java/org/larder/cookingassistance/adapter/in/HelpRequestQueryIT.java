@@ -671,4 +671,16 @@ class HelpRequestQueryIT {
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.code").value("INSUFFICIENT_SCOPE"));
   }
+
+  @DisplayName(
+      "L9 type=INGREDIENT_SUBSTITUTE, which the spec allows but no request has yet -> 200 with no items, not 500 -- B3-S01 US-CA-03 op listHelpRequests (step 11 r1 from step 12, Schemathesis)")
+  @Test
+  void typeNoRequestHasYetListsNothing() throws Exception {
+    helpRequests.save(lenasRequest("01a1b1cd-8a80-7000-8000-00000000000a"));
+
+    String body = list("?type=INGREDIENT_SUBSTITUTE", JONAS_READING, 200);
+
+    SpecSchemas.assertMatches(body, "HelpRequestPage");
+    assertThat(new ObjectMapper().readTree(body).get("items")).isEmpty();
+  }
 }

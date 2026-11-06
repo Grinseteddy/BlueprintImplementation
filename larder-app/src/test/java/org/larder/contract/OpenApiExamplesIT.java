@@ -64,10 +64,22 @@ class OpenApiExamplesIT {
         .isEmpty();
   }
 
-  @DisplayName(
-      "D1 createHelpRequest example -> 201 HelpRequestLink; provideHelp example on that request -> 201 HelpLink; getHelpRequestById -> 200 HelpRequest; each body valid against the spec -- B3-S01,B3-S02 US-CA-03 op createHelpRequest,provideHelp,getHelpRequestById")
-  @Test
-  void documentedExamplesAreAnsweredAsSpecified() throws Exception {
+  /** Jonas's Help from the spec's provideHelp example on the given request; its id. */
+  private String providedFromTheExample(String helpRequestId) throws Exception {
+    ResponseEntity<String> provided =
+        send(
+            HttpMethod.POST,
+            "/help-requests/" + helpRequestId + "/helps",
+            HelpRequests.JONAS,
+            "cook,community",
+            spec.requestBodyExample("HelpCreateRequest", "preparationStepExplanation"));
+    answeredAsSpecified(provided, 201, "HelpLink");
+    String link = new ObjectMapper().readTree(provided.getBody()).get("helpLink").asText();
+    return link.substring(link.lastIndexOf('/') + 1);
+  }
+
+  /** Lena's request from the spec's createHelpRequest example; its id. */
+  private String createdFromTheExample() throws Exception {
     ResponseEntity<String> created =
         send(
             HttpMethod.POST,
@@ -76,20 +88,102 @@ class OpenApiExamplesIT {
             "cook",
             spec.requestBodyExample("HelpRequestCreateRequest", "preparationStep"));
     answeredAsSpecified(created, 201, "HelpRequestLink");
-    String id = new ObjectMapper().readTree(created.getBody()).get("helpRequestId").asText();
+    return new ObjectMapper().readTree(created.getBody()).get("helpRequestId").asText();
+  }
 
-    answeredAsSpecified(
-        send(
-            HttpMethod.POST,
-            "/help-requests/" + id + "/helps",
-            HelpRequests.JONAS,
-            "cook,community",
-            spec.requestBodyExample("HelpCreateRequest", "preparationStepExplanation")),
-        201,
-        "HelpLink");
+  @DisplayName(
+      "D1 createHelpRequest example -> 201 HelpRequestLink; provideHelp example on that request -> 201 HelpLink; getHelpRequestById -> 200 HelpRequest; each body valid against the spec -- B3-S01,B3-S02 US-CA-03 op createHelpRequest,provideHelp,getHelpRequestById")
+  @Test
+  void documentedExamplesAreAnsweredAsSpecified() throws Exception {
+    String id = createdFromTheExample();
+    providedFromTheExample(id);
+
     answeredAsSpecified(
         send(HttpMethod.GET, "/help-requests/" + id, HelpRequests.JONAS, "cook,community", null),
         200,
         "HelpRequest");
+  }
+
+  @DisplayName(
+      "D2 cancelHelpRequest example withNote on a created request -> 200 HelpRequestLink, valid against the spec -- B3-S03 US-CA-03 op cancelHelpRequest")
+  @Test
+  void cancellationExampleIsAnsweredAsSpecified() throws Exception {
+    String id = createdFromTheExample();
+
+    answeredAsSpecified(
+        send(
+            HttpMethod.POST,
+            "/help-requests/" + id + "/cancellation",
+            HelpRequests.LENA,
+            "cook",
+            spec.requestBodyExample("CancellationRequest", "withNote")),
+        200,
+        "HelpRequestLink");
+  }
+
+  @DisplayName(
+      "D3 acceptHelp on a provided Help -> 200 HelpRequestLink, valid against the spec -- B3-S04 US-CA-03 op acceptHelp")
+  @Test
+  void acceptanceIsAnsweredAsSpecified() throws Exception {
+    String id = createdFromTheExample();
+    String help = providedFromTheExample(id);
+
+    answeredAsSpecified(
+        send(
+            HttpMethod.POST,
+            "/help-requests/" + id + "/helps/" + help + "/acceptance",
+            HelpRequests.LENA,
+            "cook",
+            null),
+        200,
+        "HelpRequestLink");
+  }
+
+  @DisplayName(
+      "D4 rejectHelp example warmWater on a provided Help -> 200 HelpRequestLink, valid against the spec -- B3-S05 US-CA-03 op rejectHelp")
+  @Test
+  void rejectionExampleIsAnsweredAsSpecified() throws Exception {
+    String id = createdFromTheExample();
+    String help = providedFromTheExample(id);
+
+    answeredAsSpecified(
+        send(
+            HttpMethod.POST,
+            "/help-requests/" + id + "/helps/" + help + "/rejection",
+            HelpRequests.LENA,
+            "cook",
+            spec.requestBodyExample("RejectionRequest", "warmWater")),
+        200,
+        "HelpRequestLink");
+  }
+
+  @DisplayName(
+      "D5 listHelpRequests, listHelpsOfHelpRequest, getHelpOfHelpRequest, listHelps -> 200, bodies valid against HelpRequestPage, HelpPage, Help, HelpPage -- B3-S03,B3-S04,B3-S05 US-CA-03 op listHelpRequests,listHelpsOfHelpRequest,getHelpOfHelpRequest,listHelps")
+  @Test
+  void readOperationsAreAnsweredAsSpecified() throws Exception {
+    String id = createdFromTheExample();
+    String help = providedFromTheExample(id);
+
+    answeredAsSpecified(
+        send(HttpMethod.GET, "/help-requests", HelpRequests.JONAS, "cook,community", null),
+        200,
+        "HelpRequestPage");
+    answeredAsSpecified(
+        send(HttpMethod.GET, "/help-requests/" + id + "/helps", HelpRequests.LENA, "cook", null),
+        200,
+        "HelpPage");
+    answeredAsSpecified(
+        send(
+            HttpMethod.GET,
+            "/help-requests/" + id + "/helps/" + help,
+            HelpRequests.LENA,
+            "cook",
+            null),
+        200,
+        "Help");
+    answeredAsSpecified(
+        send(HttpMethod.GET, "/helps", HelpRequests.JONAS, "cook,community", null),
+        200,
+        "HelpPage");
   }
 }

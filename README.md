@@ -38,6 +38,7 @@ a required variable is missing or blank, and names it.
 | `LARDER_DB_URL` | yes | JDBC URL of the PostgreSQL 16 database (ADR0009) |
 | `LARDER_DB_USERNAME` | yes | the module's own database role |
 | `LARDER_DB_PASSWORD` | yes | its password |
+| `LARDER_DB_SOCKET_TIMEOUT` | no, default `10` | seconds after which a query to a database that stopped answering fails (503) instead of waiting without limit |
 | `LARDER_BROKER_HOST` | yes | RabbitMQ host (ADR0012) |
 | `LARDER_BROKER_USERNAME` | yes | the module's own broker user |
 | `LARDER_BROKER_PASSWORD` | yes | its password |
@@ -45,6 +46,8 @@ a required variable is missing or blank, and names it.
 | `LARDER_BROKER_SSL` | no, default `true` | TLS to the broker (amqps); `false` only for local brokers |
 | `LARDER_JWKS_URI` | yes | the identity provider's JWKS endpoint (issuer `https://larder.org`, audience `cooking-assistance`, ADR0012) |
 | `LARDER_PUBLIC_BASE_URL` | yes | the URL every link in a response starts with, e.g. `https://larder.org/cooking-assistance`; never taken from the request (SEC-10) |
+| `LARDER_TIMEOUT_POLLER_ENABLED` | no, default `true` | whether this instance runs the time-out poller (ADR0021) |
+| `LARDER_TIMEOUT_POLL_DELAY` | no, default `10s` | pause between two runs of the time-out poller, e.g. `250ms`, `10s` |
 
 Only the health and readiness probes are exposed (`/actuator/health/**`, ADR0020).
 

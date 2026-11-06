@@ -18,7 +18,8 @@ enum NamedProblem {
   NOT_REQUESTER(HttpStatus.FORBIDDEN, "Only the requester may issue this command"),
   CONCURRENT_UPDATE(HttpStatus.CONFLICT, "The help request was changed concurrently"),
   INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error"),
-  NOT_IMPLEMENTED(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+  NOT_IMPLEMENTED(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet"),
+  SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Service unavailable");
 
   private final HttpStatus status;
   private final String title;

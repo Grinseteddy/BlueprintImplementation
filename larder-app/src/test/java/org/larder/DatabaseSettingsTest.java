@@ -2,33 +2,20 @@ package org.larder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.bind.Binder;
-import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.boot.jdbc.autoconfigure.DataSourceProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
-import org.springframework.core.env.MapPropertySource;
-import org.springframework.core.env.PropertySource;
-import org.springframework.core.env.StandardEnvironment;
-import org.springframework.core.io.ClassPathResource;
 
 /** The host's database connection comes from the environment only (ADR0009, ADR0019). */
 class DatabaseSettingsTest {
 
   private static DataSourceProperties databaseSettingsWith(Map<String, Object> environment)
       throws Exception {
-    StandardEnvironment env = new StandardEnvironment();
-    env.getPropertySources().remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME);
-    env.getPropertySources().remove(StandardEnvironment.SYSTEM_PROPERTIES_PROPERTY_SOURCE_NAME);
-    env.getPropertySources().addFirst(new MapPropertySource("environment", environment));
-    List<PropertySource<?>> yaml =
-        new YamlPropertySourceLoader()
-            .load("application.yml", new ClassPathResource("application.yml"));
-    yaml.forEach(env.getPropertySources()::addLast);
-    return Binder.get(env).bindOrCreate("spring.datasource", DataSourceProperties.class);
+    return Binder.get(HostSettings.resolvedWith(environment))
+        .bindOrCreate("spring.datasource", DataSourceProperties.class);
   }
 
   @DisplayName(
@@ -72,5 +59,21 @@ class DatabaseSettingsTest {
             context ->
                 assertThat(context.getStartupFailure())
                     .hasStackTraceContaining("LARDER_DB_PASSWORD"));
+  }
+
+  /** The PostgreSQL driver's socket timeout as application.yml resolves it (seconds). */
+  private static String socketTimeoutWith(Map<String, Object> environment) throws Exception {
+    return HostSettings.resolvedWith(environment)
+        .getProperty("spring.datasource.hikari.data-source-properties.socketTimeout");
+  }
+
+  @DisplayName(
+      "H3 LARDER_DB_SOCKET_TIMEOUT=7 -> the PostgreSQL driver's socketTimeout is 7 s; unset -> 10 s, so a database that stops answering never holds a request without limit -- B3-S01 US-CA-03 QS-05 ADR0019 (step 12, DatabaseOutageIT)")
+  @Test
+  void socketTimeoutFollowsTheEnvironment() throws Exception {
+    assertThat(socketTimeoutWith(Map.of("LARDER_DB_SOCKET_TIMEOUT", "7")))
+        .as("LARDER_DB_SOCKET_TIMEOUT=7")
+        .isEqualTo("7");
+    assertThat(socketTimeoutWith(Map.of())).as("unset").isEqualTo("10");
   }
 }

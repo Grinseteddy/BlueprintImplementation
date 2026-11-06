@@ -1,5 +1,6 @@
 package org.larder.cookingassistance.adapter.in.rest;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.larder.cookingassistance.application.fakes.InMemoryHelpRequestRepository;
 import org.larder.cookingassistance.fixtures.HelpRequests;
 import org.larder.cookingassistance.fixtures.TestSigningKeys;
 import org.larder.cookingassistance.fixtures.TestTokens;
@@ -48,6 +50,7 @@ class EdgeTest {
       TestTokens.forCook(HelpRequests.LENA).roles("cook").scope("help:read help:write").bearer();
 
   @Autowired MockMvc mvc;
+  @Autowired InMemoryHelpRequestRepository helpRequests;
 
   @DisplayName("GET /recipes -> 404 NOT_FOUND Problem -- B3-S01 US-CA-03 edge")
   @Test
@@ -97,6 +100,27 @@ class EdgeTest {
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
         .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+  }
+
+  @DisplayName(
+      "POST /help-requests with U+0000 in the title -> 400 VALIDATION_FAILED Problem, nothing saved; never a 500 from the database -- B3-S01 US-CA-03 edge (step 9 r1 from step 12, Schemathesis)")
+  @Test
+  void nulCharacterIsABadRequest() throws Exception {
+    mvc.perform(
+            post("/help-requests")
+                .header(AUTHORIZATION, LENA)
+                .header("version", "1.0.3")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"title":"Sauce\\u0000splits","type":"PREPARATION_STEP_EXPLANATION",
+                     "description":"Step 4 keeps splitting","recipe":"%s","howToStep":"%s",
+                     "preferredProvider":["COMMUNITY"]}"""
+                        .formatted(HelpRequests.HOLLANDAISE.value(), HelpRequests.STEP_4.value())))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID)).isEmpty();
   }
 
   @DisplayName(

@@ -382,4 +382,16 @@ class HelpQueryIT {
         .as("Grandma's rejectionNote right after the rejection")
         .isEqualTo("warm water didn't help");
   }
+
+  @DisplayName(
+      "H8 type=INGREDIENT_SUBSTITUTE, which the spec allows but no Help has yet -> 200 with no items, not 500 -- B3-S02 US-CA-03 op listHelps (step 11 r1 from step 12, Schemathesis)")
+  @Test
+  void typeNoHelpHasYetListsNothing() throws Exception {
+    helpRequests.save(grandmaThenJonasAnswer());
+
+    String body = helps("?type=INGREDIENT_SUBSTITUTE", 200);
+
+    SpecSchemas.assertMatches(body, "HelpPage");
+    assertThat(new ObjectMapper().readTree(body).get("items")).isEmpty();
+  }
 }

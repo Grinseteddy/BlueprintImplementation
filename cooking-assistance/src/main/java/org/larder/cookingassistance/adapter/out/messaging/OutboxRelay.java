@@ -19,6 +19,9 @@ public class OutboxRelay {
   private static final Logger LOG = LoggerFactory.getLogger(OutboxRelay.class);
   private static final int MAX_ROUNDS = 100;
 
+  /** ADR0015: a row is pending until it is published or dead-lettered. */
+  static final String PENDING = "published_at is null and dead_lettered_at is null";
+
   private final JdbcClient jdbc;
   private final TransactionTemplate transactions;
   private final MessagePublisher publisher;
@@ -120,13 +123,16 @@ public class OutboxRelay {
   private List<OutboxRecord> claimPending() {
     return jdbc.sql(
             "select id, aggregate_id, event_type, payload::text as payload from outbox"
-                + " where published_at is null and dead_lettered_at is null"
+                + " where "
+                + PENDING
                 + " and next_attempt_at <= :now"
                 // ADR0015: only the oldest pending row of each help request, also against rows
                 // another relay holds
                 + " and not exists (select 1 from outbox earlier"
                 + " where earlier.aggregate_id = outbox.aggregate_id and earlier.id < outbox.id"
-                + " and earlier.published_at is null and earlier.dead_lettered_at is null)"
+                + " and "
+                + PENDING
+                + ")"
                 + " order by id for update skip locked")
         .param("now", now())
         .query(OutboxRecord.class)

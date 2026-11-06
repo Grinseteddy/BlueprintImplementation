@@ -2,6 +2,10 @@
 spring:
   application:
     name: larder
+  autoconfigure:
+    # container errors are written by Tomcat's Problem error report valve with their own status,
+    # never forwarded to /error behind authentication (step 12, Schemathesis)
+    exclude: org.springframework.boot.webmvc.autoconfigure.error.ErrorMvcAutoConfiguration
   # Cook Assistance owns schema cooking_assistance (ADR0002, ADR0009)
   flyway:
     schemas: cooking_assistance
@@ -14,6 +18,9 @@ spring:
     password: ${LARDER_DB_PASSWORD}
     hikari:
       schema: cooking_assistance
+      # a database that stops answering fails a query after this many seconds, never holds it (QS-05)
+      data-source-properties:
+        socketTimeout: ${LARDER_DB_SOCKET_TIMEOUT:10}
   # the module's own broker user and TLS, only from the environment (ADR0012, ADR0019, SEC-05)
   rabbitmq:
     host: ${LARDER_BROKER_HOST}
@@ -29,13 +36,18 @@ cooking-assistance:
     jwk-set-uri: ${LARDER_JWKS_URI}
   # links in responses start with the public base URL, e.g. https://larder.org/cooking-assistance (SEC-10)
   public-base-url: ${LARDER_PUBLIC_BASE_URL}
+  # the time-out poller of this instance, on unless the environment turns it off (ADR0021, ADR0019)
+  timeout:
+    poller:
+      enabled: ${LARDER_TIMEOUT_POLLER_ENABLED:true}
+    poll-delay: ${LARDER_TIMEOUT_POLL_DELAY:10s}
 
-# health and readiness probes for the platform (ADR0020); nothing else is exposed
+# health and readiness probes and the metrics for the platform (ADR0020); nothing else is exposed
 management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,prometheus
   endpoint:
     health:
       probes:
