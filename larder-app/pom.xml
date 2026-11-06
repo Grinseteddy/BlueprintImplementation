@@ -13,6 +13,10 @@
   <!-- the composition root of the Larder monolith: one process, its modules wired here (ADR0001, ADR0007) -->
   <artifactId>larder-app</artifactId>
 
+  <properties>
+    <fault-injection.excluded>fault-injection</fault-injection.excluded>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>org.larder</groupId>
@@ -26,6 +30,15 @@
     <dependency>
       <groupId>io.micrometer</groupId>
       <artifactId>micrometer-tracing-bridge-otel</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-micrometer-tracing-opentelemetry</artifactId>
+    </dependency>
+    <!-- metrics on /actuator/prometheus (QS-14, ADR0020 addition) -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
     </dependency>
 
     <!-- tests: acceptance (Cucumber JVM) and contract runs on real infrastructure (ADR0017) -->
@@ -47,17 +60,17 @@
     </dependency>
     <dependency>
       <groupId>org.testcontainers</groupId>
-      <artifactId>postgresql</artifactId>
+      <artifactId>testcontainers-postgresql</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.testcontainers</groupId>
-      <artifactId>rabbitmq</artifactId>
+      <artifactId>testcontainers-rabbitmq</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.testcontainers</groupId>
-      <artifactId>junit-jupiter</artifactId>
+      <artifactId>testcontainers-junit-jupiter</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -90,6 +103,8 @@
         <configuration>
           <!-- the classes, not the repackaged runnable jar (BOOT-INF/classes is not on a classpath) -->
           <classesDirectory>${project.build.outputDirectory}</classesDirectory>
+          <!-- fault injection runs as a CI job (quality.yml), never in verify (step 12, QS-04/QS-05) -->
+          <excludedGroups>${fault-injection.excluded}</excludedGroups>
         </configuration>
         <executions>
           <execution>

@@ -3,6 +3,7 @@ package org.larder.cookingassistance.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -101,6 +102,11 @@ class ProvideGrandmaAvatarHelpTest {
           }
 
           @Override
+          public List<HelpRequest> findDueForTimeOut(Instant now, int limit) {
+            return helpRequests.findDueForTimeOut(now, limit);
+          }
+
+          @Override
           public void save(HelpRequest helpRequest) {
             savedInUnitOfWork.set(unitOfWork.isActive());
             helpRequests.save(helpRequest);
@@ -152,6 +158,7 @@ class ProvideGrandmaAvatarHelpTest {
             open.howToStep(),
             open.askedProviders(),
             HelpRequestStatus.CANCELLED,
+            List.of(),
             List.of(),
             0L));
     ProvideGrandmaAvatarHelp cancelledHandler =

@@ -2,6 +2,7 @@ package org.larder.cookingassistance.domain.helprequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import java.net.URI;
 import java.time.Clock;
@@ -65,6 +66,13 @@ class HelpRequestTest {
       new PreparationStepExplanation(
           HOLLANDAISE, STEP_4, "Add the butter in a thin stream", List.of());
 
+  /** A clock fixed at the given local time in Larder's zone (UTC+1 in November). */
+  static Clock at(String localDateTime) {
+    return Clock.fixed(
+        java.time.LocalDateTime.parse(localDateTime).toInstant(ZoneOffset.ofHours(1)),
+        ZoneOffset.UTC);
+  }
+
   /** Links to n distinct pictures in Larder's media store. */
   static List<URI> photos(int n) {
     return java.util.stream.IntStream.rangeClosed(1, n)
@@ -96,6 +104,7 @@ class HelpRequestTest {
         List.of(new AskedProvider(askedProvider, Instant.parse("2026-11-07T05:00:00Z"))),
         status,
         List.of(),
+        List.of(),
         1L);
   }
 
@@ -107,6 +116,24 @@ class HelpRequestTest {
         "Butter in a thin stream",
         BUTTER_IN_A_THIN_STREAM,
         FRIDAY_18_10);
+  }
+
+  /**
+   * Grandma explained step 4 (Fri 18:10), Lena rejected it (Fri 20:00), Grandma answered again (Fri
+   * 20:30); events pulled.
+   */
+  static HelpRequest grandmaAnsweredTwiceAfterARejection() {
+    HelpRequest request = lenaAsksGrandmaAboutStep4();
+    grandmaExplainsStep4(request);
+    request.reject(HELP_ID, "warm water didn't help", at("2026-11-06T20:00"));
+    request.provideHelp(
+        OTHER_HELP_ID,
+        HelpProvider.grandmaAvatar(),
+        "Cool the butter first",
+        BUTTER_IN_A_THIN_STREAM,
+        at("2026-11-06T20:30"));
+    request.pullEvents();
+    return request;
   }
 
   /** Lena asks Grandma Avatar about step 4 of her Hollandaise on Friday 18:00. */
@@ -603,6 +630,816 @@ class HelpRequestTest {
               rejection -> assertThat(rejection.code()).isEqualTo("INVALID_STATE"));
       assertThat(closed.helps()).isEmpty();
     }
+
+    @DisplayName(
+        "only Community asked Fri 18:00 (deadline Sat 06:00); Jonas answers Sat 05:59 -> the answer counts: one Help, request ANSWERED, Community's side ANSWERED -- B3-S02 US-CA-03 INV-09 R8.E4")
+    @Test
+    void jonasAnswersAMinuteBeforeTheDeadline() {
+      HelpRequest request = lenaAsksAboutStep4(HelpProviderType.COMMUNITY);
+
+      request.provideHelp(
+          HELP_ID,
+          HelpProvider.community(JONAS),
+          "Warm the bowl",
+          BUTTER_IN_A_THIN_STREAM,
+          at("2026-11-07T05:59"));
+
+      assertThat(request.helps()).singleElement().extracting(Help::id).isEqualTo(HELP_ID);
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.ANSWERED);
+      assertThat(request.askedProviders())
+          .singleElement()
+          .extracting(AskedProvider::state)
+          .isEqualTo(ProviderState.ANSWERED);
+    }
+
+    @DisplayName(
+        "Grandma answers at Sat 06:00:00, exactly her deadline -> the answer counts, request ANSWERED -- B3-S02 US-CA-03 INV-09 boundary (step 3 r5)")
+    @Test
+    void answerAtTheDeadlineCounts() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+
+      request.provideHelp(
+          HELP_ID,
+          HelpProvider.grandmaAvatar(),
+          "Butter in a thin stream",
+          BUTTER_IN_A_THIN_STREAM,
+          at("2026-11-07T06:00:00"));
+
+      assertThat(request.helps()).singleElement().extracting(Help::id).isEqualTo(HELP_ID);
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.ANSWERED);
+    }
+
+    @DisplayName(
+        "stored request asked of the Community (deadline Sat 06:00, passed) and Grandma (deadline Sat 08:00); Grandma answers Sat 07:00 -> the answer counts: only the answering provider's own deadline decides -- B3-S02 US-CA-03 INV-09 per-provider state")
+    @Test
+    void onlyTheAnsweringProvidersDeadlineCounts() {
+      HelpRequest request =
+          HelpRequest.reconstitute(
+              HELP_REQUEST_ID,
+              LENA,
+              "How do I keep the sauce from splitting?",
+              "Step 4 of my Hollandaise keeps splitting",
+              HelpType.PREPARATION_STEP_EXPLANATION,
+              HOLLANDAISE,
+              STEP_4,
+              List.of(
+                  new AskedProvider(HelpProviderType.COMMUNITY, at("2026-11-07T06:00").instant()),
+                  new AskedProvider(
+                      HelpProviderType.GRANDMA_AVATAR, at("2026-11-07T08:00").instant())),
+              HelpRequestStatus.OPEN,
+              List.of(),
+              List.of(),
+              1L);
+
+      request.provideHelp(
+          HELP_ID,
+          HelpProvider.grandmaAvatar(),
+          "Butter in a thin stream",
+          BUTTER_IN_A_THIN_STREAM,
+          at("2026-11-07T07:00"));
+
+      assertThat(request.helps()).singleElement().extracting(Help::id).isEqualTo(HELP_ID);
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.ANSWERED);
+    }
+
+    @DisplayName(
+        "Grandma answers at Sat 06:00:01, after her deadline -> AnswerTooLate (rule INV-09), no Help, request stays OPEN, no event -- B3-S02 US-CA-03 INV-09 (step 3 r5)")
+    @Test
+    void answerAfterTheDeadlineIsTooLate() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      request.pullEvents();
+
+      assertThatThrownBy(
+              () ->
+                  request.provideHelp(
+                      HELP_ID,
+                      HelpProvider.grandmaAvatar(),
+                      "Butter in a thin stream",
+                      BUTTER_IN_A_THIN_STREAM,
+                      at("2026-11-07T06:00:01")))
+          .isInstanceOfSatisfying(
+              AnswerTooLate.class,
+              rejection -> {
+                assertThat(rejection.rule()).isEqualTo("INV-09");
+                assertThat(rejection.code()).isEqualTo("INVALID_STATE");
+              });
+      assertThat(request.helps()).isEmpty();
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.OPEN);
+      assertThat(request.pullEvents()).isEmpty();
+    }
+  }
+
+  @Nested
+  class CancelHelpRequest { // B3-S03, US-CA-03
+
+    @DisplayName(
+        "Lena cancels her open request at Fri 18:10 with note 'an ice cube saved it' -> CANCELLED; HelpRequestCancelled {helpRequest, helpRequester Lena, note 'an ice cube saved it', askedProviders [Grandma, deadline Sat 06:00], CANCELLED, occurredAt Fri 18:10} -- B3-S03 US-CA-03 INV-08 R7.E1")
+    @Test
+    void lenaCancelsWithANote() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      request.pullEvents();
+
+      request.cancel(Optional.of("an ice cube saved it"), FRIDAY_18_10);
+
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.CANCELLED);
+      assertThat(request.pullEvents())
+          .containsExactly(
+              new HelpRequestCancelled(
+                  HELP_REQUEST_ID,
+                  LENA,
+                  Optional.of("an ice cube saved it"),
+                  List.of(
+                      new AskedProvider(
+                          HelpProviderType.GRANDMA_AVATAR, at("2026-11-07T06:00").instant())),
+                  HelpRequestStatus.CANCELLED,
+                  FRIDAY_18_10.instant()));
+    }
+
+    @DisplayName(
+        "Lena cancels without a note -> CANCELLED; HelpRequestCancelled without a note -- B3-S03 US-CA-03 INV-08 R7.E2")
+    @Test
+    void lenaCancelsWithoutANote() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      request.pullEvents();
+
+      request.cancel(Optional.empty(), FRIDAY_18_10);
+
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.CANCELLED);
+      assertThat(request.pullEvents())
+          .singleElement()
+          .isInstanceOfSatisfying(
+              HelpRequestCancelled.class, cancelled -> assertThat(cancelled.note()).isEmpty());
+    }
+
+    @DisplayName(
+        "Grandma answered; Lena cancels -> CANCELLED (Open or Answered may be cancelled) -- B3-S03 US-CA-03 INV-08")
+    @Test
+    void answeredRequestCanBeCancelled() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      grandmaExplainsStep4(request);
+
+      request.cancel(Optional.empty(), FRIDAY_18_10);
+
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.CANCELLED);
+    }
+
+    @DisplayName(
+        "Lena cancelled; Grandma answers -> InvalidHelpRequestState(CANCELLED), no Help -- B3-S03 US-CA-03 INV-08 lifecycle")
+    @Test
+    void cancelledRequestTakesNoAnswer() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      request.cancel(Optional.empty(), FRIDAY_18_10);
+
+      assertThatThrownBy(() -> grandmaExplainsStep4(request))
+          .isInstanceOf(InvalidHelpRequestState.class)
+          .hasMessageContaining("CANCELLED");
+      assertThat(request.helps()).isEmpty();
+    }
+
+    @DisplayName(
+        "cancel a CLOSED request -> InvalidHelpRequestState(CLOSED), status unchanged, no event -- B3-S03 US-CA-03 lifecycle")
+    @Test
+    void closedRequestCannotBeCancelled() {
+      HelpRequest closed = storedRequestToGrandmaIn(HelpRequestStatus.CLOSED);
+
+      assertThatThrownBy(() -> closed.cancel(Optional.empty(), FRIDAY_18_10))
+          .isInstanceOf(InvalidHelpRequestState.class)
+          .hasMessageContaining("CLOSED");
+      assertThat(closed.status()).isEqualTo(HelpRequestStatus.CLOSED);
+      assertThat(closed.pullEvents()).isEmpty();
+    }
+
+    @DisplayName(
+        "cancel a CANCELLED request -> InvalidHelpRequestState(CANCELLED), no event -- B3-S03 US-CA-03 lifecycle")
+    @Test
+    void cancelledRequestCannotBeCancelledAgain() {
+      HelpRequest cancelled = storedRequestToGrandmaIn(HelpRequestStatus.CANCELLED);
+
+      assertThatThrownBy(() -> cancelled.cancel(Optional.of("again"), FRIDAY_18_10))
+          .isInstanceOf(InvalidHelpRequestState.class)
+          .hasMessageContaining("CANCELLED");
+      assertThat(cancelled.pullEvents()).isEmpty();
+    }
+  }
+
+  @Nested
+  class AcceptHelp { // B3-S04, US-CA-03
+
+    @DisplayName(
+        "Grandma answered; Lena accepts Grandma's Help at Fri 18:10 -> CLOSED, that Help accepted; HelpAccepted {helpRequest, helpRequester Lena, helpId, GRANDMA_AVATAR, no helpProvider, CLOSED, occurredAt Fri 18:10} -- B3-S04 US-CA-03 INV-05 R4.E2")
+    @Test
+    void lenaAcceptsGrandmasAnswer() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      grandmaExplainsStep4(request);
+      request.pullEvents();
+
+      request.accept(HELP_ID, FRIDAY_18_10);
+
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.CLOSED);
+      assertThat(request.helps()).singleElement().extracting(Help::isAccepted).isEqualTo(true);
+      assertThat(request.pullEvents())
+          .containsExactly(
+              new HelpAccepted(
+                  HELP_REQUEST_ID,
+                  LENA,
+                  HELP_ID,
+                  HelpProviderType.GRANDMA_AVATAR,
+                  Optional.empty(),
+                  HelpRequestStatus.CLOSED,
+                  FRIDAY_18_10.instant()));
+    }
+
+    @DisplayName(
+        "Jonas and Mia answer; Lena accepts Mia's Help -> CLOSED, only Mia's Help accepted, Jonas's not; HelpAccepted names Mia as helpProvider -- B3-S04 US-CA-03 INV-05 R4.E3")
+    @Test
+    void lenaAcceptsMiasOfTwoAnswers() {
+      HelpRequest request = lenaAsksAboutStep4(HelpProviderType.COMMUNITY);
+      request.provideHelp(
+          HELP_ID,
+          HelpProvider.community(JONAS),
+          "Warm the bowl",
+          BUTTER_IN_A_THIN_STREAM,
+          FRIDAY_18_10);
+      request.provideHelp(
+          OTHER_HELP_ID,
+          HelpProvider.community(MIA),
+          "Butter in a thin stream",
+          BUTTER_IN_A_THIN_STREAM,
+          FRIDAY_18_10);
+      request.pullEvents();
+
+      request.accept(OTHER_HELP_ID, FRIDAY_18_10);
+
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.CLOSED);
+      assertThat(request.helps())
+          .extracting(Help::id, Help::isAccepted)
+          .containsExactly(
+              org.assertj.core.groups.Tuple.tuple(HELP_ID, false),
+              org.assertj.core.groups.Tuple.tuple(OTHER_HELP_ID, true));
+      assertThat(request.pullEvents())
+          .singleElement()
+          .isInstanceOfSatisfying(
+              HelpAccepted.class, accepted -> assertThat(accepted.helpProvider()).contains(MIA));
+    }
+
+    @DisplayName(
+        "Community and Grandma asked; Lena accepts Grandma's Help; Jonas (Community) answers afterwards -> InvalidHelpRequestState(CLOSED), no Help added -- B3-S04 US-CA-03 INV-05 R4.E4")
+    @Test
+    void acceptingClosesTheRequestForEveryProvider() {
+      HelpRequest request =
+          lenaAsksAboutStep4(HelpProviderType.COMMUNITY, HelpProviderType.GRANDMA_AVATAR);
+      grandmaExplainsStep4(request);
+      request.accept(HELP_ID, FRIDAY_18_10);
+
+      assertThatThrownBy(
+              () ->
+                  request.provideHelp(
+                      OTHER_HELP_ID,
+                      HelpProvider.community(JONAS),
+                      "Warm the bowl",
+                      BUTTER_IN_A_THIN_STREAM,
+                      FRIDAY_18_10))
+          .isInstanceOf(InvalidHelpRequestState.class)
+          .hasMessageContaining("CLOSED");
+      assertThat(request.helps()).extracting(Help::id).containsExactly(HELP_ID);
+    }
+
+    @DisplayName(
+        "Lena accepts on her OPEN request (no answer yet) -> InvalidHelpRequestState(OPEN), no event -- B3-S04 US-CA-03 lifecycle (accept only from Answered; the lifecycle guard comes before the Help lookup)")
+    @Test
+    void openRequestCannotBeAccepted() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      request.pullEvents();
+
+      assertThatThrownBy(() -> request.accept(HELP_ID, FRIDAY_18_10))
+          .isInstanceOf(InvalidHelpRequestState.class)
+          .hasMessageContaining("OPEN");
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.OPEN);
+      assertThat(request.pullEvents()).isEmpty();
+    }
+
+    @DisplayName(
+        "Lena accepts a Help id that is not part of her request -> HelpNotInRequest, status stays ANSWERED, no event -- B3-S04 US-CA-03 INV-05 foreign help")
+    @Test
+    void helpOfAnotherRequestCannotBeAccepted() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      grandmaExplainsStep4(request);
+      request.pullEvents();
+
+      assertThatThrownBy(() -> request.accept(OTHER_HELP_ID, FRIDAY_18_10))
+          .isInstanceOfSatisfying(
+              HelpNotInRequest.class,
+              rejection -> {
+                assertThat(rejection.rule()).isEqualTo("INV-05");
+                assertThat(rejection.code()).isEqualTo("NOT_FOUND");
+              });
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.ANSWERED);
+      assertThat(request.helps()).extracting(Help::isAccepted).containsExactly(false);
+      assertThat(request.pullEvents()).isEmpty();
+    }
+
+    @DisplayName(
+        "Lena rejected Grandma's first answer; Grandma answers again; Lena accepts the first answer -> HelpAlreadyRejected (rule INV-39), status stays ANSWERED, no event -- B3-S04 US-CA-03 INV-39 S3.E4")
+    @Test
+    void rejectedAnswerIsNeverAccepted() {
+      HelpRequest request = grandmaAnsweredTwiceAfterARejection();
+
+      assertThatThrownBy(() -> request.accept(HELP_ID, at("2026-11-06T21:00")))
+          .isInstanceOfSatisfying(
+              HelpAlreadyRejected.class,
+              rejection -> {
+                assertThat(rejection.rule()).isEqualTo("INV-39");
+                assertThat(rejection.code()).isEqualTo("INVALID_STATE");
+              });
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.ANSWERED);
+      assertThat(request.helps()).extracting(Help::isAccepted).containsExactly(false, false);
+      assertThat(request.pullEvents()).isEmpty();
+    }
+
+    @DisplayName(
+        "accept on a CANCELLED request -> InvalidHelpRequestState(CANCELLED), no event -- B3-S04 US-CA-03 lifecycle")
+    @Test
+    void cancelledRequestCannotBeAccepted() {
+      HelpRequest cancelled = storedRequestToGrandmaIn(HelpRequestStatus.CANCELLED);
+
+      assertThatThrownBy(() -> cancelled.accept(HELP_ID, FRIDAY_18_10))
+          .isInstanceOf(InvalidHelpRequestState.class)
+          .hasMessageContaining("CANCELLED");
+      assertThat(cancelled.pullEvents()).isEmpty();
+    }
+  }
+
+  @Nested
+  class RejectHelp { // B3-S05, US-CA-03
+
+    @DisplayName(
+        "Grandma answered; Fri 20:00 Lena rejects it: 'warm water didn't help' -> OPEN; Grandma's Help marked rejected; Grandma asked again, deadline Sat 08:00, side ASKED; HelpRejected {helpRequest, helpRequester Lena, helpId, note, askedProviders [Grandma, Sat 08:00], OPEN, occurredAt Fri 20:00} -- B3-S05 US-CA-03 INV-06 R5.E1")
+    @Test
+    void lenaRejectsGrandmasAnswerWithANote() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      grandmaExplainsStep4(request);
+      request.pullEvents();
+
+      request.reject(HELP_ID, "warm water didn't help", at("2026-11-06T20:00"));
+
+      List<AskedProvider> askedAgain =
+          List.of(
+              new AskedProvider(HelpProviderType.GRANDMA_AVATAR, at("2026-11-07T08:00").instant()));
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.OPEN);
+      assertThat(request.helps()).singleElement().extracting(Help::isRejected).isEqualTo(true);
+      assertThat(request.askedProviders()).isEqualTo(askedAgain);
+      assertThat(request.pullEvents())
+          .containsExactly(
+              new HelpRejected(
+                  HELP_REQUEST_ID,
+                  LENA,
+                  HELP_ID,
+                  "warm water didn't help",
+                  askedAgain,
+                  HelpRequestStatus.OPEN,
+                  at("2026-11-06T20:00").instant()));
+    }
+
+    @DisplayName(
+        "Community and Grandma asked; Jonas answered, nothing accepted; Fri 20:00 Lena rejects Jonas's answer -> both asked again, both deadlines Sat 08:00, both sides ASKED -- B3-S05 US-CA-03 INV-06 R5.E2")
+    @Test
+    void bothProvidersAreAskedAgain() {
+      HelpRequest request =
+          lenaAsksAboutStep4(HelpProviderType.COMMUNITY, HelpProviderType.GRANDMA_AVATAR);
+      request.provideHelp(
+          HELP_ID,
+          HelpProvider.community(JONAS),
+          "Warm the bowl",
+          BUTTER_IN_A_THIN_STREAM,
+          FRIDAY_18_10);
+
+      request.reject(HELP_ID, "warm water didn't help", at("2026-11-06T20:00"));
+
+      Instant saturday0800 = at("2026-11-07T08:00").instant();
+      assertThat(request.askedProviders())
+          .extracting(AskedProvider::providerType, AskedProvider::deadline, AskedProvider::state)
+          .containsExactlyInAnyOrder(
+              org.assertj.core.groups.Tuple.tuple(
+                  HelpProviderType.COMMUNITY, saturday0800, ProviderState.ASKED),
+              org.assertj.core.groups.Tuple.tuple(
+                  HelpProviderType.GRANDMA_AVATAR, saturday0800, ProviderState.ASKED));
+    }
+
+    @DisplayName(
+        "Lena rejects Grandma's answer with a blank note -> RejectionNoteRequired (rule INV-06), status stays ANSWERED, no event -- B3-S05 US-CA-03 INV-06 (step 3 r5)")
+    @Test
+    void rejectionNeedsANote() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      grandmaExplainsStep4(request);
+      request.pullEvents();
+
+      assertThatThrownBy(() -> request.reject(HELP_ID, "   ", at("2026-11-06T20:00")))
+          .isInstanceOfSatisfying(
+              RejectionNoteRequired.class,
+              rejection -> {
+                assertThat(rejection.rule()).isEqualTo("INV-06");
+                assertThat(rejection.code()).isEqualTo("MISSING_FIELD");
+              });
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.ANSWERED);
+      assertThat(request.helps()).extracting(Help::isRejected).containsExactly(false);
+      assertThat(request.pullEvents()).isEmpty();
+    }
+
+    @DisplayName(
+        "reject on an OPEN request -> InvalidHelpRequestState(OPEN), no event -- B3-S05 US-CA-03 lifecycle (reject only from Answered)")
+    @Test
+    void openRequestCannotBeRejected() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      request.pullEvents();
+
+      assertThatThrownBy(
+              () -> request.reject(HELP_ID, "warm water didn't help", at("2026-11-06T20:00")))
+          .isInstanceOf(InvalidHelpRequestState.class)
+          .hasMessageContaining("OPEN");
+      assertThat(request.pullEvents()).isEmpty();
+    }
+
+    @DisplayName(
+        "Lena rejects a Help id that is not part of her request -> HelpNotInRequest, no event -- B3-S05 US-CA-03 INV-06")
+    @Test
+    void helpOfAnotherRequestCannotBeRejected() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      grandmaExplainsStep4(request);
+      request.pullEvents();
+
+      assertThatThrownBy(
+              () -> request.reject(OTHER_HELP_ID, "warm water didn't help", at("2026-11-06T20:00")))
+          .isInstanceOf(HelpNotInRequest.class);
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.ANSWERED);
+      assertThat(request.pullEvents()).isEmpty();
+    }
+
+    @DisplayName(
+        "Lena rejected Grandma's first answer; Grandma answers again; Lena rejects the first answer again -> HelpAlreadyRejected (rule INV-39), no event -- B3-S05 US-CA-03 INV-39")
+    @Test
+    void rejectedAnswerCannotBeRejectedAgain() {
+      HelpRequest request = grandmaAnsweredTwiceAfterARejection();
+
+      assertThatThrownBy(() -> request.reject(HELP_ID, "still splits", at("2026-11-06T21:00")))
+          .isInstanceOf(HelpAlreadyRejected.class);
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.ANSWERED);
+      assertThat(request.pullEvents()).isEmpty();
+    }
+  }
+
+  @Nested
+  class TimeOutHelpRequest { // B3-S06, US-CA-03
+
+    @DisplayName(
+        "only Community asked Fri 18:00, silent; time out at Sat 06:00:01 -> CANCELLED, Community's side TIMED_OUT; HelpRequestTimedOut {helpRequest, helpRequester Lena, timedOutProviders [COMMUNITY], suggestedProviders [GRANDMA_AVATAR], CANCELLED, occurredAt Sat 06:00:01} -- B3-S06 US-CA-03 INV-09 R8.E1")
+    @Test
+    void silentCommunityTimesOutAndGrandmaIsSuggested() {
+      HelpRequest request = lenaAsksAboutStep4(HelpProviderType.COMMUNITY);
+      request.pullEvents();
+
+      request.timeOut(at("2026-11-07T06:00:01"));
+
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.CANCELLED);
+      assertThat(request.askedProviders())
+          .singleElement()
+          .extracting(AskedProvider::state)
+          .isEqualTo(ProviderState.TIMED_OUT);
+      assertThat(request.pullEvents())
+          .containsExactly(
+              new HelpRequestTimedOut(
+                  HELP_REQUEST_ID,
+                  LENA,
+                  List.of(HelpProviderType.COMMUNITY),
+                  List.of(HelpProviderType.GRANDMA_AVATAR),
+                  HelpRequestStatus.CANCELLED,
+                  at("2026-11-07T06:00:01").instant()));
+    }
+
+    @DisplayName(
+        "only Grandma asked Fri 18:00, silent; time out at Sat 06:00:01 -> CANCELLED; timedOutProviders [GRANDMA_AVATAR], suggestedProviders [COMMUNITY] -- B3-S06 US-CA-03 INV-09 R8.E2")
+    @Test
+    void silentGrandmaTimesOutAndCommunityIsSuggested() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      request.pullEvents();
+
+      request.timeOut(at("2026-11-07T06:00:01"));
+
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.CANCELLED);
+      assertThat(request.pullEvents())
+          .singleElement()
+          .isInstanceOfSatisfying(
+              HelpRequestTimedOut.class,
+              timedOut -> {
+                assertThat(timedOut.timedOutProviders())
+                    .containsExactly(HelpProviderType.GRANDMA_AVATAR);
+                assertThat(timedOut.suggestedProviders())
+                    .containsExactly(HelpProviderType.COMMUNITY);
+              });
+    }
+
+    @DisplayName(
+        "Community and Grandma asked, both silent 12 h; time out at Sat 06:00:01 -> CANCELLED; timedOutProviders [COMMUNITY, GRANDMA_AVATAR], suggestedProviders [] (Lena is told by the notification policy) -- B3-S06 US-CA-03 INV-09 R8.E3")
+    @Test
+    void bothSilentTimeOutWithNothingToSuggest() {
+      HelpRequest request =
+          lenaAsksAboutStep4(HelpProviderType.COMMUNITY, HelpProviderType.GRANDMA_AVATAR);
+      request.pullEvents();
+
+      request.timeOut(at("2026-11-07T06:00:01"));
+
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.CANCELLED);
+      assertThat(request.askedProviders())
+          .extracting(AskedProvider::state)
+          .containsOnly(ProviderState.TIMED_OUT);
+      assertThat(request.pullEvents())
+          .singleElement()
+          .isInstanceOfSatisfying(
+              HelpRequestTimedOut.class,
+              timedOut -> {
+                assertThat(timedOut.timedOutProviders())
+                    .containsExactlyInAnyOrder(
+                        HelpProviderType.COMMUNITY, HelpProviderType.GRANDMA_AVATAR);
+                assertThat(timedOut.suggestedProviders()).isEmpty();
+              });
+    }
+
+    @DisplayName(
+        "time out at Sat 06:00:00, exactly the deadline -> DeadlineNotPassed, status stays OPEN, no event -- B3-S06 US-CA-03 INV-09 boundary (step 3 r5)")
+    @Test
+    void timeOutAtTheDeadlineIsTooEarly() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      request.pullEvents();
+
+      assertThatThrownBy(() -> request.timeOut(at("2026-11-07T06:00:00")))
+          .isInstanceOfSatisfying(
+              DeadlineNotPassed.class,
+              rejection -> assertThat(rejection.rule()).isEqualTo("INV-09"));
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.OPEN);
+      assertThat(request.askedProviders())
+          .extracting(AskedProvider::state)
+          .containsOnly(ProviderState.ASKED);
+      assertThat(request.pullEvents()).isEmpty();
+    }
+
+    @DisplayName(
+        "Grandma answered, Lena rejected Fri 20:00 (new deadline Sat 08:00); time out at Sat 06:00:01 -> DeadlineNotPassed -- B3-S06 US-CA-03 INV-06,INV-09")
+    @Test
+    void rejectionStartsANewDeadline() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      grandmaExplainsStep4(request);
+      request.reject(HELP_ID, "warm water didn't help", at("2026-11-06T20:00"));
+
+      assertThatThrownBy(() -> request.timeOut(at("2026-11-07T06:00:01")))
+          .isInstanceOf(DeadlineNotPassed.class);
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.OPEN);
+    }
+
+    @DisplayName(
+        "Grandma answered; time out at Sat 06:00:01 -> InvalidHelpRequestState(ANSWERED), no event (only Open times out, D5) -- B3-S06 US-CA-03 lifecycle (step 3 r5)")
+    @Test
+    void answeredRequestDoesNotTimeOut() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      grandmaExplainsStep4(request);
+      request.pullEvents();
+
+      assertThatThrownBy(() -> request.timeOut(at("2026-11-07T06:00:01")))
+          .isInstanceOf(InvalidHelpRequestState.class)
+          .hasMessageContaining("ANSWERED");
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.ANSWERED);
+      assertThat(request.pullEvents()).isEmpty();
+    }
+
+    @DisplayName(
+        "time out a CANCELLED request -> InvalidHelpRequestState(CANCELLED), no event -- B3-S06 US-CA-03 lifecycle")
+    @Test
+    void cancelledRequestDoesNotTimeOut() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      request.cancel(Optional.empty(), FRIDAY_18_10);
+      request.pullEvents();
+
+      assertThatThrownBy(() -> request.timeOut(at("2026-11-07T06:00:01")))
+          .isInstanceOf(InvalidHelpRequestState.class)
+          .hasMessageContaining("CANCELLED");
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.CANCELLED);
+      assertThat(request.pullEvents()).isEmpty();
+    }
+
+    @DisplayName(
+        "D12 suggestions after a time-out: asked [COMMUNITY TIMED_OUT] -> [GRANDMA_AVATAR]; asked [COMMUNITY ASKED] -> []; asked [COMMUNITY TIMED_OUT, GRANDMA_AVATAR TIMED_OUT] -> [] -- B3-S06 US-CA-03 INV-09 R8.E1 op getHelpRequestById suggestedProviders")
+    @Test
+    void suggestionsFollowTheTimedOutProviders() {
+      Instant deadline = at("2026-11-07T06:00").instant();
+
+      assertThat(
+              HelpRequest.suggestionsAfterTimeOut(
+                  List.of(
+                      new AskedProvider(
+                          HelpProviderType.COMMUNITY, deadline, ProviderState.TIMED_OUT))))
+          .containsExactly(HelpProviderType.GRANDMA_AVATAR);
+      assertThat(
+              HelpRequest.suggestionsAfterTimeOut(
+                  List.of(
+                      new AskedProvider(
+                          HelpProviderType.COMMUNITY, deadline, ProviderState.ASKED))))
+          .isEmpty();
+      assertThat(
+              HelpRequest.suggestionsAfterTimeOut(
+                  List.of(
+                      new AskedProvider(
+                          HelpProviderType.COMMUNITY, deadline, ProviderState.TIMED_OUT),
+                      new AskedProvider(
+                          HelpProviderType.GRANDMA_AVATAR, deadline, ProviderState.TIMED_OUT))))
+          .isEmpty();
+    }
+  }
+
+  @Nested
+  class Notes { // B3-S03, B3-S05, US-CA-03 (step 6 r1 of increment 1, from step 11, ADR0016 L6)
+
+    @DisplayName(
+        "D1 a new request (Lena asks Grandma about step 4) has no notes -- B3-S01 US-CA-03 INV-07")
+    @Test
+    void aNewRequestHasNoNotes() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+
+      assertThat(request.notes()).isEmpty();
+    }
+
+    @DisplayName(
+        "D2 Lena cancels at Fri 18:10 with 'an ice cube saved it' -> notes [CANCELLATION 'an ice cube saved it' Fri 18:10] -- B3-S03 US-CA-03 INV-08 R7.E1, INV-07")
+    @Test
+    void cancellationWritesItsNote() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+
+      request.cancel(Optional.of("an ice cube saved it"), FRIDAY_18_10);
+
+      assertThat(request.notes())
+          .containsExactly(
+              new Note(
+                  NoteKind.CANCELLATION,
+                  "an ice cube saved it",
+                  FRIDAY_18_10.instant(),
+                  Optional.empty()));
+    }
+
+    @DisplayName("D3 Lena cancels without a note -> no notes -- B3-S03 US-CA-03 INV-08 R7.E2")
+    @Test
+    void cancellationWithoutANoteWritesNone() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+
+      request.cancel(Optional.empty(), FRIDAY_18_10);
+
+      assertThat(request.notes()).isEmpty();
+    }
+
+    @DisplayName(
+        "D4 Lena rejects Grandma's answer at Fri 20:00: 'warm water didn't help' -> notes [REJECTION 'warm water didn't help' Fri 20:00] -- B3-S05 US-CA-03 INV-06 R5.E1, INV-07 R6.E1")
+    @Test
+    void rejectionWritesItsNote() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      grandmaExplainsStep4(request);
+
+      request.reject(HELP_ID, "warm water didn't help", at("2026-11-06T20:00"));
+
+      assertThat(request.notes())
+          .containsExactly(
+              new Note(
+                  NoteKind.REJECTION,
+                  "warm water didn't help",
+                  at("2026-11-06T20:00").instant(),
+                  Optional.of(HELP_ID)));
+    }
+
+    @DisplayName(
+        "D5 rejected at Fri 20:00 ('warm water didn't help'), cancelled at Fri 21:00 ('an ice cube saved it') -> notes [REJECTION Fri 20:00, CANCELLATION Fri 21:00], in the order written -- B3-S03,B3-S05 US-CA-03 INV-07")
+    @Test
+    void notesKeepTheOrderTheyWereWritten() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      grandmaExplainsStep4(request);
+
+      request.reject(HELP_ID, "warm water didn't help", at("2026-11-06T20:00"));
+      request.cancel(Optional.of("an ice cube saved it"), at("2026-11-06T21:00"));
+
+      assertThat(request.notes())
+          .containsExactly(
+              new Note(
+                  NoteKind.REJECTION,
+                  "warm water didn't help",
+                  at("2026-11-06T20:00").instant(),
+                  Optional.of(HELP_ID)),
+              new Note(
+                  NoteKind.CANCELLATION,
+                  "an ice cube saved it",
+                  at("2026-11-06T21:00").instant(),
+                  Optional.empty()));
+    }
+
+    @DisplayName(
+        "D6 Lena cancels a CLOSED request with a note -> InvalidHelpRequestState; notes stay empty -- B3-S03 US-CA-03 INV-08")
+    @Test
+    void refusedCancellationWritesNoNote() {
+      HelpRequest request = storedRequestToGrandmaIn(HelpRequestStatus.CLOSED);
+
+      assertThatThrownBy(() -> request.cancel(Optional.of("an ice cube saved it"), FRIDAY_18_10))
+          .isInstanceOf(InvalidHelpRequestState.class);
+      assertThat(request.notes()).isEmpty();
+    }
+
+    @DisplayName(
+        "D7 Lena rejects the already rejected Help again with 'still splits' -> HelpAlreadyRejected; notes stay [REJECTION 'warm water didn't help'] -- B3-S05 US-CA-03 INV-39")
+    @Test
+    void refusedRejectionWritesNoNote() {
+      HelpRequest request = grandmaAnsweredTwiceAfterARejection();
+
+      assertThatThrownBy(() -> request.reject(HELP_ID, "still splits", at("2026-11-06T21:00")))
+          .isInstanceOf(HelpAlreadyRejected.class);
+      assertThat(request.notes())
+          .containsExactly(
+              new Note(
+                  NoteKind.REJECTION,
+                  "warm water didn't help",
+                  at("2026-11-06T20:00").instant(),
+                  Optional.of(HELP_ID)));
+    }
+
+    @DisplayName(
+        "D8 reconstituting an OPEN request with notes [REJECTION 'warm water didn't help' (HELP_ID) Fri 20:00] restores the notes and records no event -- B3-S05 US-CA-03 INV-07 reconstitution")
+    @Test
+    void reconstitutionRestoresTheNotes() {
+      Note warmWater =
+          new Note(
+              NoteKind.REJECTION,
+              "warm water didn't help",
+              at("2026-11-06T20:00").instant(),
+              Optional.of(HELP_ID));
+
+      HelpRequest request =
+          HelpRequest.reconstitute(
+              HELP_REQUEST_ID,
+              LENA,
+              "How do I keep the sauce from splitting?",
+              "Step 4 of my Hollandaise keeps splitting",
+              HelpType.PREPARATION_STEP_EXPLANATION,
+              HOLLANDAISE,
+              STEP_4,
+              List.of(
+                  new AskedProvider(
+                      HelpProviderType.GRANDMA_AVATAR, at("2026-11-07T08:00").instant())),
+              HelpRequestStatus.OPEN,
+              List.of(),
+              List.of(warmWater),
+              2L);
+
+      assertThat(request.notes()).containsExactly(warmWater);
+      assertThat(request.pullEvents()).isEmpty();
+    }
+
+    @DisplayName(
+        "D9 a rejection note names the rejected Help (HELP_ID); a cancellation note names none -- B3-S05,B3-S03 US-CA-03 INV-06 op getHelpOfHelpRequest rejectionNote")
+    @Test
+    void rejectionNoteNamesTheRejectedHelp() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      grandmaExplainsStep4(request);
+
+      request.reject(HELP_ID, "warm water didn't help", at("2026-11-06T20:00"));
+      request.cancel(Optional.of("an ice cube saved it"), at("2026-11-06T21:00"));
+
+      assertThat(request.notes())
+          .extracting(Note::kind, Note::help)
+          .containsExactly(
+              tuple(NoteKind.REJECTION, Optional.of(HELP_ID)),
+              tuple(NoteKind.CANCELLATION, Optional.empty()));
+    }
+
+    @DisplayName(
+        "D10 a REJECTION note without a Help -> IllegalArgumentException 'a rejection note names the rejected Help' -- B3-S05 US-CA-03 INV-06 note shape")
+    @Test
+    void rejectionNoteWithoutAHelpIsRefused() {
+      assertThatThrownBy(
+              () ->
+                  new Note(
+                      NoteKind.REJECTION,
+                      "warm water didn't help",
+                      at("2026-11-06T20:00").instant(),
+                      Optional.empty()))
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessage("a rejection note names the rejected Help");
+    }
+
+    @DisplayName(
+        "D11 a CANCELLATION note naming a Help -> IllegalArgumentException 'a cancellation note names no Help' -- B3-S03 US-CA-03 INV-08 note shape")
+    @Test
+    void cancellationNoteWithAHelpIsRefused() {
+      assertThatThrownBy(
+              () ->
+                  new Note(
+                      NoteKind.CANCELLATION,
+                      "an ice cube saved it",
+                      at("2026-11-06T21:00").instant(),
+                      Optional.of(HELP_ID)))
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessage("a cancellation note names no Help");
+    }
   }
 
   @Nested
@@ -644,6 +1481,7 @@ class HelpRequestTest {
               List.of(grandmaAnswered),
               HelpRequestStatus.ANSWERED,
               List.of(grandmasHelp),
+              List.of(),
               3L);
 
       assertThat(request.id()).isEqualTo(HELP_REQUEST_ID);
@@ -687,6 +1525,57 @@ class HelpRequestTest {
       HelpRequest request = storedRequestIn(HelpRequestStatus.OPEN, HelpProviderType.CHEF);
 
       assertThat(request.askedProviderTypes()).containsExactly(HelpProviderType.CHEF);
+      assertThat(request.pullEvents()).isEmpty();
+    }
+
+    @DisplayName(
+        "a request is reconstituted with a rejected Help, an accepted Help and a TIMED_OUT side -> the marks and side states are kept, no guards, no events -- B3-S04,B3-S05,B3-S06 US-CA-03 reconstitution")
+    @Test
+    void reconstitutionKeepsMarksAndSides() {
+      Instant saturday0600 = Instant.parse("2026-11-07T05:00:00Z");
+      AskedProvider communityTimedOut =
+          new AskedProvider(HelpProviderType.COMMUNITY, saturday0600, ProviderState.TIMED_OUT);
+      AskedProvider grandmaAnswered =
+          new AskedProvider(HelpProviderType.GRANDMA_AVATAR, saturday0600, ProviderState.ANSWERED);
+      Help rejectedHelp =
+          Help.reconstitute(
+              HELP_ID,
+              HelpProvider.grandmaAvatar(),
+              "Butter in a thin stream",
+              BUTTER_IN_A_THIN_STREAM,
+              false,
+              true);
+      Help acceptedHelp =
+          Help.reconstitute(
+              OTHER_HELP_ID,
+              HelpProvider.grandmaAvatar(),
+              "Warm the butter first",
+              BUTTER_IN_A_THIN_STREAM,
+              true,
+              false);
+
+      HelpRequest request =
+          HelpRequest.reconstitute(
+              HELP_REQUEST_ID,
+              LENA,
+              "How do I keep the sauce from splitting?",
+              "Step 4 of my Hollandaise keeps splitting",
+              HelpType.PREPARATION_STEP_EXPLANATION,
+              HOLLANDAISE,
+              STEP_4,
+              List.of(communityTimedOut, grandmaAnswered),
+              HelpRequestStatus.CLOSED,
+              List.of(rejectedHelp, acceptedHelp),
+              List.of(),
+              5L);
+
+      assertThat(request.helps())
+          .extracting(Help::id, Help::isAccepted, Help::isRejected)
+          .containsExactly(tuple(HELP_ID, false, true), tuple(OTHER_HELP_ID, true, false));
+      assertThat(request.askedProviders())
+          .extracting(AskedProvider::state)
+          .containsExactly(ProviderState.TIMED_OUT, ProviderState.ANSWERED);
+      assertThat(request.status()).isEqualTo(HelpRequestStatus.CLOSED);
       assertThat(request.pullEvents()).isEmpty();
     }
   }

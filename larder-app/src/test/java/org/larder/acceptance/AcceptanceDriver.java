@@ -1,5 +1,7 @@
 package org.larder.acceptance;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
@@ -11,6 +13,7 @@ import org.larder.cookingassistance.fixtures.TestTokens;
 import org.springframework.amqp.core.AmqpAdmin;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Message;
+import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -27,6 +30,12 @@ import org.springframework.web.client.RestClient;
 public class AcceptanceDriver {
 
   static final String CREATED = "cooking-assistance.help-request.created";
+  static final String PROVIDED = "cooking-assistance.help.provided";
+  static final String ACCEPTED = "cooking-assistance.help.accepted";
+  static final String REJECTED = "cooking-assistance.help.rejected";
+  static final String CANCELLED = "cooking-assistance.help-request.cancelled";
+  static final String TIMED_OUT = "cooking-assistance.help-request.timed-out";
+  static final String DEAD_LETTERS = "cooking-assistance.dlq";
 
   private final AmqpAdmin admin;
   private final RabbitTemplate rabbit;
@@ -85,17 +94,13 @@ public class AcceptanceDriver {
   }
 
   JsonNode json(ResponseEntity<String> response) {
-    return read(response.getBody().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    return read(response.getBody().getBytes(UTF_8));
   }
-
-  static final String PROVIDED = "cooking-assistance.help.provided";
-  static final String DEAD_LETTERS = "cooking-assistance.dlq";
 
   /** The test plays the Grandma Avatar context: it owns the grandma-avatar exchange. */
   void grandmaPublishes(String payload, String messageId) {
     admin.declareExchange(new TopicExchange("grandma-avatar", true, false));
-    org.springframework.amqp.core.MessageProperties properties =
-        new org.springframework.amqp.core.MessageProperties();
+    MessageProperties properties = new MessageProperties();
     properties.setContentType("application/json");
     properties.setHeader("correlationId", "0b8f7a52-4bfa-4d4e-9d6d-1f4b9c8f9a10");
     properties.setHeader("messageId", messageId);
@@ -103,7 +108,7 @@ public class AcceptanceDriver {
     rabbit.send(
         "grandma-avatar",
         "grandma-avatar.help.provided",
-        new Message(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8), properties));
+        new Message(payload.getBytes(UTF_8), properties));
   }
 
   /** The dead-letter queue of the service (ADR0015), emptied for each scenario. */
@@ -117,14 +122,14 @@ public class AcceptanceDriver {
     if (message == null) {
       throw new AssertionError("nothing dead-lettered within 10 s");
     }
-    return new String(message.getBody(), java.nio.charset.StandardCharsets.UTF_8);
+    return new String(message.getBody(), UTF_8);
   }
 
   /** No message on the channel: the only fixed wait of the suite, since absence has no event. */
   void noMessage(String queue) {
     Message message = rabbit.receive(queue, 2_000);
     if (message != null) {
-      throw new AssertionError("unexpected message: " + new String(message.getBody()));
+      throw new AssertionError("unexpected message: " + new String(message.getBody(), UTF_8));
     }
   }
 

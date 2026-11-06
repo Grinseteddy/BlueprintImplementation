@@ -1,0 +1,95 @@
+# Contract run of the running service against the approved OpenAPI spec with Schemathesis
+# (step 12, increment 1): on pull requests and on demand, capped in time, never in `verify`.
+# Every operation of OpenAPI 1.0.9 is built; when the spec gains an unbuilt one, limit the run
+# with --include-operation-id. Exclusions are in tools/contract/schemathesis.toml, each commented.
+name: contract
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  schemathesis:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: contract
+          POSTGRES_DB: larder
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 20
+      rabbitmq:
+        image: rabbitmq:3.13-management-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: contract
+          RABBITMQ_DEFAULT_PASS: contract
+        ports:
+          - 5672:5672
+          - 15672:15672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q check_port_connectivity" --health-interval 5s
+          --health-retries 30
+    env:
+      LARDER_DB_URL: jdbc:postgresql://localhost:5432/larder
+      LARDER_DB_USERNAME: postgres
+      LARDER_DB_PASSWORD: contract
+      LARDER_BROKER_HOST: localhost
+      LARDER_BROKER_PORT: "5672"
+      LARDER_BROKER_USERNAME: contract
+      LARDER_BROKER_PASSWORD: contract
+      LARDER_BROKER_SSL: "false"
+      LARDER_JWKS_URI: http://localhost:8090/jwks.json
+      LARDER_PUBLIC_BASE_URL: http://localhost:8080
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Build the service
+        run: ./mvnw -B -DskipTests package
+      - name: The Grandma Avatar's exchange, owned by another context
+        run: >-
+          curl -sf -u "$LARDER_BROKER_USERNAME:$LARDER_BROKER_PASSWORD" -X PUT -H 'content-type: application/json'
+          -d '{"type":"topic","durable":true}'
+          http://localhost:15672/api/exchanges/%2F/grandma-avatar
+      - name: A throw-away test identity (never used by a deployed service, ADR0012)
+        run: |
+          pip install --quiet schemathesis==4.1.4 pyjwt==2.10.1 cryptography==45.0.7
+          python3 tools/contract/test_identity.py identity > token.txt
+          (cd identity && nohup python3 -m http.server 8090 > /dev/null 2>&1 &)
+      - name: Start the service
+        run: |
+          nohup java -jar larder-app/target/larder-app-0.1.0-SNAPSHOT.jar --server.port=8080 > service.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:8080/actuator/health/readiness > /dev/null && exit 0
+            sleep 2
+          done
+          cat service.log
+          exit 1
+      # filter_too_much is a generation check of Hypothesis, not a check of the API: the request
+      # schema's if/then rules make most generated bodies for createHelpRequest invalid.
+      - name: Schemathesis (fixed seed, rate limit below the API's own)
+        run: >-
+          st --config-file tools/contract/schemathesis.toml run
+          docs/cooking-assistance/api/cooking-assistance.openapi.yaml
+          -u http://localhost:8080 -H "Authorization: Bearer $(cat token.txt)"
+          --seed 20261106 -n 25 --rate-limit 20/s
+          --suppress-health-check=filter_too_much
+          --report junit --report-dir contract-report
+      - name: Contract report and service log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: contract-report
+          path: |
+            contract-report/
+            service.log

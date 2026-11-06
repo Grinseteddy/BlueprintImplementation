@@ -38,6 +38,7 @@ a required variable is missing or blank, and names it.
 | `LARDER_DB_URL` | yes | JDBC URL of the PostgreSQL 16 database (ADR0009) |
 | `LARDER_DB_USERNAME` | yes | the module's own database role |
 | `LARDER_DB_PASSWORD` | yes | its password |
+| `LARDER_DB_SOCKET_TIMEOUT` | no, default `10` | seconds after which a query to a database that stopped answering fails (503) instead of waiting without limit |
 | `LARDER_BROKER_HOST` | yes | RabbitMQ host (ADR0012) |
 | `LARDER_BROKER_USERNAME` | yes | the module's own broker user |
 | `LARDER_BROKER_PASSWORD` | yes | its password |
@@ -45,6 +46,8 @@ a required variable is missing or blank, and names it.
 | `LARDER_BROKER_SSL` | no, default `true` | TLS to the broker (amqps); `false` only for local brokers |
 | `LARDER_JWKS_URI` | yes | the identity provider's JWKS endpoint (issuer `https://larder.org`, audience `cooking-assistance`, ADR0012) |
 | `LARDER_PUBLIC_BASE_URL` | yes | the URL every link in a response starts with, e.g. `https://larder.org/cooking-assistance`; never taken from the request (SEC-10) |
+| `LARDER_TIMEOUT_POLLER_ENABLED` | no, default `true` | whether this instance runs the time-out poller (ADR0021) |
+| `LARDER_TIMEOUT_POLL_DELAY` | no, default `10s` | pause between two runs of the time-out poller, e.g. `250ms`, `10s` |
 
 Only the health and readiness probes are exposed (`/actuator/health/**`, ADR0020).
 
@@ -61,3 +64,34 @@ Only the health and readiness probes are exposed (`/actuator/health/**`, ADR0020
   `cooking-assistance.dlx`. A queue `cooking-assistance.grandma-help-provided` declared by an
   earlier build with the default dead-letter exchange refuses the new arguments
   (`PRECONDITION_FAILED`); delete it once, empty, before starting this version.
+
+## Replay a dead-lettered outbox row
+
+The relay dead-letters a row only when it can never be published: it breaks the AsyncAPI spec or
+its event type is unknown (ADR0015, addition L5). Each dead letter is logged at ERROR with row id,
+event type and reason. Broker errors are never dead-lettered; they are retried with a backoff of
+1 s doubling up to 60 s.
+
+1. Fix the defect and deploy the fix first. A row replayed against the old build is dead-lettered
+   again.
+2. Find the dead letters:
+
+   ```sql
+   select id, aggregate_id, event_type, last_error, dead_lettered_at
+     from cooking_assistance.outbox
+    where dead_lettered_at is not null
+    order by id;
+   ```
+
+3. Release the row; the next relay run publishes it:
+
+   ```sql
+   update cooking_assistance.outbox
+      set dead_lettered_at = null, attempts = 0, next_attempt_at = '-infinity'
+    where id = :id;
+   ```
+
+The message keeps its message id (derived from the row id), so consumers that already saw it drop
+it. The replayed message arrives after the help request's later messages, which went out while it
+was dead-lettered; until it is published, it holds back that help request's rows that are still
+pending. A replay tool is on the planned list.

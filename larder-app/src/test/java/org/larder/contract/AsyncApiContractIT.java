@@ -80,6 +80,7 @@ class AsyncApiContractIT {
   private void theRequestTheExampleAnswersIsStored() {
     jdbc.sql("delete from cooking_assistance.processed_message").update();
     jdbc.sql("delete from cooking_assistance.outbox").update();
+    jdbc.sql("delete from cooking_assistance.help_request_note").update();
     jdbc.sql("delete from cooking_assistance.help").update();
     jdbc.sql("delete from cooking_assistance.asked_provider").update();
     jdbc.sql("delete from cooking_assistance.help_request").update();
@@ -103,7 +104,7 @@ class AsyncApiContractIT {
 
   private int messageCount(String queue) {
     Properties properties = admin.getQueueProperties(queue);
-    return (Integer) properties.get(RabbitAdmin.QUEUE_MESSAGE_COUNT);
+    return ((Number) properties.get(RabbitAdmin.QUEUE_MESSAGE_COUNT)).intValue();
   }
 
   private static JsonNode asyncApi() throws Exception {

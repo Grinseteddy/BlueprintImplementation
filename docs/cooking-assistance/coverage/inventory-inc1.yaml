@@ -1,0 +1,24 @@
+# Intent inventory of increment 1 (Board B3, US-CA-03, slices B3-S01 to B3-S06).
+# Every active item needs at least one passing, active test tracing it; planned items name their increment.
+# QS-04 and QS-05 are verified by the quality job (.github/workflows/quality.yml, BrokerOutageIT and
+# DatabaseOutageIT), not in `verify`, so they are not listed here.
+user_stories:
+  US-CA-03:
+    examples: [R1.E1, R1.E2, R1.E3, R1.E4, R2.E1, R2.E2, R2.E3, R3.E1, R4.E1, R4.E2, R4.E3, R4.E4,
+      R5.E1, R5.E2, R6.E1, R7.E1, R7.E2, R8.E1, R8.E2, R8.E3, R8.E4, S3.E1, S3.E2, S3.E3]
+rules: [INV-01, INV-02, INV-03, INV-04, INV-05, INV-06, INV-07, INV-08, INV-09, INV-36, INV-37, INV-38, INV-39]
+http_operations: [createHelpRequest, provideHelp, getHelpRequestById, listHelpRequests, cancelHelpRequest,
+  listHelpsOfHelpRequest, getHelpOfHelpRequest, acceptHelp, rejectHelp, listHelps]
+send_operations: [publishHelpRequestCreated, publishHelpProvided, publishHelpAccepted, publishHelpRejected,
+  publishHelpRequestCancelled, publishHelpRequestTimedOut]
+receive_operations: [consumeGrandmaHelpProvided]
+domain_events:
+  # domain event: the tokens that trace it (its AsyncAPI message is named differently or the same)
+  HelpRequested: [HelpRequested, HelpRequestCreated, publishHelpRequestCreated]
+  HelpProvided: [HelpProvided, publishHelpProvided]
+  HelpAccepted: [HelpAccepted, publishHelpAccepted]
+  HelpRejected: [HelpRejected, publishHelpRejected]
+  HelpRequestCancelled: [HelpRequestCancelled, publishHelpRequestCancelled]
+  HelpRequestTimedOut: [HelpRequestTimedOut, publishHelpRequestTimedOut]
+quality_scenarios: [QS-02, QS-07, QS-09, QS-10, QS-14]
+planned_quality_scenarios: {QS-01: 2, QS-03: 2, QS-08: 2, QS-11: 2, QS-12: 2, QS-13: 2, QS-15: 2, QS-16: 2}

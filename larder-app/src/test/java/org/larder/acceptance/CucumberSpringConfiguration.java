@@ -11,5 +11,5 @@ import org.springframework.context.annotation.Import;
 @SpringBootTest(
     classes = LarderApplication.class,
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import({AcceptanceInfrastructure.class, TestSigningKeys.class})
+@Import({AcceptanceInfrastructure.class, AcceptanceTime.class, TestSigningKeys.class})
 public class CucumberSpringConfiguration {}

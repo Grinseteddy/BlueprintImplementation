@@ -19,46 +19,14 @@
   <properties>
     <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <spring-boot.version>3.5.16</spring-boot.version>
-    <jqwik.version>1.9.2</jqwik.version>
-    <cucumber.version>7.23.0</cucumber.version>
-    <archunit.version>1.4.1</archunit.version>
-    <!-- CVE fixes ahead of the Boot BOM (Dependency-Check, increment 0); drop with the Boot 4 migration -->
-    <tomcat.version>10.1.61</tomcat.version>
-    <postgresql.version>42.7.14</postgresql.version>
-    <log4j2.version>2.25.5</log4j2.version>
+    <spring-boot.version>4.1.2</spring-boot.version>
+    <jqwik.version>1.10.2</jqwik.version>
+    <cucumber.version>8.0.4</cucumber.version>
+    <archunit.version>1.5.1</archunit.version>
   </properties>
 
   <dependencyManagement>
     <dependencies>
-      <!-- declared before the Boot BOM, so these versions win -->
-      <dependency>
-        <groupId>org.apache.tomcat.embed</groupId>
-        <artifactId>tomcat-embed-core</artifactId>
-        <version>${tomcat.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.tomcat.embed</groupId>
-        <artifactId>tomcat-embed-el</artifactId>
-        <version>${tomcat.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.tomcat.embed</groupId>
-        <artifactId>tomcat-embed-websocket</artifactId>
-        <version>${tomcat.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.postgresql</groupId>
-        <artifactId>postgresql</artifactId>
-        <version>${postgresql.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.logging.log4j</groupId>
-        <artifactId>log4j-bom</artifactId>
-        <version>${log4j2.version}</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
       <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-dependencies</artifactId>
@@ -213,8 +181,6 @@
             <configuration>
               <failBuildOnCVSS>7</failBuildOnCVSS>
               <nvdApiKeyEnvironmentVariable>NVD_API_KEY</nvdApiKeyEnvironmentVariable>
-              <!-- only CVEs that cannot reach the service, each with its reason and expiry -->
-              <suppressionFile>${maven.multiModuleProjectDirectory}/tools/security/dependency-check-suppressions.xml</suppressionFile>
               <formats>
                 <format>HTML</format>
                 <format>JSON</format>

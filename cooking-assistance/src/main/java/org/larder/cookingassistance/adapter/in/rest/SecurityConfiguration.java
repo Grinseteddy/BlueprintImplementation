@@ -27,7 +27,6 @@ import org.springframework.security.oauth2.server.resource.web.access.BearerToke
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
-import org.springframework.security.web.authentication.AuthenticationFilter;
 
 /** JWT resource server (ADR0012): a bearer-only, stateless API; refusals are Problem Details. */
 @Configuration
@@ -38,10 +37,7 @@ class SecurityConfiguration {
 
   @Bean
   SecurityFilterChain api(HttpSecurity http, ObjectMapper json) throws Exception {
-    AuthenticationEntryPoint unauthenticated = unauthenticated(json);
     return http.csrf(AbstractHttpConfigurer::disable)
-        // bearer only (ADR0012)
-        .addFilterBefore(new DPoPSchemeRefusal(unauthenticated), AuthenticationFilter.class)
         .sessionManagement(
             sessions -> sessions.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         // ADR0013: scopes per operation as the OpenAPI spec declares them
@@ -61,7 +57,7 @@ class SecurityConfiguration {
             resourceServer ->
                 resourceServer
                     .jwt(jwt -> {})
-                    .authenticationEntryPoint(unauthenticated)
+                    .authenticationEntryPoint(unauthenticated(json))
                     .accessDeniedHandler(insufficientScope(json)))
         .build();
   }

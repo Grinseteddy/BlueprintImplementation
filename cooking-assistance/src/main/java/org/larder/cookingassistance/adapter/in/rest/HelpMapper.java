@@ -2,17 +2,28 @@ package org.larder.cookingassistance.adapter.in.rest;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
 import org.larder.cookingassistance.adapter.in.rest.generated.model.Answer;
+import org.larder.cookingassistance.adapter.in.rest.generated.model.Help;
 import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpCreate;
 import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpLink;
+import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpPage;
+import org.larder.cookingassistance.adapter.in.rest.generated.model.Rejection;
+import org.larder.cookingassistance.application.AcceptHelp;
 import org.larder.cookingassistance.application.Actor;
+import org.larder.cookingassistance.application.HelpFilter;
+import org.larder.cookingassistance.application.HelpView;
+import org.larder.cookingassistance.application.Page;
 import org.larder.cookingassistance.application.ProvideHelp;
+import org.larder.cookingassistance.application.RejectHelp;
+import org.larder.cookingassistance.domain.helprequest.CookId;
 import org.larder.cookingassistance.domain.helprequest.HelpId;
-import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HowToStepId;
 import org.larder.cookingassistance.domain.helprequest.PreparationStepExplanation;
 import org.larder.cookingassistance.domain.helprequest.RecipeId;
+import org.springframework.lang.Nullable;
 
 /** Maps the Helps DTOs of the OpenAPI contract to commands and results to responses. */
 final class HelpMapper {
@@ -22,7 +33,7 @@ final class HelpMapper {
   static ProvideHelp.Command toCommand(Actor actor, HelpRequestId helpRequestId, HelpCreate body) {
     return new ProvideHelp.Command(
         actor,
-        HelpProviderType.valueOf(body.getHelpProviderType().name()),
+        HelpVocabulary.toDomain(body.getHelpProviderType()),
         helpRequestId,
         body.getAnswerTitle(),
         toAnswer(body.getAnswer()));
@@ -43,6 +54,19 @@ final class HelpMapper {
     };
   }
 
+  static AcceptHelp.Command toAcceptance(Actor actor, HelpRequestId helpRequestId, HelpId helpId) {
+    return new AcceptHelp.Command(actor, helpRequestId, helpId);
+  }
+
+  static RejectHelp.Command toRejection(
+      Actor actor, HelpRequestId helpRequestId, HelpId helpId, Rejection body) {
+    // F3: nextChef belongs to menu requests (increment 4)
+    if (body.getNextChef() != null) {
+      throw new NotImplemented("rejectHelp nextChef");
+    }
+    return new RejectHelp.Command(actor, helpRequestId, helpId, body.getNote());
+  }
+
   static HelpLink toLink(String publicBaseUrl, HelpRequestId helpRequestId, HelpId helpId) {
     return new HelpLink(
         Links.absolute(
@@ -50,5 +74,43 @@ final class HelpMapper {
             "/help-requests/{helpRequestId}/helps/{helpId}",
             helpRequestId.value(),
             helpId.value()));
+  }
+
+  /** An absent query parameter does not narrow the list. */
+  static HelpFilter toFilter(
+      @Nullable UUID helpProvider,
+      @Nullable org.larder.cookingassistance.adapter.in.rest.generated.model.HelpType type) {
+    return new HelpFilter(
+        Optional.ofNullable(helpProvider).map(CookId::new),
+        Optional.ofNullable(type).map(HelpVocabulary::toDomain));
+  }
+
+  static HelpPage toPage(Page<HelpView> page) {
+    return new HelpPage(page.items().stream().map(HelpMapper::toResponse).toList())
+        .nextCursor(Cursors.next(page, view -> view.id().value()));
+  }
+
+  static Help toResponse(HelpView view) {
+    return new Help(
+            view.id().value(),
+            view.helpRequest().value(),
+            view.helpRequester().value(),
+            view.answerTitle(),
+            HelpVocabulary.toContract(view.provider().type()),
+            toResponse(view.answer()),
+            view.accepted())
+        .helpProvider(view.provider().person().map(CookId::value).orElse(null))
+        .rejectionNote(view.rejectionNote().orElse(null));
+  }
+
+  private static Answer toResponse(PreparationStepExplanation answer) {
+    return new org.larder.cookingassistance.adapter.in.rest.generated.model
+            .PreparationStepExplanation(
+            org.larder.cookingassistance.adapter.in.rest.generated.model.PreparationStepExplanation
+                .AnswerTypeEnum.PREPARATION_STEP_EXPLANATION,
+            answer.recipe().value(),
+            answer.howToStep().value(),
+            answer.description())
+        .images(OptionalArrays.absentWhenEmpty(answer.images()));
   }
 }

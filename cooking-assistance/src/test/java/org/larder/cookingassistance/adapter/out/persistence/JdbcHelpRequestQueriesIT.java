@@ -8,7 +8,9 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -39,6 +41,7 @@ class JdbcHelpRequestQueriesIT {
   @BeforeEach
   void emptyTables() {
     jdbc.sql("delete from outbox").update();
+    jdbc.sql("delete from help_request_note").update();
     jdbc.sql("delete from help").update();
     jdbc.sql("delete from asked_provider").update();
     jdbc.sql("delete from help_request").update();
@@ -103,12 +106,72 @@ class JdbcHelpRequestQueriesIT {
         });
   }
 
+  /** The data source, running another writer once, right after the n-th statement executed. */
+  private DataSource afterStatement(int n, Runnable anotherWriter) {
+    AtomicInteger executed = new AtomicInteger();
+    return proxy(
+        DataSource.class,
+        (source, method, args) -> {
+          Object result = invoke(method, dataSource, args);
+          if (!(result instanceof Connection connection)) {
+            return result;
+          }
+          return proxy(
+              Connection.class,
+              (c, m, a) -> {
+                Object made = invoke(m, connection, a);
+                if (!(made instanceof PreparedStatement statement)) {
+                  return made;
+                }
+                return proxy(
+                    PreparedStatement.class,
+                    (st, sm, sa) -> {
+                      Object done = invoke(sm, statement, sa);
+                      if (sm.getName().startsWith("execute") && executed.incrementAndGet() == n) {
+                        anotherWriter.run();
+                      }
+                      return done;
+                    });
+              });
+        });
+  }
+
   private static Object invoke(Method method, Object target, Object[] args) throws Throwable {
     try {
       return method.invoke(target, args);
     } catch (InvocationTargetException e) {
       throw e.getCause();
     }
+  }
+
+  @DisplayName(
+      "S1 Lena's cancel with a note commits while her request is being read -> one snapshot: status OPEN with no notes and the same Helps, or CANCELLED with the cancellation note, never torn -- B3-S03 US-CA-03 INV-08 op getHelpRequestById ADR0016")
+  @Test
+  void notesAndHelpsComeFromTheSameSnapshot() {
+    helpRequests.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.COMMUNITY));
+    // the cancel commits between the notes read and the request read: a torn view would show
+    // CANCELLED without the note
+    DataSource cancelledAfterTheNotes =
+        afterStatement(
+            2,
+            () -> {
+              HelpRequest lenas = helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+              lenas.cancel(Optional.of("an ice cube saved it"), HelpRequests.FRIDAY_18_10);
+              helpRequests.save(lenas);
+            });
+    JdbcHelpRequestQueries queries =
+        new JdbcHelpRequestQueries(
+            JdbcClient.create(cancelledAfterTheNotes),
+            new DataSourceTransactionManager(cancelledAfterTheNotes));
+
+    HelpRequestView view = queries.byId(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+
+    assertThat(view.status()).isEqualTo(HelpRequestStatus.OPEN);
+    assertThat(view.notes()).isEmpty();
+    assertThat(view.acceptedHelp()).isEmpty();
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().status())
+        .as("the cancel did commit meanwhile")
+        .isEqualTo(HelpRequestStatus.CANCELLED);
   }
 
   private static <T> T proxy(Class<T> type, InvocationHandler handler) {

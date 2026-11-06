@@ -1,5 +1,7 @@
 package org.larder.cookingassistance.domain.helprequest;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -10,6 +12,13 @@ import java.util.Optional;
 public interface HelpRequestRepository {
 
   Optional<HelpRequest> findById(HelpRequestId id);
+
+  /**
+   * ADR0021: up to {@code limit} Open help requests whose every asked provider's deadline has
+   * passed at {@code now} — candidates only, the aggregate decides (INV-09). Called inside a unit
+   * of work, which holds the claimed rows until it commits.
+   */
+  List<HelpRequest> findDueForTimeOut(Instant now, int limit);
 
   void save(HelpRequest helpRequest);
 }

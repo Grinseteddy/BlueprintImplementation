@@ -1,0 +1,3 @@
+# The throw-away password of the CI broker service container in contract.yml (step 12, increment 1),
+# written inline in c408cec; since then it comes from the job's environment.
+c408cec0575346a6c65cd8e579d686874654e226:.github/workflows/contract.yml:curl-auth-user:61

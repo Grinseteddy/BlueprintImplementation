@@ -9,7 +9,7 @@ info:
 
     Clients must be tolerant readers: ignore unknown fields and handle unknown enum values
     (status, type and error codes can grow in later minor versions).
-  version: 1.0.7
+  version: 1.0.9
   contact:
     name: Annegret Junker
     email: annegret.junker@larder.org
@@ -39,6 +39,7 @@ paths:
       description: |
         Retrieve help requests, optionally filtered by the requesting cook, by status and by type.
         Help providers use the status filter to find open requests they can answer.
+        Items come oldest first, in the order they were created; a later page never repeats an item.
       parameters:
         - $ref: '#/components/parameters/RequesterParameter'
         - $ref: '#/components/parameters/StatusParameter'
@@ -56,6 +57,8 @@ paths:
         '403':
           $ref: '#/components/responses/ForbiddenResponse'
         '500':
+          $ref: '#/components/responses/UnexpectedErrorResponse'
+        '503':
           $ref: '#/components/responses/ServiceNotAvailableResponse'
         default:
           $ref: '#/components/responses/UnexpectedErrorResponse'
@@ -96,7 +99,11 @@ paths:
           $ref: '#/components/responses/ForbiddenResponse'
         '422':
           $ref: '#/components/responses/RuleViolationResponse'
+        '501':
+          $ref: '#/components/responses/NotImplementedResponse'
         '500':
+          $ref: '#/components/responses/UnexpectedErrorResponse'
+        '503':
           $ref: '#/components/responses/ServiceNotAvailableResponse'
         default:
           $ref: '#/components/responses/UnexpectedErrorResponse'
@@ -125,6 +132,8 @@ paths:
         '404':
           $ref: '#/components/responses/NotFoundResponse'
         '500':
+          $ref: '#/components/responses/UnexpectedErrorResponse'
+        '503':
           $ref: '#/components/responses/ServiceNotAvailableResponse'
         default:
           $ref: '#/components/responses/UnexpectedErrorResponse'
@@ -161,6 +170,8 @@ paths:
         '409':
           $ref: '#/components/responses/ConflictResponse'
         '500':
+          $ref: '#/components/responses/UnexpectedErrorResponse'
+        '503':
           $ref: '#/components/responses/ServiceNotAvailableResponse'
         default:
           $ref: '#/components/responses/UnexpectedErrorResponse'
@@ -175,6 +186,7 @@ paths:
         Retrieve the helps given to one help request.
         If the help provider is a chef, only the original requester can see the help;
         such helps are left out of the list for every other caller.
+        Items come oldest first, in the order they were created; a later page never repeats an item.
       parameters:
         - $ref: '#/components/parameters/HelpRequestIdParameter'
         - $ref: '#/components/parameters/LimitParameter'
@@ -192,6 +204,8 @@ paths:
         '404':
           $ref: '#/components/responses/NotFoundResponse'
         '500':
+          $ref: '#/components/responses/UnexpectedErrorResponse'
+        '503':
           $ref: '#/components/responses/ServiceNotAvailableResponse'
         default:
           $ref: '#/components/responses/UnexpectedErrorResponse'
@@ -235,7 +249,11 @@ paths:
           $ref: '#/components/responses/ConflictResponse'
         '422':
           $ref: '#/components/responses/RuleViolationResponse'
+        '501':
+          $ref: '#/components/responses/NotImplementedResponse'
         '500':
+          $ref: '#/components/responses/UnexpectedErrorResponse'
+        '503':
           $ref: '#/components/responses/ServiceNotAvailableResponse'
         default:
           $ref: '#/components/responses/UnexpectedErrorResponse'
@@ -265,6 +283,8 @@ paths:
         '404':
           $ref: '#/components/responses/NotFoundResponse'
         '500':
+          $ref: '#/components/responses/UnexpectedErrorResponse'
+        '503':
           $ref: '#/components/responses/ServiceNotAvailableResponse'
         default:
           $ref: '#/components/responses/UnexpectedErrorResponse'
@@ -300,6 +320,8 @@ paths:
         '409':
           $ref: '#/components/responses/ConflictResponse'
         '500':
+          $ref: '#/components/responses/UnexpectedErrorResponse'
+        '503':
           $ref: '#/components/responses/ServiceNotAvailableResponse'
         default:
           $ref: '#/components/responses/UnexpectedErrorResponse'
@@ -341,7 +363,11 @@ paths:
           $ref: '#/components/responses/ConflictResponse'
         '422':
           $ref: '#/components/responses/RuleViolationResponse'
+        '501':
+          $ref: '#/components/responses/NotImplementedResponse'
         '500':
+          $ref: '#/components/responses/UnexpectedErrorResponse'
+        '503':
           $ref: '#/components/responses/ServiceNotAvailableResponse'
         default:
           $ref: '#/components/responses/UnexpectedErrorResponse'
@@ -357,6 +383,7 @@ paths:
         (e.g. a provider looking up their own answers).
         If the help provider is a chef, only the original requester can see the help;
         such helps are left out of the list for every other caller.
+        Items come oldest first, in the order they were created; a later page never repeats an item.
       parameters:
         - $ref: '#/components/parameters/HelpProviderParameter'
         - $ref: '#/components/parameters/AnswerTypeParameter'
@@ -373,6 +400,8 @@ paths:
         '403':
           $ref: '#/components/responses/ForbiddenResponse'
         '500':
+          $ref: '#/components/responses/UnexpectedErrorResponse'
+        '503':
           $ref: '#/components/responses/ServiceNotAvailableResponse'
         default:
           $ref: '#/components/responses/UnexpectedErrorResponse'
@@ -456,7 +485,7 @@ components:
       name: cursor
       in: query
       required: false
-      description: Opaque cursor from the nextCursor of the previous page; omitted for the first page.
+      description: Opaque cursor from the nextCursor of the previous page; omitted for the first page. A cursor this API did not issue answers 400.
       schema:
         type: string
         maxLength: 500
@@ -468,8 +497,8 @@ components:
       description: Version of the API the client was built against.
       schema:
         type: string
-        default: "1.0.7"
-        enum: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6", "1.0.7"]
+        default: "1.0.9"
+        enum: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6", "1.0.7", "1.0.8", "1.0.9"]
 
   schemas:
     HelpType:
@@ -1374,9 +1403,9 @@ components:
           description: Human-readable explanation of this occurrence.
           type: string
         instance:
-          description: URI of the resource this occurrence refers to.
+          description: URI reference of the resource this occurrence refers to; may be relative (RFC 9457).
           type: string
-          format: uri
+          format: uri-reference
         code:
           description: |
             Machine-readable domain error code, e.g. CHEF_NOT_ALLOWED, MISSING_FIELD, FIELD_NOT_ALLOWED, TOO_MANY_PICTURES,
@@ -1384,7 +1413,8 @@ components:
             NOT_PREMIUM, OCCASION_TOO_CLOSE, CHEF_UNAVAILABLE, OWN_REQUEST, PROVIDER_NOT_ASKED, NOT_REQUESTER,
             INVALID_STATE, ANSWER_DOES_NOT_MATCH_REQUEST, SUBSTITUTE_REJECTED_BEFORE, VALIDATION_FAILED,
             CONCURRENT_UPDATE, NOT_AUTHORIZED, INSUFFICIENT_SCOPE, UNAUTHENTICATED, NOT_FOUND, METHOD_NOT_ALLOWED,
-            UNSUPPORTED_MEDIA_TYPE, NOT_ACCEPTABLE, PAYLOAD_TOO_LARGE, INTERNAL_ERROR, NOT_IMPLEMENTED.
+            UNSUPPORTED_MEDIA_TYPE, NOT_ACCEPTABLE, PAYLOAD_TOO_LARGE, INTERNAL_ERROR, NOT_IMPLEMENTED,
+            SERVICE_UNAVAILABLE.
             The list may grow.
           type: string
           examples:
@@ -1483,6 +1513,13 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
 
+    NotImplementedResponse:
+      description: A variant of this operation a later increment builds (another request type, answer kind or a next chef)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
     ServiceNotAvailableResponse:
       description: Service unavailable
       content:
@@ -1525,6 +1562,11 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Cancellation'
+          examples:
+            withNote:
+              summary: Lena cancels; an ice cube saved her sauce
+              value:
+                note: an ice cube saved it
 
     RejectionRequest:
       description: Rejection with a note
@@ -1533,6 +1575,11 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Rejection'
+          examples:
+            warmWater:
+              summary: Lena rejects Grandma's Help; warm water didn't help
+              value:
+                note: warm water didn't help
 
     HelpCreateRequest:
       description: Help creation request

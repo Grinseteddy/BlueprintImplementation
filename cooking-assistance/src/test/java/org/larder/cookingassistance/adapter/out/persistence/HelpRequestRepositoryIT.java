@@ -2,30 +2,41 @@ package org.larder.cookingassistance.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.larder.cookingassistance.domain.helprequest.AskedProvider;
 import org.larder.cookingassistance.domain.helprequest.ConcurrencyConflict;
+import org.larder.cookingassistance.domain.helprequest.Help;
+import org.larder.cookingassistance.domain.helprequest.HelpProvider;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequest;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestRepository;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestStatus;
 import org.larder.cookingassistance.domain.helprequest.HelpType;
+import org.larder.cookingassistance.domain.helprequest.Note;
+import org.larder.cookingassistance.domain.helprequest.NoteKind;
 import org.larder.cookingassistance.domain.helprequest.ProviderState;
 import org.larder.cookingassistance.fixtures.HelpRequests;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Help Request repository against PostgreSQL 16 (Testcontainers) — increment 0, walking skeleton
@@ -39,10 +50,12 @@ class HelpRequestRepositoryIT {
 
   @Autowired JdbcClient jdbc;
   @Autowired HelpRequestRepository repository;
+  @Autowired PlatformTransactionManager transactions;
 
   @BeforeEach
   void emptyTables() {
     jdbc.sql("delete from outbox").update();
+    jdbc.sql("delete from help_request_note").update();
     jdbc.sql("delete from help").update();
     jdbc.sql("delete from asked_provider").update();
     jdbc.sql("delete from help_request").update();
@@ -369,5 +382,426 @@ class HelpRequestRepositoryIT {
         .extracting(help -> help.provider().orElseThrow())
         .containsExactly(HelpRequests.JONAS, HelpRequests.MIA);
     assertThat(jdbc.sql("select count(*) from help").query(Integer.class).single()).isEqualTo(2);
+  }
+
+  @DisplayName(
+      "the V2 migration adds help.rejected (boolean, not null, default false) -- B3-S05 US-CA-03 INV-39 ADR0009")
+  @Test
+  void v2MigrationAddsTheRejectedMark() {
+    List<String> column =
+        jdbc.sql(
+                "select data_type || ' ' || is_nullable || ' ' || column_default"
+                    + " from information_schema.columns where table_schema = 'cooking_assistance'"
+                    + " and table_name = 'help' and column_name = 'rejected'")
+            .query(String.class)
+            .list();
+
+    assertThat(column).containsExactly("boolean NO false");
+  }
+
+  @DisplayName(
+      "Lena cancelled her open request -> found again CANCELLED with Grandma's side unchanged (ASKED, deadline Sat 06:00) -- B3-S03 US-CA-03 INV-08 state CANCELLED")
+  @Test
+  void cancelledRequestRoundTrips() {
+    repository.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR));
+    HelpRequest loaded = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    loaded.cancel(Optional.empty(), HelpRequests.FRIDAY_18_10);
+
+    repository.save(loaded);
+
+    HelpRequest found = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    assertThat(found.status()).isEqualTo(HelpRequestStatus.CANCELLED);
+    assertThat(found.askedProviders())
+        .containsExactly(
+            new AskedProvider(
+                HelpProviderType.GRANDMA_AVATAR,
+                Instant.parse("2026-11-07T05:00:00Z"),
+                ProviderState.ASKED));
+  }
+
+  @DisplayName(
+      "Lena accepted Grandma's Help -> found again CLOSED with the Help accepted and not rejected; one help row -- B3-S04 US-CA-03 INV-05 state CLOSED, changed child row")
+  @Test
+  void closedRequestWithAnAcceptedHelpRoundTrips() {
+    repository.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR));
+    HelpRequest answered = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    HelpRequests.grandmaExplainsStep4(answered);
+    repository.save(answered);
+    HelpRequest loaded = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    loaded.accept(HelpRequests.HELP_ID, HelpRequests.FRIDAY_18_10);
+
+    repository.save(loaded);
+
+    HelpRequest found = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    assertThat(found.status()).isEqualTo(HelpRequestStatus.CLOSED);
+    assertThat(found.helps())
+        .singleElement()
+        .satisfies(
+            help -> {
+              assertThat(help.isAccepted()).isTrue();
+              assertThat(help.isRejected()).isFalse();
+            });
+    assertThat(jdbc.sql("select count(*) from help").query(Integer.class).single()).isEqualTo(1);
+  }
+
+  @DisplayName(
+      "Grandma answered, Lena rejected (Fri 20:00), Grandma answered again, Lena accepted -> found again CLOSED with two Helps [first rejected, second accepted], Grandma's side ANSWERED with deadline Sat 08:00; two help rows -- B3-S04,B3-S05 US-CA-03 INV-06 INV-39 changed child rows")
+  @Test
+  void rejectedThenAcceptedHelpsRoundTripWithoutOrphans() {
+    repository.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR));
+    HelpRequest answered = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    HelpRequests.grandmaExplainsStep4(answered);
+    repository.save(answered);
+    HelpRequest rejected = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    rejected.reject(HelpRequests.HELP_ID, "warm water didn't help", utc("2026-11-06T19:00:00Z"));
+    repository.save(rejected);
+    HelpRequest answeredAgain = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    answeredAgain.provideHelp(
+        HelpRequests.OTHER_HELP_ID,
+        HelpProvider.grandmaAvatar(),
+        "Warm the butter first",
+        HelpRequests.BUTTER_WITH_THREE_PHOTOS,
+        utc("2026-11-06T20:00:00Z"));
+    repository.save(answeredAgain);
+    HelpRequest loaded = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    loaded.accept(HelpRequests.OTHER_HELP_ID, utc("2026-11-06T20:30:00Z"));
+
+    repository.save(loaded);
+
+    HelpRequest found = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    assertThat(found.status()).isEqualTo(HelpRequestStatus.CLOSED);
+    assertThat(found.helps())
+        .extracting(Help::id, Help::isRejected, Help::isAccepted)
+        .containsExactly(
+            tuple(HelpRequests.HELP_ID, true, false),
+            tuple(HelpRequests.OTHER_HELP_ID, false, true));
+    assertThat(found.askedProviders())
+        .containsExactly(
+            new AskedProvider(
+                HelpProviderType.GRANDMA_AVATAR,
+                Instant.parse("2026-11-07T07:00:00Z"),
+                ProviderState.ANSWERED));
+    assertThat(jdbc.sql("select count(*) from help").query(Integer.class).single()).isEqualTo(2);
+  }
+
+  private static Clock utc(String instant) {
+    return Clock.fixed(Instant.parse(instant), ZoneOffset.UTC);
+  }
+
+  @DisplayName(
+      "only Community asked, timed out at Sat 06:00:01 -> found again CANCELLED with Community's side TIMED_OUT -- B3-S06 US-CA-03 INV-09 R8.E1 state TIMED_OUT")
+  @Test
+  void timedOutRequestRoundTrips() {
+    repository.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.COMMUNITY));
+    HelpRequest loaded = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    loaded.timeOut(utc("2026-11-07T05:00:01Z"));
+
+    repository.save(loaded);
+
+    HelpRequest found = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    assertThat(found.status()).isEqualTo(HelpRequestStatus.CANCELLED);
+    assertThat(found.askedProviders())
+        .containsExactly(
+            new AskedProvider(
+                HelpProviderType.COMMUNITY,
+                Instant.parse("2026-11-07T05:00:00Z"),
+                ProviderState.TIMED_OUT));
+  }
+
+  @DisplayName(
+      "saving after Lena cancelled appends one outbox row HelpRequestCancelled with helpRequest, helpRequester Lena, note, helpRequestStatus CANCELLED, occurredAt 2026-11-06T17:10:00Z, delivery columns at their start values -- B3-S03 US-CA-03 ADR0015 AsyncAPI HelpRequestCancelled")
+  @Test
+  void savingAfterCancelAppendsHelpRequestCancelledToTheOutbox() throws Exception {
+    repository.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR));
+    HelpRequest loaded = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    loaded.cancel(Optional.of("an ice cube saved it"), HelpRequests.FRIDAY_18_10);
+
+    repository.save(loaded);
+
+    List<OutboxRow> rows = outboxRows();
+    assertThat(rows)
+        .extracting(OutboxRow::eventType)
+        .containsExactly("HelpRequestCreated", "HelpRequestCancelled");
+    OutboxRow row = rows.getLast();
+    assertThat(row.aggregateId()).isEqualTo(HelpRequests.HELP_REQUEST_ID.value());
+    assertThat(row.publishedAt()).isNull();
+    assertThat(row.attempts()).isZero();
+    assertThat(row.nextAttemptAt()).isEqualTo("-infinity");
+    JsonNode payload = new ObjectMapper().readTree(row.payload());
+    assertThat(payload.get("helpRequest").asText())
+        .isEqualTo(HelpRequests.HELP_REQUEST_ID.value().toString());
+    assertThat(payload.get("helpRequester").asText())
+        .isEqualTo(HelpRequests.LENA.value().toString());
+    assertThat(payload.get("note").asText()).isEqualTo("an ice cube saved it");
+    assertThat(payload.get("helpRequestStatus").asText()).isEqualTo("CANCELLED");
+    assertThat(payload.get("occurredAt").asText()).isEqualTo("2026-11-06T17:10:00Z");
+  }
+
+  @DisplayName(
+      "saving after Lena accepted Grandma's Help appends one outbox row HelpAccepted with helpId, helpProviderType GRANDMA_AVATAR, helpRequestStatus CLOSED -- B3-S04 US-CA-03 ADR0015 AsyncAPI HelpAccepted")
+  @Test
+  void savingAfterAcceptAppendsHelpAcceptedToTheOutbox() throws Exception {
+    repository.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR));
+    HelpRequest answered = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    HelpRequests.grandmaExplainsStep4(answered);
+    repository.save(answered);
+    HelpRequest loaded = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    loaded.accept(HelpRequests.HELP_ID, HelpRequests.FRIDAY_18_10);
+
+    repository.save(loaded);
+
+    List<OutboxRow> rows = outboxRows();
+    assertThat(rows)
+        .extracting(OutboxRow::eventType)
+        .containsExactly("HelpRequestCreated", "HelpProvided", "HelpAccepted");
+    JsonNode payload = new ObjectMapper().readTree(rows.getLast().payload());
+    assertThat(payload.get("helpId").asText()).isEqualTo(HelpRequests.HELP_ID.value().toString());
+    assertThat(payload.get("helpProviderType").asText()).isEqualTo("GRANDMA_AVATAR");
+    assertThat(payload.get("helpRequestStatus").asText()).isEqualTo("CLOSED");
+  }
+
+  @DisplayName(
+      "saving after Lena rejected Grandma's Help at Fri 20:00 appends one outbox row HelpRejected with helpId, note, askedProviders[GRANDMA_AVATAR, deadline 2026-11-07T07:00:00Z], helpRequestStatus OPEN -- B3-S05 US-CA-03 ADR0015 AsyncAPI HelpRejected")
+  @Test
+  void savingAfterRejectAppendsHelpRejectedToTheOutbox() throws Exception {
+    repository.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR));
+    HelpRequest answered = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    HelpRequests.grandmaExplainsStep4(answered);
+    repository.save(answered);
+    HelpRequest loaded = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    loaded.reject(HelpRequests.HELP_ID, "warm water didn't help", utc("2026-11-06T19:00:00Z"));
+
+    repository.save(loaded);
+
+    List<OutboxRow> rows = outboxRows();
+    assertThat(rows)
+        .extracting(OutboxRow::eventType)
+        .containsExactly("HelpRequestCreated", "HelpProvided", "HelpRejected");
+    JsonNode payload = new ObjectMapper().readTree(rows.getLast().payload());
+    assertThat(payload.get("helpId").asText()).isEqualTo(HelpRequests.HELP_ID.value().toString());
+    assertThat(payload.get("note").asText()).isEqualTo("warm water didn't help");
+    assertThat(payload.get("askedProviders").get(0).get("providerType").asText())
+        .isEqualTo("GRANDMA_AVATAR");
+    assertThat(payload.get("askedProviders").get(0).get("deadline").asText())
+        .isEqualTo("2026-11-07T07:00:00Z");
+    assertThat(payload.get("helpRequestStatus").asText()).isEqualTo("OPEN");
+  }
+
+  @DisplayName(
+      "saving after the request timed out appends one outbox row HelpRequestTimedOut with timedOutProviders [COMMUNITY], suggestedProviders [GRANDMA_AVATAR], helpRequestStatus CANCELLED, occurredAt 2026-11-07T05:00:01Z -- B3-S06 US-CA-03 ADR0015 AsyncAPI HelpRequestTimedOut")
+  @Test
+  void savingAfterTimeOutAppendsHelpRequestTimedOutToTheOutbox() throws Exception {
+    repository.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.COMMUNITY));
+    HelpRequest loaded = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    loaded.timeOut(utc("2026-11-07T05:00:01Z"));
+
+    repository.save(loaded);
+
+    List<OutboxRow> rows = outboxRows();
+    assertThat(rows)
+        .extracting(OutboxRow::eventType)
+        .containsExactly("HelpRequestCreated", "HelpRequestTimedOut");
+    JsonNode payload = new ObjectMapper().readTree(rows.getLast().payload());
+    assertThat(payload.get("timedOutProviders").toString()).isEqualTo("[\"COMMUNITY\"]");
+    assertThat(payload.get("suggestedProviders").toString()).isEqualTo("[\"GRANDMA_AVATAR\"]");
+    assertThat(payload.get("helpRequestStatus").asText()).isEqualTo("CANCELLED");
+    assertThat(payload.get("occurredAt").asText()).isEqualTo("2026-11-07T05:00:01Z");
+  }
+
+  @DisplayName(
+      "a due request claimed in an open transaction -> a second transaction's findDueForTimeOut skips it (FOR UPDATE SKIP LOCKED) and returns it once the first commits without a time-out -- B3-S06 US-CA-03 ADR0021 QS-09 (step 7 r1 from step 8)")
+  @Test
+  void claimedDueRequestsAreSkippedByASecondClaim() {
+    repository.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.COMMUNITY));
+    Instant saturday060001 = Instant.parse("2026-11-07T05:00:01Z");
+    TransactionTemplate first = new TransactionTemplate(transactions);
+
+    List<HelpRequestId> seenBySecondClaim =
+        first.execute(
+            claim -> {
+              assertThat(repository.findDueForTimeOut(saturday060001, 10)).hasSize(1);
+              return CompletableFuture.supplyAsync(
+                      () ->
+                          new TransactionTemplate(transactions)
+                              .execute(
+                                  second ->
+                                      repository.findDueForTimeOut(saturday060001, 10).stream()
+                                          .map(HelpRequest::id)
+                                          .toList()))
+                  .join();
+            });
+
+    assertThat(seenBySecondClaim).isEmpty();
+    assertThat(repository.findDueForTimeOut(saturday060001, 10))
+        .extracting(HelpRequest::id)
+        .containsExactly(HelpRequests.HELP_REQUEST_ID);
+  }
+
+  @DisplayName(
+      "P11 the V3 migration creates help_request_note (help_request_id references help_request, position, kind, text, written_at timestamptz, primary key (help_request_id, position)) -- B3-S03,B3-S05 US-CA-03 INV-07 ADR0016 L6 ADR0009")
+  @Test
+  void v3CreatesTheNoteTable() {
+    List<String> columns =
+        jdbc.sql(
+                "select column_name || ' ' || data_type || ' ' || is_nullable"
+                    + " from information_schema.columns where table_schema = 'cooking_assistance'"
+                    + " and table_name = 'help_request_note' order by ordinal_position")
+            .query(String.class)
+            .list();
+    List<String> constraints =
+        jdbc.sql(
+                "select constraint_type from information_schema.table_constraints"
+                    + " where table_schema = 'cooking_assistance'"
+                    + " and table_name = 'help_request_note' and constraint_type <> 'CHECK'")
+            .query(String.class)
+            .list();
+    List<String> primaryKey =
+        jdbc.sql(
+                "select k.column_name from information_schema.key_column_usage k"
+                    + " join information_schema.table_constraints c"
+                    + " on c.constraint_name = k.constraint_name"
+                    + " and c.table_schema = k.table_schema"
+                    + " where c.table_schema = 'cooking_assistance'"
+                    + " and c.table_name = 'help_request_note' and c.constraint_type = 'PRIMARY KEY'"
+                    + " order by k.ordinal_position")
+            .query(String.class)
+            .list();
+
+    assertThat(columns)
+        .startsWith(
+            "help_request_id uuid NO",
+            "position integer NO",
+            "kind text NO",
+            "text text NO",
+            "written_at timestamp with time zone NO");
+    List<String> foreignKeys =
+        jdbc.sql(
+                "select k.column_name || ' -> ' || u.table_name from information_schema.table_constraints c"
+                    + " join information_schema.key_column_usage k"
+                    + " on k.constraint_name = c.constraint_name and k.table_schema = c.table_schema"
+                    + " join information_schema.constraint_column_usage u"
+                    + " on u.constraint_name = c.constraint_name and u.table_schema = c.table_schema"
+                    + " where c.table_schema = 'cooking_assistance'"
+                    + " and c.table_name = 'help_request_note' and c.constraint_type = 'FOREIGN KEY'")
+            .query(String.class)
+            .list();
+    assertThat(constraints).contains("PRIMARY KEY", "FOREIGN KEY");
+    assertThat(foreignKeys).contains("help_request_id -> help_request");
+    assertThat(primaryKey).containsExactly("help_request_id", "position");
+  }
+
+  @DisplayName(
+      "P12 Lena rejected Grandma's Help (Fri 20:00 'warm water didn't help') and cancelled (Fri 21:00 'an ice cube saved it') -> found again with notes [REJECTION Fri 20:00, CANCELLATION Fri 21:00] in the order written; two help_request_note rows -- B3-S03,B3-S05 US-CA-03 INV-07 child rows")
+  @Test
+  void bothNotesRoundTripInOrder() {
+    Clock friday2000 = Clock.fixed(Instant.parse("2026-11-06T19:00:00Z"), ZoneOffset.UTC);
+    Clock friday2100 = Clock.fixed(Instant.parse("2026-11-06T20:00:00Z"), ZoneOffset.UTC);
+    HelpRequest request = HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR);
+    HelpRequests.grandmaExplainsStep4(request);
+    request.reject(HelpRequests.HELP_ID, "warm water didn't help", friday2000);
+    request.cancel(Optional.of("an ice cube saved it"), friday2100);
+
+    repository.save(request);
+
+    assertThat(repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().notes())
+        .containsExactly(
+            new Note(
+                NoteKind.REJECTION,
+                "warm water didn't help",
+                friday2000.instant(),
+                Optional.of(HelpRequests.HELP_ID)),
+            new Note(
+                NoteKind.CANCELLATION,
+                "an ice cube saved it",
+                friday2100.instant(),
+                Optional.empty()));
+    assertThat(jdbc.sql("select count(*) from help_request_note").query(Integer.class).single())
+        .isEqualTo(2);
+  }
+
+  @DisplayName(
+      "P13 a cancellation with a note whose save fails with ConcurrencyConflict leaves no help_request_note row -- B3-S03 US-CA-03 INV-08 ADR0010")
+  @Test
+  void failedSaveLeavesNoNote() {
+    repository.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.COMMUNITY));
+    HelpRequest loadedForJonas = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    HelpRequest loadedForLena = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    HelpRequests.communityMemberExplainsStep4(
+        loadedForJonas, HelpRequests.HELP_ID, HelpRequests.JONAS);
+    loadedForLena.cancel(Optional.of("an ice cube saved it"), HelpRequests.FRIDAY_18_10);
+    repository.save(loadedForJonas);
+
+    assertThatThrownBy(() -> repository.save(loadedForLena))
+        .isInstanceOf(ConcurrencyConflict.class);
+
+    assertThat(jdbc.sql("select count(*) from help_request_note").query(Integer.class).single())
+        .isZero();
+  }
+
+  @DisplayName(
+      "P14 the V4 migration adds help_request_note.help_id (uuid, nullable; its foreign key comes with V5, P15) -- B3-S05 US-CA-03 INV-06 ADR0009 (added: F5)")
+  @Test
+  void v4AddsTheRejectedHelpToTheNote() {
+    List<String> column =
+        jdbc.sql(
+                "select data_type || ' ' || is_nullable"
+                    + " from information_schema.columns where table_schema = 'cooking_assistance'"
+                    + " and table_name = 'help_request_note' and column_name = 'help_id'")
+            .query(String.class)
+            .list();
+
+    assertThat(column).containsExactly("uuid YES");
+  }
+
+  @DisplayName(
+      "P15 the V5 migration adds a foreign key help_request_note.help_id -> help(id); a note naming a Help that is not stored is refused by the database; a rejected request saved again (K7) still saves -- B3-S05 US-CA-03 INV-06 ADR0009")
+  @Test
+  void v5ReferencesTheRejectedHelp() {
+    List<String> foreignKeys =
+        jdbc.sql(
+                "select k.column_name || ' -> ' || u.table_name from information_schema.table_constraints c"
+                    + " join information_schema.key_column_usage k"
+                    + " on k.constraint_name = c.constraint_name and k.table_schema = c.table_schema"
+                    + " join information_schema.constraint_column_usage u"
+                    + " on u.constraint_name = c.constraint_name and u.table_schema = c.table_schema"
+                    + " where c.table_schema = 'cooking_assistance'"
+                    + " and c.table_name = 'help_request_note' and c.constraint_type = 'FOREIGN KEY'")
+            .query(String.class)
+            .list();
+    List<String> deferral =
+        jdbc.sql(
+                "select is_deferrable || ' ' || initially_deferred"
+                    + " from information_schema.table_constraints"
+                    + " where table_schema = 'cooking_assistance'"
+                    + " and constraint_name = 'fk_help_request_note_help'")
+            .query(String.class)
+            .list();
+    Clock friday2000 = Clock.fixed(Instant.parse("2026-11-06T19:00:00Z"), ZoneOffset.UTC);
+    Clock friday2100 = Clock.fixed(Instant.parse("2026-11-06T20:00:00Z"), ZoneOffset.UTC);
+    HelpRequest asked = HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR);
+    HelpRequests.grandmaExplainsStep4(asked);
+    repository.save(asked);
+    HelpRequest rejected = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    rejected.reject(HelpRequests.HELP_ID, "warm water didn't help", friday2000);
+    repository.save(rejected);
+    HelpRequest cancelled = repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    cancelled.cancel(Optional.of("an ice cube saved it"), friday2100);
+    repository.save(cancelled);
+
+    assertThat(foreignKeys).contains("help_id -> help");
+    assertThat(deferral).containsExactly("YES YES");
+    assertThat(repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().notes())
+        .extracting(Note::kind)
+        .containsExactly(NoteKind.REJECTION, NoteKind.CANCELLATION);
+    assertThatThrownBy(
+            () ->
+                jdbc.sql(
+                        "insert into help_request_note"
+                            + " (help_request_id, position, kind, text, written_at, help_id)"
+                            + " values (:request, 2, 'REJECTION', 'no such Help', now(), :help)")
+                    .param("request", HelpRequests.HELP_REQUEST_ID.value())
+                    .param("help", UUID.fromString("00000000-0000-7000-8000-0000000000ff"))
+                    .update())
+        .isInstanceOf(DataIntegrityViolationException.class);
   }
 }

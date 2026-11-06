@@ -9,8 +9,11 @@ import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpRequestL
 import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpRequestPage;
 import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpRequestStatus;
 import org.larder.cookingassistance.adapter.in.rest.generated.model.HelpType;
+import org.larder.cookingassistance.application.CancelHelpRequest;
 import org.larder.cookingassistance.application.HelpRequestNotFound;
 import org.larder.cookingassistance.application.HelpRequestQueries;
+import org.larder.cookingassistance.application.HelpRequestView;
+import org.larder.cookingassistance.application.Page;
 import org.larder.cookingassistance.application.RequestHelpWithPreparationStep;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.springframework.http.HttpStatus;
@@ -22,14 +25,17 @@ import org.springframework.web.bind.annotation.RestController;
 class HelpRequestsController implements HelpRequestsApi {
 
   private final RequestHelpWithPreparationStep requestHelpWithPreparationStep;
+  private final CancelHelpRequest cancelHelpRequest;
   private final HelpRequestQueries queries;
   private final String publicBaseUrl;
 
   HelpRequestsController(
       RequestHelpWithPreparationStep requestHelpWithPreparationStep,
+      CancelHelpRequest cancelHelpRequest,
       HelpRequestQueries queries,
       @PublicBaseUrl String publicBaseUrl) {
     this.requestHelpWithPreparationStep = requestHelpWithPreparationStep;
+    this.cancelHelpRequest = cancelHelpRequest;
     this.queries = queries;
     this.publicBaseUrl = publicBaseUrl;
   }
@@ -56,15 +62,20 @@ class HelpRequestsController implements HelpRequestsApi {
     HelpRequestId id = new HelpRequestId(helpRequestId);
     return ResponseEntity.ok(
         HelpRequestMapper.toResponse(
-            queries.byId(id).orElseThrow(() -> new HelpRequestNotFound(id))));
+            queries.byId(id).orElseThrow(() -> new HelpRequestNotFound(id)), publicBaseUrl));
   }
 
+  // op: cancelHelpRequest (cooking-assistance.openapi.yaml) · cmd: Cancel help request
   @Override
   public ResponseEntity<HelpRequestLink> cancelHelpRequest(
       UUID helpRequestId, String version, Cancellation cancellation) {
-    throw new NotImplemented("cancelHelpRequest");
+    HelpRequestId id = new HelpRequestId(helpRequestId);
+    cancelHelpRequest.execute(HelpRequestMapper.toCommand(CurrentActor.get(), id, cancellation));
+    return ResponseEntity.ok(HelpRequestMapper.toLink(publicBaseUrl, id));
   }
 
+  // op: listHelpRequests (cooking-assistance.openapi.yaml) · RM: help request (aggregate tables,
+  // ADR0016 L6)
   @Override
   public ResponseEntity<HelpRequestPage> listHelpRequests(
       String version,
@@ -73,6 +84,11 @@ class HelpRequestsController implements HelpRequestsApi {
       HelpType type,
       Integer limit,
       String cursor) {
-    throw new NotImplemented("listHelpRequests");
+    Page<HelpRequestView> page =
+        queries.list(
+            HelpRequestMapper.toFilter(requester, status, type),
+            limit,
+            Cursors.after(cursor).map(HelpRequestId::new));
+    return ResponseEntity.ok(HelpRequestMapper.toPage(page, publicBaseUrl));
   }
 }

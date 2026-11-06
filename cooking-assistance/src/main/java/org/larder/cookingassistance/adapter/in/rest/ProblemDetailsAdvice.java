@@ -1,5 +1,7 @@
 package org.larder.cookingassistance.adapter.in.rest;
 
+import jakarta.validation.ConstraintViolationException;
+import org.larder.cookingassistance.application.HelpNotFound;
 import org.larder.cookingassistance.application.HelpRequestNotFound;
 import org.larder.cookingassistance.application.NotAuthorized;
 import org.larder.cookingassistance.domain.helprequest.ConcurrencyConflict;
@@ -7,6 +9,7 @@ import org.larder.cookingassistance.domain.helprequest.DomainRejection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.TypeMismatchException;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -14,6 +17,8 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.lang.Nullable;
+import org.springframework.transaction.CannotCreateTransactionException;
+import org.springframework.transaction.TransactionSystemException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -102,6 +107,35 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
     return NamedProblem.UNSUPPORTED_MEDIA_TYPE.response(headers);
   }
 
+  /** Q-02: method validation of the generated, @Validated interfaces (limit, cursor size). */
+  @ExceptionHandler(ConstraintViolationException.class)
+  ResponseEntity<Object> handleConstraintViolation() {
+    return NamedProblem.VALIDATION_FAILED.response();
+  }
+
+  @ExceptionHandler(InvalidCursor.class)
+  ResponseEntity<Object> handleInvalidCursor() {
+    return NamedProblem.VALIDATION_FAILED.response();
+  }
+
+  /** QS-05: no database connection (Hikari timeout, refused) answers 503 without detail. */
+  @ExceptionHandler({
+    DataAccessResourceFailureException.class,
+    CannotCreateTransactionException.class
+  })
+  ResponseEntity<Object> handleDatabaseUnavailable() {
+    return NamedProblem.SERVICE_UNAVAILABLE.response();
+  }
+
+  /** A rollback that failed after a lost connection keeps the outage's answer (QS-05). */
+  @ExceptionHandler(TransactionSystemException.class)
+  ResponseEntity<Object> handleTransactionSystem(TransactionSystemException failure) {
+    if (failure.getApplicationException() instanceof DataAccessResourceFailureException) {
+      return handleDatabaseUnavailable();
+    }
+    return handleUnexpected(failure);
+  }
+
   /** ADR0019: bodies over 1 MB are refused before they are parsed. */
   @ExceptionHandler(RequestTooLarge.class)
   ResponseEntity<Object> handleRequestTooLarge() {
@@ -125,10 +159,13 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
     return ResponseEntity.status(status).body(problem);
   }
 
-  /** Spec P11: actor rules 403, the request's state 409, every other rule 422. */
+  /**
+   * Spec P11: actor rules 403, a missing part 404, the request's state 409, every other rule 422.
+   */
   private static HttpStatus statusOf(String code) {
     return switch (code) {
       case "OWN_REQUEST", "PROVIDER_NOT_ASKED" -> HttpStatus.FORBIDDEN;
+      case "NOT_FOUND" -> HttpStatus.NOT_FOUND;
       case "INVALID_STATE" -> HttpStatus.CONFLICT;
       default -> HttpStatus.UNPROCESSABLE_ENTITY;
     };
@@ -140,14 +177,15 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
     return NamedProblem.CONCURRENT_UPDATE.response();
   }
 
-  @ExceptionHandler(HelpRequestNotFound.class)
+  @ExceptionHandler({HelpRequestNotFound.class, HelpNotFound.class})
   ResponseEntity<Object> handleNotFound() {
     return NamedProblem.NOT_FOUND.response();
   }
 
+  /** ADR0013: the refusal names its own code (NOT_AUTHORIZED, NOT_REQUESTER). */
   @ExceptionHandler(NotAuthorized.class)
-  ResponseEntity<Object> handleNotAuthorized() {
-    return NamedProblem.NOT_AUTHORIZED.response();
+  ResponseEntity<Object> handleNotAuthorized(NotAuthorized refusal) {
+    return NamedProblem.valueOf(refusal.code()).response();
   }
 
   @ExceptionHandler(NotImplemented.class)

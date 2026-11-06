@@ -1,5 +1,20 @@
 # Cook Assistance API — changelog
 
+## OpenAPI 1.0.9 — 2026-11-05 (step 4 r12, from step 12 of increment 1)
+
+| Change | Why |
+|---|---|
+| `CancellationRequest` gains the example `withNote`, `RejectionRequest` the example `warmWater`; `version` header accepts 1.0.9 | the example-based contract check and Schemathesis need request examples for cancelHelpRequest and rejectHelp. Additive: no shape changes |
+| `Problem.instance` is a `uri-reference` (was `uri`) | Schemathesis: the service answers a relative `instance` as RFC 9457 allows; the spec required an absolute URI. Correction of the documented format, no change in what the service sends |
+| `createHelpRequest`, `provideHelp` and `rejectHelp` declare 501 `NotImplementedResponse` | Schemathesis: the variants later increments build (other request types and answer kinds, `nextChef`) answer 501, which was undeclared. Additive |
+| Every operation declares 503 `ServiceNotAvailableResponse`; its 500 now points to `UnexpectedErrorResponse` (it pointed to `ServiceNotAvailableResponse`); `SERVICE_UNAVAILABLE` named in `Problem.code` | QS-05 (step 12, DatabaseOutageIT): without the database the service answers 503; the spec had no 503 and labelled 500 "Service unavailable". Additive for 503; 500 keeps the Problem schema |
+
+## OpenAPI 1.0.8 — 2026-11-04 (step 4 r11, from step 11 of increment 1, later question L6)
+
+| Change | Why |
+|---|---|
+| `listHelpRequests`, `listHelpsOfHelpRequest` and `listHelps` state their order: oldest first, in creation order, no item repeated on a later page; `cursor` states that a cursor the API did not issue answers 400; `version` header accepts 1.0.8 | keyset paging needs a stated order (L6, decided by the user 2026-11-04). Clarification: no request or response shape changes |
+
 ## AsyncAPI 1.0.5 — 2026-11-02 (step 4 r10, from the skeleton review of increment 0)
 
 | Change | Why |

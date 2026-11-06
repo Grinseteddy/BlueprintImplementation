@@ -90,4 +90,74 @@ class HelpRequestPropertiesTest {
       assertThat(request.helps()).isEmpty();
     }
   }
+
+  @Label(
+      "for any request time and any rejection time after the answer, every asked provider's new deadline is exactly rejection time + 12 h, whatever the earlier deadline was -- B3-S05 US-CA-03 INV-06 property")
+  @Property(tries = 1000, seed = SEED)
+  void newDeadlineIsAlwaysRejectionTimePlusTwelveHours(
+      @ForAll @LongRange(min = 1_577_836_800_000L, max = 2_208_988_800_000L) long epochMillis,
+      @ForAll @LongRange(min = 0, max = 43_200_000L) long answeredAfterMillis,
+      @ForAll @LongRange(min = 0, max = 172_800_000L) long rejectedAfterAnswerMillis) {
+    Instant requestedAt = Instant.ofEpochMilli(epochMillis);
+    Instant answeredAt = requestedAt.plusMillis(answeredAfterMillis);
+    Instant rejectedAt = answeredAt.plusMillis(rejectedAfterAnswerMillis);
+    HelpRequest request =
+        lenaAsksAt(requestedAt, HelpProviderType.COMMUNITY, HelpProviderType.GRANDMA_AVATAR);
+    grandmaAnswersAt(request, answeredAt);
+
+    request.reject(HelpRequestTest.HELP_ID, "Still splits", fixedAt(rejectedAt));
+
+    assertThat(request.askedProviders())
+        .extracting(AskedProvider::deadline)
+        .containsOnly(rejectedAt.plus(Duration.ofHours(12)));
+  }
+
+  @Label(
+      "for any request time r and any instant t: an answer at t counts iff t <= r + 12 h, and timing out at t succeeds iff t > r + 12 h - never both, never neither -- B3-S02,B3-S06 US-CA-03 INV-09 property")
+  @Property(tries = 1000, seed = SEED)
+  void answerCountsExactlyUntilTheDeadline(
+      @ForAll @LongRange(min = 1_577_836_800_000L, max = 2_208_988_800_000L) long epochMillis,
+      @ForAll @LongRange(min = -43_200_000L, max = 43_200_000L) long fromDeadlineMillis) {
+    Instant requestedAt = Instant.ofEpochMilli(epochMillis);
+    Instant t = requestedAt.plus(Duration.ofHours(12)).plusMillis(fromDeadlineMillis);
+    HelpRequest toAnswer = lenaAsksAt(requestedAt, HelpProviderType.GRANDMA_AVATAR);
+    HelpRequest toTimeOut = lenaAsksAt(requestedAt, HelpProviderType.GRANDMA_AVATAR);
+
+    if (fromDeadlineMillis <= 0) {
+      grandmaAnswersAt(toAnswer, t);
+      assertThat(toAnswer.helps()).hasSize(1);
+      assertThatThrownBy(() -> toTimeOut.timeOut(fixedAt(t))).isInstanceOf(DeadlineNotPassed.class);
+      assertThat(toTimeOut.status()).isEqualTo(HelpRequestStatus.OPEN);
+    } else {
+      assertThatThrownBy(() -> grandmaAnswersAt(toAnswer, t)).isInstanceOf(AnswerTooLate.class);
+      assertThat(toAnswer.helps()).isEmpty();
+      toTimeOut.timeOut(fixedAt(t));
+      assertThat(toTimeOut.status()).isEqualTo(HelpRequestStatus.CANCELLED);
+    }
+  }
+
+  private static HelpRequest lenaAsksAt(Instant requestedAt, HelpProviderType... providers) {
+    return HelpRequest.requestHelpWithPreparationStep(
+        HelpRequestTest.HELP_REQUEST_ID,
+        HelpRequestTest.LENA,
+        "How do I keep the sauce from splitting?",
+        "Step 4 keeps splitting",
+        HelpRequestTest.HOLLANDAISE,
+        HelpRequestTest.STEP_4,
+        Set.of(providers),
+        fixedAt(requestedAt));
+  }
+
+  private static void grandmaAnswersAt(HelpRequest request, Instant answeredAt) {
+    request.provideHelp(
+        HelpRequestTest.HELP_ID,
+        HelpProvider.grandmaAvatar(),
+        "Butter in a thin stream",
+        HelpRequestTest.BUTTER_IN_A_THIN_STREAM,
+        fixedAt(answeredAt));
+  }
+
+  private static Clock fixedAt(Instant instant) {
+    return Clock.fixed(instant, ZoneOffset.UTC);
+  }
 }

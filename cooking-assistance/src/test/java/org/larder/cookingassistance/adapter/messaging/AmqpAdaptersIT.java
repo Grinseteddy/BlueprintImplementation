@@ -152,6 +152,7 @@ class AmqpAdaptersIT {
   private void lenasRequestToGrandmaIsStored() {
     jdbc.sql("delete from processed_message").update();
     jdbc.sql("delete from outbox").update();
+    jdbc.sql("delete from help_request_note").update();
     jdbc.sql("delete from help").update();
     jdbc.sql("delete from asked_provider").update();
     jdbc.sql("delete from help_request").update();
@@ -174,7 +175,9 @@ class AmqpAdaptersIT {
 
   private int messageCount(String queue) {
     Properties properties = admin.getQueueProperties(queue);
-    return properties == null ? -1 : (Integer) properties.get(RabbitAdmin.QUEUE_MESSAGE_COUNT);
+    return properties == null
+        ? -1
+        : ((Number) properties.get(RabbitAdmin.QUEUE_MESSAGE_COUNT)).intValue();
   }
 
   @DisplayName(

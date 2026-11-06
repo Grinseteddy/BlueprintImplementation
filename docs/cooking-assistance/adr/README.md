@@ -4,7 +4,7 @@ Format as in Larder's ADR0001–ADR0005. Each ADR names the principles it honors
 
 | ID | Title | Serves |
 |---|---|---|
-| [ADR0006](ADR0006-Java21SpringBoot3.md) | Java 21, Spring Boot 3.5 and Maven | QS-01, QS-02, QS-16 |
+| [ADR0006](ADR0006-Java21SpringBoot3.md) | Java 21, Spring Boot 3.5 and Maven (4.1 since increment 1) | QS-01, QS-02, QS-16 |
 | [ADR0007](ADR0007-CookAssistanceAsAMaven.md) | Cook Assistance as a Maven module of the Larder monolith | QS-02 |
 | [ADR0008](ADR0008-HexagonalPackageLayoutWithArchitecture.md) | Hexagonal package layout with architecture tests | QS-01, QS-02 |
 | [ADR0009](ADR0009-PostgresqlSchemaPerModuleSpring.md) | PostgreSQL schema per module, Spring Data JDBC, Flyway | QS-01, QS-05, QS-11 |
@@ -19,4 +19,5 @@ Format as in Larder's ADR0001–ADR0005. Each ADR names the principles it honors
 | [ADR0018](ADR0018-OneBuildCommandHooksAnd.md) | One build command, hooks and CI | QS-16, QS-15 |
 | [ADR0019](ADR0019-SecurityBaselineAndReviewTools.md) | Security baseline and review tools | QS-12, QS-13 |
 | [ADR0020](ADR0020-ObservabilityWithMicrometerTracing.md) | Observability with Micrometer Tracing and OpenTelemetry | QS-14 |
+| [ADR0021](ADR0021-TimeoutSchedulerPollsDueRequests.md) | Timeout scheduler polls due help requests with SKIP LOCKED (increment 1, L4) | QS-09, QS-10 |
 | [SADR0008](SADR0008-HelpIsPartOfThe.md) | Help is part of the Help Request aggregate | QS-10, QS-01 |

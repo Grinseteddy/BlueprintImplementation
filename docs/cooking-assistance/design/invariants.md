@@ -42,7 +42,7 @@ Kinds: *quantitative* and *cardinality* rules get a property test in step 6.
 
 #### INV-05 — US-CA-03 R4: An answer may include pictures; accepting an answer closes the whole request
 - **Slice / command:** B3-S04 · Accept help · **kind:** other
-- **Guard / outcome:** accepting one answer closes the whole request for every provider → Closed
+- **Guard / outcome:** accepting one answer closes the whole request for every provider → Closed; only a Help given to this request can be accepted or rejected → HelpNotInRequest (B3-S04, B3-S05; design brief §2 'Help belongs to the request') *(step 3 r6, 2026-11-03, document correction from the step 6 refactor review)*
 - **Sources:** map R4 (E2–E4); board 'Cook can accept the answer'; model v2 'At least one Help must be accepted'
   - `US-CA-03 R4.E2` **Given/When** Lena accepts Grandma's answer **Then** closed
   - `US-CA-03 R4.E3` **Given/When** Jonas and Mia answer; Lena accepts Mia's **Then** closed
@@ -50,27 +50,27 @@ Kinds: *quantitative* and *cardinality* rules get a property test in step 6.
 
 #### INV-06 — US-CA-03 R5: Not accepted: sent again to the same providers with a note on what didn't work, new 12 h deadline
 - **Slice / command:** B3-S05 · Reject help · **kind:** quantitative
-- **Guard / outcome:** resent to the same providers with a note; new deadline = rejection time + 12 h
+- **Guard / outcome:** resent to the same providers with a note; new deadline = rejection time + 12 h; only an Answered request can be rejected (design brief §3); the note is required → RejectionNoteRequired *(step 3 r5, 2026-11-03, increment 1 test list)*
 - **Sources:** map; board 'Define timeouts' answered
   - `US-CA-03 R5.E1` **Given/When** Fri 20:00, Lena: "warm water didn't help" **Then** sent again to Grandma with note, deadline Sat 08:00
-  - `US-CA-03 R5.E2` **Given/When** Both asked, nothing accepted **Then** sent again to both
+  - `US-CA-03 R5.E2` **Given/When** Both asked, Jonas answered, nothing accepted; Lena rejects Jonas's answer **Then** sent again to both
 
 #### INV-07 — US-CA-03 R6: Notes are kept and shown on future requests for the same step
 - **Slice / command:** B3-S01 (policy/read model) · Request help Preparation step · **kind:** other
 - **Guard / outcome:** notes of earlier requests on the same step are shown — across Help Request instances → read model / query, not an aggregate guard
-- **Sources:** map; red card Q1 deferred → increment 1
+- **Sources:** map; red card Q1 answered at the readiness gate of increment 1 (2026-11-02): notes are shown for the same step of the same recipe only, as R6.E1 assumes — not for the same technique
   - `US-CA-03 R6.E1` **Given/When** Next month Lena asks about step 4 again **Then** note "warm water didn't help" shown
 
 #### INV-08 — US-CA-03 R7: The Cook can cancel an open request at any time, with an optional note
 - **Slice / command:** B3-S03 · Cancel help request · **kind:** other
 - **Guard / outcome:** the requester can cancel an Open or Answered request at any time, optional note; providers see the note → Cancelled
 - **Sources:** map (US-CA-02 R6, US-CA-03 R7, US-CA-04 R8 — one card); board 'Cook can cancel their request'; decision D4
-  - `US-CA-03 R7.E1` **Given/When** Lena cancels: "an ice cube saved it" **Then** closed, providers see the note
-  - `US-CA-03 R7.E2` **Given/When** Lena cancels without a note **Then** closed
+  - `US-CA-03 R7.E1` **Given/When** Lena cancels: "an ice cube saved it" **Then** cancelled, providers see the note
+  - `US-CA-03 R7.E2` **Given/When** Lena cancels without a note **Then** cancelled
 
 #### INV-09 — US-CA-03 R8: Unanswered after 12 h: cancelled; a provider not yet asked is suggested
 - **Slice / command:** B3-S06 · Time out help request · **kind:** quantitative — the 12 h deadline of each asked provider is set in B3-S01 (Request help Preparation step); only the timeout is B3-S06 *(step 3 r2, 2026-11-01, reverse check of increment 0)*
-- **Guard / outcome:** no answer within 12 h → Help request timed out (Cancelled); a provider not yet asked is suggested; an answer at 11:59 h counts
+- **Guard / outcome:** no answer within 12 h → Help request timed out (Cancelled); a provider not yet asked is suggested; an answer at 11:59 h counts. *(step 3 r5, 2026-11-03, decided by the user at the increment 1 test list:)* an answer **at or before** its provider's deadline counts, a later one is refused → AnswerTooLate (B3-S02); an Open request times out only **after** every asked provider's deadline → DeadlineNotPassed before that; only an Open request times out (D5) → InvalidHelpRequestState otherwise
 - **Sources:** map; board 'System cancels request when answer takes too long'; hotspot 'Define timeouts'
   - `US-CA-03 R8.E1` **Given/When** Only Community asked Fri 18:00, silent until Sat 06:00 **Then** cancelled, Grandma suggested
   - `US-CA-03 R8.E2` **Given/When** Only Grandma asked Fri 18:00, silent until Sat 06:00 **Then** cancelled, Community suggested
@@ -94,6 +94,12 @@ Kinds: *quantitative* and *cardinality* rules get a property test in step 6.
 - **Guard / outcome:** TooManyPictures — 0..10 pictures; PictureLinkNotSecure (INVALID_PICTURE_LINK) — every picture is an https link *(step 3 r3, 2026-11-01, from the security review SEC-07)*; the domain compares the scheme case-insensitively (RFC 3986 §3.1), both specs are stricter at the edge (`^https://`) *(step 3 r4, 2026-11-02, reverse check of step 14)*
 - **Sources:** glossary v2 'Help Request contains Picture 0..10' (chosen over model v2 0..*); example added by the user 2026-10-31
   - `US-CA-03 S3.E3` **Given/When** Grandma's answer carries 11 photos **Then** refused, max 10
+
+#### INV-39 — added in step 3 r5: A rejected answer is never accepted later
+- **Slice / command:** B3-S04 · Accept help (and B3-S05 · Reject help, which marks the answer) · **kind:** other
+- **Guard / outcome:** rejecting an answer marks it rejected; accepting or rejecting it again → HelpAlreadyRejected
+- **Sources:** decision by the user at the increment 1 test list (2026-11-03), from INV-06 (a rejected answer "didn't work")
+  - `US-CA-03 S3.E4` **Given/When** Lena rejected Grandma's answer ("warm water didn't help"); Grandma answers again; Lena tries to accept the first answer **Then** refused, that answer was rejected
 
 #### Per-provider state (decision, step 3)
 Each asked provider has its own deadline. A provider's side times out alone, and the request times out when every asked provider has (US-CA-04 R9 E3, E4). The B3 examples stay valid, because both sides share the same 12 h. Answers `Q_EM_PerProviderState`.

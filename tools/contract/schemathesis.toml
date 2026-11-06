@@ -1,0 +1,57 @@
+# Schemathesis configuration of the contract run (step 12, .github/workflows/contract.yml).
+# Seed, examples, rate limit and the built operations are set on the command line there.
+
+# A cursor must be one the API issued (ADR0016 L6), which the spec cannot express: a cursor that is
+# only a string of up to 500 characters answers 400. Covered instead by HelpRequestQueryIT L6
+# (foreignCursorIsRefused) and HelpQueryIT H4.
+[[operations]]
+include-operation-id = "listHelpRequests"
+checks.positive_data_acceptance.enabled = false
+# Query parameters the spec does not declare are ignored, not refused (tolerant reader; decided by
+# the user 2026-11-06). Invalid values of declared parameters stay covered by HelpRequestQueryIT L5, L6.
+checks.negative_data_rejection.enabled = false
+
+[[operations]]
+include-operation-id = "listHelpsOfHelpRequest"
+checks.positive_data_acceptance.enabled = false
+
+[[operations]]
+include-operation-id = "listHelps"
+checks.positive_data_acceptance.enabled = false
+
+# Schemathesis does not honour the request schema's if/then rules (a MENU_PROPOSAL must name a chef
+# and carry no pictures, INV-01/INV-03): it generated such bodies as "valid" and the 400 is right.
+# Covered instead by HelpRequestsControllerTest (the createHelpRequest validation items).
+[[operations]]
+include-operation-id = "createHelpRequest"
+checks.positive_data_acceptance.enabled = false
+# Variants later increments build answer the declared 501 (OpenAPI 1.0.9); any other 5xx still fails.
+checks.not_a_server_error.expected-statuses = ["2xx", "3xx", "4xx", "501"]
+
+[[operations]]
+include-operation-id = "provideHelp"
+checks.not_a_server_error.expected-statuses = ["2xx", "3xx", "4xx", "501"]
+# U+0000 in the name of an ignored field: see rejectHelp below.
+checks.positive_data_acceptance.enabled = false
+
+[[operations]]
+include-operation-id = "rejectHelp"
+checks.not_a_server_error.expected-statuses = ["2xx", "3xx", "4xx", "501"]
+# U+0000 anywhere in a body is refused, also in the name of a field the spec allows but the
+# service ignores (decided by the user 2026-11-06); allow-x00 does not reach generated field names.
+# Covered instead by EdgeTest.nulCharacterIsABadRequest.
+checks.positive_data_acceptance.enabled = false
+
+[[operations]]
+include-operation-id = "cancelHelpRequest"
+checks.positive_data_acceptance.enabled = false
+
+# Text cannot hold U+0000 (PostgreSQL): the edge refuses it with 400 VALIDATION_FAILED, a rule the
+# spec does not state. Covered instead by EdgeTest.nulCharacterIsABadRequest.
+[generation]
+allow-x00 = false
+
+# A missing required header (version) answers 400 VALIDATION_FAILED, as the spec documents for every
+# operation; Schemathesis expects 406 by default.
+[checks.missing_required_header]
+expected-statuses = ["400"]

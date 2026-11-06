@@ -35,4 +35,34 @@ final class OutboxPayloads {
             HelpRequests.HOLLANDAISE.value(),
             HelpRequests.STEP_4.value());
   }
+
+  static String helpRequestCancelled(UUID helpRequestId) {
+    return """
+        {"helpRequest":"%s","helpRequester":"%s","note":"an ice cube saved it",\
+        "askedProviders":[{"providerType":"GRANDMA_AVATAR","deadline":"2026-11-07T06:00:00Z"}],\
+        "helpRequestStatus":"CANCELLED","occurredAt":"2026-11-06T18:10:00Z"}"""
+        .formatted(helpRequestId, HelpRequests.LENA.value());
+  }
+
+  static String helpAccepted(UUID helpRequestId) {
+    return """
+        {"helpRequest":"%s","helpRequester":"%s","helpId":"%s","helpProviderType":"GRANDMA_AVATAR",\
+        "helpRequestStatus":"CLOSED","occurredAt":"2026-11-06T18:20:00Z"}"""
+        .formatted(helpRequestId, HelpRequests.LENA.value(), HelpRequests.HELP_ID.value());
+  }
+
+  static String helpRejected(UUID helpRequestId) {
+    return """
+        {"helpRequest":"%s","helpRequester":"%s","helpId":"%s","note":"warm water didn't help",\
+        "askedProviders":[{"providerType":"GRANDMA_AVATAR","deadline":"2026-11-07T08:00:00Z"}],\
+        "helpRequestStatus":"OPEN","occurredAt":"2026-11-06T20:00:00Z"}"""
+        .formatted(helpRequestId, HelpRequests.LENA.value(), HelpRequests.HELP_ID.value());
+  }
+
+  static String helpRequestTimedOut(UUID helpRequestId) {
+    return """
+        {"helpRequest":"%s","helpRequester":"%s","timedOutProviders":["COMMUNITY"],\
+        "suggestedProviders":[],"helpRequestStatus":"CANCELLED","occurredAt":"2026-11-07T06:00:10Z"}"""
+        .formatted(helpRequestId, HelpRequests.LENA.value());
+  }
 }

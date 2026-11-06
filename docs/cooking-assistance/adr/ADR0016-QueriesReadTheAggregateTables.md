@@ -35,3 +35,10 @@ QS-07, QS-01
 ## Addition (step 11 revision from step 13, increment 0, 2026-11-01, decided by the user)
 
 - **One query reads one snapshot.** A query that reads several aggregate tables (`help_request` and `asked_provider` for getHelpRequestById) runs in one read-only REPEATABLE READ transaction, so a concurrent command never shows half applied (Fagan D-06; `JdbcHelpRequestQueriesIT`).
+
+## Addition (later question L6, step 11 of increment 1, 2026-11-04, decided by the user)
+
+- **Notes live with the aggregate.** The help request keeps the notes written on it (cancellation, rejections) with kind, text and time; they are stored with its other tables in the same transaction. `notes` and `previousNotes` (INV-07: the requester's earlier requests on the same step of the same recipe) are read from the aggregate tables, so they keep read-your-writes (QS-07). No projector and no projection tables in increment 1.
+- **Keyset paging, oldest first.** Lists are ordered by the UUIDv7 id, ascending (creation order; OpenAPI 1.0.8). The adapter fetches `limit + 1` rows to know whether a next page exists. `nextCursor` is opaque (base64url); a cursor the API did not issue answers 400 `VALIDATION_FAILED`.
+- **List access as for single reads.** Any caller with `help:read` may list, with or without the `requester` filter (providers look for open requests). The privacy of listing another Cook's requests is a question for the security review.
+- **Chef helps** are left out for everyone but the requester from increment 4 on, when chef helps can exist (INV-01: never for a preparation step).

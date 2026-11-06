@@ -2,33 +2,20 @@ package org.larder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.autoconfigure.amqp.RabbitProperties;
+import org.springframework.boot.amqp.autoconfigure.RabbitProperties;
 import org.springframework.boot.context.properties.bind.Binder;
-import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
-import org.springframework.core.env.MapPropertySource;
-import org.springframework.core.env.PropertySource;
-import org.springframework.core.env.StandardEnvironment;
-import org.springframework.core.io.ClassPathResource;
 
 /** The host's broker connection comes from the environment only (ADR0012, ADR0019). */
 class BrokerSettingsTest {
 
   private static RabbitProperties brokerSettingsWith(Map<String, Object> environment)
       throws Exception {
-    StandardEnvironment env = new StandardEnvironment();
-    env.getPropertySources().remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME);
-    env.getPropertySources().remove(StandardEnvironment.SYSTEM_PROPERTIES_PROPERTY_SOURCE_NAME);
-    env.getPropertySources().addFirst(new MapPropertySource("environment", environment));
-    List<PropertySource<?>> yaml =
-        new YamlPropertySourceLoader()
-            .load("application.yml", new ClassPathResource("application.yml"));
-    yaml.forEach(env.getPropertySources()::addLast);
-    return Binder.get(env).bindOrCreate("spring.rabbitmq", RabbitProperties.class);
+    return Binder.get(HostSettings.resolvedWith(environment))
+        .bindOrCreate("spring.rabbitmq", RabbitProperties.class);
   }
 
   @DisplayName(

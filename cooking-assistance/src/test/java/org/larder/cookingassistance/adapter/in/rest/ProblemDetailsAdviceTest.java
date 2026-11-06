@@ -2,6 +2,7 @@ package org.larder.cookingassistance.adapter.in.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.lang.reflect.Method;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,11 +21,15 @@ import org.larder.cookingassistance.domain.helprequest.ProviderNotAsked;
 import org.larder.cookingassistance.domain.helprequest.RecipeRequired;
 import org.larder.cookingassistance.domain.helprequest.TooManyPictures;
 import org.springframework.beans.ConversionNotSupportedException;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.transaction.CannotCreateTransactionException;
+import org.springframework.transaction.TransactionSystemException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.context.request.ServletWebRequest;
+import org.springframework.web.method.annotation.ExceptionHandlerMethodResolver;
 
 /** The error map (OpenAPI 1.0.3 Problem codes): each domain rejection -> status, code and rule. */
 class ProblemDetailsAdviceTest {
@@ -59,6 +64,60 @@ class ProblemDetailsAdviceTest {
     ProblemDetail problem = (ProblemDetail) response.getBody();
     assertThat(problem.getStatus()).isEqualTo(status);
     assertThat(problem.getProperties()).containsEntry("code", code).containsEntry("rule", rule);
+  }
+
+  @DisplayName(
+      "no database connection (CannotGetJdbcConnectionException) -> 503 SERVICE_UNAVAILABLE Problem, no detail -- B3-S01 US-CA-03 QS-05 (step 9 r1 from step 12, DatabaseOutageIT)")
+  @Test
+  void missingDatabaseConnectionIsServiceUnavailable() {
+    ResponseEntity<Object> response = new ProblemDetailsAdvice().handleDatabaseUnavailable();
+
+    ProblemDetail problem = (ProblemDetail) response.getBody();
+    assertThat(response.getStatusCode().value()).isEqualTo(503);
+    assertThat(problem.getProperties()).containsEntry("code", "SERVICE_UNAVAILABLE");
+    assertThat(problem.getDetail()).isNull();
+  }
+
+  @DisplayName(
+      "no connection for a transaction (CannotCreateTransactionException) -> handled as a missing database connection, 503 -- B3-S01 US-CA-03 QS-05 (step 9 r1 from step 12, DatabaseOutageIT)")
+  @Test
+  void noConnectionForATransactionIsServiceUnavailable() {
+    Method handler =
+        new ExceptionHandlerMethodResolver(ProblemDetailsAdvice.class)
+            .resolveMethod(new CannotCreateTransactionException("Could not open JDBC Connection"));
+
+    assertThat(handler).isNotNull();
+    assertThat(handler.getName()).isEqualTo("handleDatabaseUnavailable");
+  }
+
+  @DisplayName(
+      "a failed rollback after a lost connection (TransactionSystemException over DataAccessResourceFailureException) -> 503 SERVICE_UNAVAILABLE -- B3-S01 US-CA-03 QS-05 (step 9 r1 from step 12, DatabaseOutageIT)")
+  @Test
+  void failedRollbackAfterALostConnectionIsServiceUnavailable() {
+    TransactionSystemException rollbackFailed =
+        new TransactionSystemException("JDBC rollback failed");
+    rollbackFailed.initApplicationException(
+        new DataAccessResourceFailureException("Read timed out"));
+
+    ResponseEntity<Object> response =
+        new ProblemDetailsAdvice().handleTransactionSystem(rollbackFailed);
+
+    assertThat(response.getStatusCode().value()).isEqualTo(503);
+    assertThat(((ProblemDetail) response.getBody()).getProperties())
+        .containsEntry("code", "SERVICE_UNAVAILABLE");
+  }
+
+  @DisplayName(
+      "any other TransactionSystemException -> 500 INTERNAL_ERROR, as before -- B3-S01 US-CA-03 edge (step 9 r1 from step 12)")
+  @Test
+  void otherTransactionFailureIsAnInternalError() {
+    ResponseEntity<Object> response =
+        new ProblemDetailsAdvice()
+            .handleTransactionSystem(new TransactionSystemException("commit failed"));
+
+    assertThat(response.getStatusCode().value()).isEqualTo(500);
+    assertThat(((ProblemDetail) response.getBody()).getProperties())
+        .containsEntry("code", "INTERNAL_ERROR");
   }
 
   private static ProblemDetail frameworkError(Exception error) throws Exception {

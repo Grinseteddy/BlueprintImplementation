@@ -1,5 +1,6 @@
 package org.larder.cookingassistance.application.fakes;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -16,6 +17,7 @@ import org.larder.cookingassistance.domain.helprequest.HelpRequestRepository;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestStatus;
 import org.larder.cookingassistance.domain.helprequest.HelpType;
 import org.larder.cookingassistance.domain.helprequest.HowToStepId;
+import org.larder.cookingassistance.domain.helprequest.Note;
 import org.larder.cookingassistance.domain.helprequest.RecipeId;
 
 /**
@@ -33,6 +35,18 @@ public class InMemoryHelpRequestRepository implements HelpRequestRepository {
   @Override
   public Optional<HelpRequest> findById(HelpRequestId id) {
     return Optional.ofNullable(snapshots.get(id)).map(Snapshot::reconstitute);
+  }
+
+  @Override
+  public List<HelpRequest> findDueForTimeOut(Instant now, int limit) {
+    return snapshots.values().stream()
+        .map(Snapshot::reconstitute)
+        .filter(request -> request.status() == HelpRequestStatus.OPEN)
+        .filter(
+            request ->
+                request.askedProviders().stream().allMatch(asked -> now.isAfter(asked.deadline())))
+        .limit(limit)
+        .toList();
   }
 
   @Override
@@ -83,6 +97,7 @@ public class InMemoryHelpRequestRepository implements HelpRequestRepository {
       List<AskedProvider> askedProviders,
       HelpRequestStatus status,
       List<Help> helps,
+      List<Note> notes,
       long version) {
 
     static Snapshot of(HelpRequest request, long storedVersion) {
@@ -97,6 +112,7 @@ public class InMemoryHelpRequestRepository implements HelpRequestRepository {
           List.copyOf(request.askedProviders()),
           request.status(),
           List.copyOf(request.helps()),
+          List.copyOf(request.notes()),
           storedVersion);
     }
 
@@ -112,6 +128,7 @@ public class InMemoryHelpRequestRepository implements HelpRequestRepository {
           askedProviders,
           status,
           helps,
+          notes,
           version);
     }
   }

@@ -28,7 +28,7 @@ more moving parts; no event-sourcing need on the boards
 
 ## Consequences
 
-- Tables: `help_request`, `help`, `asked_provider`, `note`, `outbox`, `processed_message`
+- Tables: `help_request`, `help`, `asked_provider`, `help_request_note`, `outbox`, `processed_message` *(table name `note` corrected to `help_request_note`, V3, 2026-11-04, step 7 r1 of increment 1)*
 - Migrations are additive (expand / contract)
 
 ## Principles

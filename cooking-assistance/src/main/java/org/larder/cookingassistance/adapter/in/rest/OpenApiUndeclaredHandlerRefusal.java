@@ -24,7 +24,9 @@ class OpenApiUndeclaredHandlerRefusal implements HandlerInterceptor {
       throws NoResourceFoundException {
     if (handler instanceof HandlerMethod method && !contract.declares(method.getMethod())) {
       throw new NoResourceFoundException(
-          HttpMethod.valueOf(request.getMethod()), request.getRequestURI());
+          HttpMethod.valueOf(request.getMethod()),
+          request.getRequestURI(),
+          request.getRequestURI());
     }
     return true;
   }
