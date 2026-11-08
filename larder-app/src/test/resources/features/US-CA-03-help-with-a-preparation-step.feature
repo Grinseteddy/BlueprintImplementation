@@ -169,3 +169,10 @@ Feature: As a Cook, I want to ask a help provider for Help with a Meal Preparati
       When Grandma Avatar answers with 11 photos
       Then Grandma's answer is refused and set aside
       And Lena's request is still open
+
+    @B3-S05 @INV-39 @S3.E4
+    Scenario: A rejected answer is never accepted later
+      Given Lena rejected Grandma's answer "warm water didn't help"
+      When Grandma Avatar answers again
+      And Lena tries to accept the first answer
+      Then she is refused because that answer was rejected

@@ -25,6 +25,7 @@ import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestRepository;
 import org.larder.cookingassistance.fixtures.Eventually;
 import org.larder.cookingassistance.fixtures.HelpRequests;
+import org.larder.cookingassistance.fixtures.StoryClock;
 import org.springframework.amqp.core.AmqpAdmin;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Message;
@@ -32,19 +33,24 @@ import org.springframework.amqp.core.MessageDeliveryMode;
 import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.rabbit.listener.RabbitListenerEndpointRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.util.backoff.FixedBackOff;
 
 /** The real AMQP adapters deferred from steps 9 and 10, against RabbitMQ (ADR0003, ADR0015). */
 @SpringBootTest(
     classes = PersistenceTestApplication.class,
     properties = "cooking-assistance.outbox.poller.enabled=true")
-@Import({PostgresTestContainer.class, RabbitTestContainer.class})
+@Import({PostgresTestContainer.class, RabbitTestContainer.class, StoryClock.class})
 class AmqpAdaptersIT {
 
   static final String CREATED = "cooking-assistance.help-request.created";
@@ -52,6 +58,7 @@ class AmqpAdaptersIT {
   @Autowired MessagePublisher publisher;
   @Autowired RabbitTemplate rabbit;
   @Autowired AmqpAdmin admin;
+  @Autowired RabbitListenerEndpointRegistry listeners;
 
   /** A queue the test owns, bound to the service's exchange. */
   private String probe(String routingKey) {
@@ -233,5 +240,62 @@ class AmqpAdaptersIT {
     assertThat(published).isNotNull();
     assertThat(published.getMessageProperties().getHeaders())
         .containsEntry("correlationId", HelpRequests.HELP_REQUEST_ID.value().toString());
+  }
+
+  @Autowired CachingConnectionFactory connectionFactory;
+  @Autowired TransactionTemplate transactions;
+
+  @DisplayName(
+      "W1 a row that failed 7 times waits an hour; the broker connection is lost and established again -> the row is published within 5 s -- B3-S01 US-CA-03 ADR0015 QS-04")
+  @Test
+  void reconnectPublishesWaitingRowsAtOnce() {
+    // a named, non-exclusive queue: it survives the connection reset (a probe() queue would not)
+    String queue = "amqp-adapters.reconnect";
+    admin.declareQueue(new Queue(queue, false, false, false));
+    admin.declareBinding(
+        BindingBuilder.bind(new Queue(queue))
+            .to(new TopicExchange("cooking-assistance"))
+            .with(CREATED));
+    admin.purgeQueue(queue, false);
+    // in one transaction, so the poller never sees the row before it waits
+    transactions.executeWithoutResult(
+        status -> {
+          lenasRequestToGrandmaIsStored();
+          jdbc.sql(
+                  "update outbox set attempts = 7, last_error = 'broker rejected the message',"
+                      + " next_attempt_at = now() + interval '1 hour'")
+              .update();
+        });
+
+    try {
+      connectionFactory.resetConnection();
+      connectionFactory.createConnection().close();
+
+      Message published = rabbit.receive(queue, 5_000);
+      assertThat(published).isNotNull();
+    } finally {
+      admin.deleteQueue(queue);
+      // the Grandma consumer reconnects too; later tests start only once it is back
+      Eventually.within(
+          Duration.ofSeconds(10), () -> assertThat(consumerCount(GRANDMA_QUEUE)).isPositive());
+    }
+  }
+
+  @DisplayName(
+      "W2 the Grandma listener retries its broker connection every second: its reconnect is what ends the outbox backoff (N-1) -- B3-S01 US-CA-03 ADR0015 QS-04")
+  @Test
+  void grandmaListenerRetriesItsConnectionEverySecond() {
+    assertThat(listeners.getListenerContainers())
+        .singleElement()
+        .extracting(container -> ReflectionTestUtils.getField(container, "recoveryBackOff"))
+        .isInstanceOfSatisfying(
+            FixedBackOff.class, recovery -> assertThat(recovery.getInterval()).isEqualTo(1_000));
+  }
+
+  private int consumerCount(String queue) {
+    Properties properties = admin.getQueueProperties(queue);
+    return properties == null
+        ? 0
+        : ((Number) properties.get(RabbitAdmin.QUEUE_CONSUMER_COUNT)).intValue();
   }
 }

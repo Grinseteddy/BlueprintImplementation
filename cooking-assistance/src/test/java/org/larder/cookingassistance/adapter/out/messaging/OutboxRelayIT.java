@@ -2,6 +2,9 @@ package org.larder.cookingassistance.adapter.out.messaging;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -22,6 +25,8 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.larder.cookingassistance.adapter.out.persistence.PersistenceTestApplication;
 import org.larder.cookingassistance.adapter.out.persistence.PostgresTestContainer;
 import org.larder.cookingassistance.fixtures.HelpRequests;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
@@ -402,5 +407,85 @@ class OutboxRelayIT {
             String.valueOf(a1),
             "HelpRequestCancelled",
             "required property 'helpRequest' not found");
+  }
+
+  /** A row that has failed {@code failures} times and waits until {@code nextAttemptAt}. */
+  void failedBefore(long id, int failures, Instant nextAttemptAt) {
+    jdbc.sql(
+            "update outbox set attempts = :failures, last_error = 'broker rejected the message',"
+                + " next_attempt_at = :nextAttemptAt where id = :id")
+        .param("failures", failures)
+        .param("nextAttemptAt", OffsetDateTime.ofInstant(nextAttemptAt, ZoneOffset.UTC))
+        .param("id", id)
+        .update();
+  }
+
+  @DisplayName(
+      "R10 A1 failed 7 times and waits until 12:01:00; broker reconnected at 12:00:05 -> next_attempt_at 12:00:05, attempts 7 and last_error kept; a run at 12:00:05 publishes A1 -- B3-S01 US-CA-03 ADR0015 QS-04")
+  @Test
+  void reconnectMakesFailedRowsDue() {
+    long a1 = pending(A, "HelpRequestCreated", OutboxPayloads.helpRequestCreated(A));
+    failedBefore(a1, 7, NOON.plusSeconds(60));
+
+    relayAt(NOON.plusSeconds(5)).brokerReconnected();
+    Delivery afterReconnect = delivery(a1);
+    relayAt(NOON.plusSeconds(5)).runOnce();
+
+    assertThat(afterReconnect)
+        .isEqualTo(
+            new Delivery(false, 7, "broker rejected the message", NOON.plusSeconds(5), null));
+    assertThat(publisher.published()).hasSize(1);
+    assertThat(isPublished(a1)).isTrue();
+  }
+
+  @DisplayName(
+      "R11 broker reconnected at 12:00:05 -> a dead-lettered row, a published row and a pending row that never failed keep their delivery columns -- B3-S01 US-CA-03 ADR0015 QS-04")
+  @Test
+  void reconnectLeavesOtherRowsAsTheyWere() {
+    long deadLettered = pending(A, "HelpRequestCreated", OutboxPayloads.helpRequestCreated(A));
+    failedBefore(deadLettered, 3, NOON.plusSeconds(60));
+    jdbc.sql("update outbox set dead_lettered_at = :noon where id = :id")
+        .param("noon", OffsetDateTime.ofInstant(NOON, ZoneOffset.UTC))
+        .param("id", deadLettered)
+        .update();
+    long published = pending(B, "HelpRequestCreated", OutboxPayloads.helpRequestCreated(B));
+    failedBefore(published, 2, NOON.plusSeconds(60));
+    jdbc.sql("update outbox set published_at = :noon where id = :id")
+        .param("noon", OffsetDateTime.ofInstant(NOON, ZoneOffset.UTC))
+        .param("id", published)
+        .update();
+    long neverFailed = pending(B, "HelpRequestCancelled", OutboxPayloads.helpRequestCancelled(B));
+    List<Delivery> before =
+        List.of(delivery(deadLettered), delivery(published), delivery(neverFailed));
+
+    relayAt(NOON.plusSeconds(5)).brokerReconnected();
+
+    assertThat(List.of(delivery(deadLettered), delivery(published), delivery(neverFailed)))
+        .isEqualTo(before);
+  }
+
+  @DisplayName(
+      "M2 the broker rejects A1 -> the WARN line 'outbox row <id> not published' has helpRequestId = A in its log context; after the run the context is cleared -- B3-S01 US-CA-03 ADR0020 QS-14")
+  @Test
+  void relayLogLinesCarryTheHelpRequestId() {
+    pending(A, "HelpRequestCreated", OutboxPayloads.helpRequestCreated(A));
+    publisher.rejectNext();
+    ListAppender<ILoggingEvent> lines = new ListAppender<>();
+    lines.start();
+    Logger relayLog = (Logger) LoggerFactory.getLogger(OutboxRelay.class);
+    relayLog.addAppender(lines);
+    try {
+      relayAt(NOON).runOnce();
+    } finally {
+      relayLog.detachAppender(lines);
+    }
+
+    assertThat(lines.list)
+        .filteredOn(line -> line.getFormattedMessage().contains("not published"))
+        .singleElement()
+        .satisfies(
+            line ->
+                assertThat(line.getMDCPropertyMap()).containsEntry("helpRequestId", A.toString()));
+    assertThat(MDC.get("helpRequestId")).isNull();
   }
 }

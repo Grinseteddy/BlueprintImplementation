@@ -7,6 +7,8 @@ import static org.larder.quality.ServiceChannels.CREATED;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.util.List;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -20,6 +22,7 @@ import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -48,8 +51,29 @@ class BrokerOutageIT {
   int port;
 
   @Autowired AmqpAdmin admin;
-  @Autowired RabbitTemplate rabbit;
   @Autowired RabbitMQContainer broker;
+
+  /**
+   * The test reads over a connection of its own: one from the service's connection factory would
+   * itself be the reconnect that ends the outbox backoff, and the test would measure its own client
+   * (N-1).
+   */
+  private CachingConnectionFactory readerConnection;
+
+  private RabbitTemplate reader;
+
+  @BeforeEach
+  void openReader() {
+    readerConnection = new CachingConnectionFactory(broker.getHost(), broker.getAmqpPort());
+    readerConnection.setUsername(broker.getAdminUsername());
+    readerConnection.setPassword(broker.getAdminPassword());
+    reader = new RabbitTemplate(readerConnection);
+  }
+
+  @AfterEach
+  void closeReader() {
+    readerConnection.destroy();
+  }
 
   @DisplayName(
       "E5 broker paused about 60 s -> commands answered 201, events kept, published in order per help request within 5 s after the broker returns -- B3-S01 US-CA-03 QS-04 ADR0015")
@@ -79,10 +103,69 @@ class BrokerOutageIT {
     }
     long back = System.nanoTime();
     String id = new ObjectMapper().readTree(created.getBody()).get("helpRequestId").asText();
-    String first = nextFor(id, Duration.ofSeconds(90));
-    String second = nextFor(id, Duration.ofSeconds(90));
+    String first = nextFor(IN_ORDER, id, Duration.ofSeconds(90));
+    String second = nextFor(IN_ORDER, id, Duration.ofSeconds(90));
     Duration publishedAfterReturn = Duration.ofNanos(System.nanoTime() - back);
     System.out.println("E5 published after the broker returned: " + publishedAfterReturn);
+
+    assertThat(created.getStatusCode().value())
+        .as("create while the broker is away")
+        .isEqualTo(201);
+    assertThat(cancelled.getStatusCode().value())
+        .as("cancel while the broker is away")
+        .isEqualTo(200);
+    assertThat(List.of(first, second))
+        .as("the request's messages in publish order")
+        .containsExactly(CREATED, CANCELLED);
+    assertThat(publishedAfterReturn)
+        .as("both published after the broker returned")
+        .isLessThanOrEqualTo(Duration.ofSeconds(5));
+  }
+
+  static final String IN_ORDER_DURABLE = "quality.outage.in-order.durable";
+
+  @DisplayName(
+      "E5b broker application stopped 3 min 30 s (connections closed, the backoff at its 60 s cap) -> commands answered 201/200, events published in order per help request within 5 s after the broker is back -- B3-S01 US-CA-03 QS-04 ADR0015")
+  @Test
+  void eventsFollowWithinSecondsAfterALongOutage() throws Exception {
+    // durable: stop_app restarts the broker application, which drops non-durable queues
+    admin.declareQueue(new Queue(IN_ORDER_DURABLE, true, false, false));
+    for (String channel : List.of(CREATED, CANCELLED)) {
+      admin.declareBinding(
+          BindingBuilder.bind(new Queue(IN_ORDER_DURABLE))
+              .to(new TopicExchange("cooking-assistance"))
+              .with(channel));
+    }
+    admin.purgeQueue(IN_ORDER_DURABLE, false);
+
+    // stop_app closes every connection but keeps the container and its mapped port
+    broker.execInContainer("rabbitmqctl", "stop_app");
+    ResponseEntity<String> created;
+    ResponseEntity<String> cancelled;
+    try {
+      created = lenaAsks();
+      String id = new ObjectMapper().readTree(created.getBody()).get("helpRequestId").asText();
+      cancelled = lenaCancels(id);
+      // the outage itself, not a wait for a result; 3 min 30 s ends between two capped attempts
+      // (t = 0, 63, 124, 185, 245 s ...): with 3 min, the next attempt came 4 s after the return
+      // anyway and the check could not tell a reset from luck
+      Thread.sleep(Duration.ofSeconds(210));
+    } finally {
+      broker.execInContainer("rabbitmqctl", "start_app");
+    }
+    long back = System.nanoTime();
+    String id = new ObjectMapper().readTree(created.getBody()).get("helpRequestId").asText();
+    String first;
+    String second;
+    Duration publishedAfterReturn;
+    try {
+      first = nextFor(IN_ORDER_DURABLE, id, Duration.ofSeconds(90));
+      second = nextFor(IN_ORDER_DURABLE, id, Duration.ofSeconds(90));
+      publishedAfterReturn = Duration.ofNanos(System.nanoTime() - back);
+      System.out.println("E5b published after the broker returned: " + publishedAfterReturn);
+    } finally {
+      admin.deleteQueue(IN_ORDER_DURABLE);
+    }
 
     assertThat(created.getStatusCode().value())
         .as("create while the broker is away")
@@ -103,7 +186,7 @@ class BrokerOutageIT {
         .post()
         .uri("/help-requests")
         .header("Authorization", lenasToken())
-        .header("version", "1.0.9")
+        .header("version", "1.0.10")
         .contentType(MediaType.APPLICATION_JSON)
         .body(HelpRequestBodies.sauceSplitsAtStep4("COMMUNITY"))
         .retrieve()
@@ -116,7 +199,7 @@ class BrokerOutageIT {
         .post()
         .uri("/help-requests/" + helpRequestId + "/cancellation")
         .header("Authorization", lenasToken())
-        .header("version", "1.0.9")
+        .header("version", "1.0.10")
         .retrieve()
         .onStatus(HttpStatusCode::isError, (request, response) -> {})
         .toEntity(String.class);
@@ -129,10 +212,10 @@ class BrokerOutageIT {
    * The channel (routing key) of the request's next new message in the ordered queue; a copy with a
    * message id already read is skipped, as a consumer would.
    */
-  private String nextFor(String helpRequestId, Duration within) throws Exception {
+  private String nextFor(String queue, String helpRequestId, Duration within) throws Exception {
     long deadline = System.nanoTime() + within.toNanos();
     while (System.nanoTime() < deadline) {
-      Message message = rabbit.receive(IN_ORDER, 500);
+      Message message = reader.receive(queue, 500);
       if (message != null) {
         var payload = new ObjectMapper().readTree(message.getBody());
         String request =

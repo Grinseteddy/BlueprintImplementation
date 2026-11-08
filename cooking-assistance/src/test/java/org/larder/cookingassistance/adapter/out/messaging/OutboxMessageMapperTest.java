@@ -222,4 +222,27 @@ class OutboxMessageMapperTest {
   void everySendOperationIsBuilt() throws Exception {
     assertThat(SendOperations.BUILT).containsExactlyInAnyOrderElementsOf(sendOperationsOfTheSpec());
   }
+
+  static final String TRACEPARENT = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
+
+  @DisplayName(
+      "T3 HelpRequestCreated row with traceparent 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01 -> the message carries header traceparent with that value -- B3-S01 US-CA-03 ADR0020 QS-14")
+  @Test
+  void traceparentTravelsAsHeader() {
+    OutgoingMessage message =
+        mapper.toMessage(
+            new OutboxRecord(42, REQUEST, "HelpRequestCreated", HELP_REQUEST_CREATED, TRACEPARENT));
+
+    assertThat(message.headers()).containsEntry("traceparent", TRACEPARENT);
+  }
+
+  @DisplayName(
+      "T4 HelpRequestCreated row without traceparent -> the message has no traceparent header -- B3-S01 US-CA-03 ADR0020")
+  @Test
+  void noTraceparentWithoutTrace() {
+    OutgoingMessage message =
+        mapper.toMessage(new OutboxRecord(42, REQUEST, "HelpRequestCreated", HELP_REQUEST_CREATED));
+
+    assertThat(message.headers()).doesNotContainKey("traceparent");
+  }
 }

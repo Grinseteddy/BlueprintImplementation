@@ -37,6 +37,11 @@ public class ProvideGrandmaAvatarHelp {
   }
 
   public void handle(GrandmaAnswer answer) {
+    // ADR0010: another writer saved first — retry once in a new unit of work
+    RetryOnConflict.once(() -> handleOnce(answer));
+  }
+
+  private void handleOnce(GrandmaAnswer answer) {
     // ADR0015: record and save in one unit of work
     unitOfWork.transactionally(
         () -> {

@@ -20,6 +20,9 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 class ApplicationConfiguration {
 
+  /** ADR0021: one run (one unit of work) times out at most this many due requests. */
+  static final int TIME_OUT_BATCH_SIZE = 100;
+
   @Bean
   Clock clock() {
     return Clock.systemUTC();
@@ -65,9 +68,6 @@ class ApplicationConfiguration {
   RejectHelp rejectHelp(HelpRequestRepository helpRequests, Clock clock) {
     return new RejectHelp(helpRequests, clock);
   }
-
-  /** ADR0021: one run (one unit of work) times out at most this many due requests. */
-  static final int TIME_OUT_BATCH_SIZE = 100;
 
   @Bean
   TimeOutDueHelpRequests timeOutDueHelpRequests(

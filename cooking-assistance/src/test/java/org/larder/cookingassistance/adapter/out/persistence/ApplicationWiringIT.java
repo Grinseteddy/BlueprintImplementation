@@ -26,6 +26,7 @@ import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestRepository;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestStatus;
 import org.larder.cookingassistance.fixtures.HelpRequests;
+import org.larder.cookingassistance.fixtures.StoryClock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -36,10 +37,11 @@ import org.springframework.jdbc.core.simple.JdbcClient;
  * application unit, taken from the Spring context.
  */
 @SpringBootTest(classes = PersistenceTestApplication.class)
-@Import(PostgresTestContainer.class)
+@Import({PostgresTestContainer.class, StoryClock.class})
 class ApplicationWiringIT {
 
   @Autowired JdbcClient jdbc;
+  @Autowired Clock clock;
   @Autowired HelpRequestRepository helpRequests;
   @Autowired RequestHelpWithPreparationStep requestHelp;
   @Autowired ProvideHelp provideHelp;
@@ -165,7 +167,7 @@ class ApplicationWiringIT {
         HelpProvider.grandmaAvatar(),
         "Warm the butter first",
         HelpRequests.BUTTER_WITH_THREE_PHOTOS,
-        Clock.systemUTC());
+        clock);
     helpRequests.save(rejected);
     acceptHelp.execute(
         new AcceptHelp.Command(LENA, HelpRequests.HELP_REQUEST_ID, HelpRequests.OTHER_HELP_ID));
@@ -194,7 +196,7 @@ class ApplicationWiringIT {
             HelpRequests.HOLLANDAISE,
             HelpRequests.STEP_4,
             Set.of(HelpProviderType.COMMUNITY),
-            Clock.offset(Clock.systemUTC(), Duration.ofHours(-13))));
+            Clock.offset(clock, Duration.ofHours(-13))));
 
     int timedOut = timeOutDueHelpRequests.execute();
 

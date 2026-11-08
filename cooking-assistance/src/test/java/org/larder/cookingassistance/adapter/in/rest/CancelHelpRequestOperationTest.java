@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,6 +25,7 @@ import org.larder.cookingassistance.domain.helprequest.HelpRequestStatus;
 import org.larder.cookingassistance.fixtures.HelpRequests;
 import org.larder.cookingassistance.fixtures.TestSigningKeys;
 import org.larder.cookingassistance.fixtures.TestTokens;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -226,5 +228,20 @@ class CancelHelpRequestOperationTest {
         .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
         .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
         .andExpect(content().string(not(containsString("connection refused"))));
+  }
+
+  @DisplayName(
+      "M1 Lena cancels her request -> while it is handled the log context (MDC) has helpRequestId = her request id; afterwards it is cleared -- B3-S03 US-CA-03 ADR0020 QS-14")
+  @Test
+  void helpRequestIdIsOnTheLogLinesOfTheRequest() throws Exception {
+    AtomicReference<String> duringTheRequest = new AtomicReference<>();
+    helpRequests.interleave(() -> duringTheRequest.set(MDC.get("helpRequestId")));
+
+    mvc.perform(
+            post(CANCELLATION_PATH).header(AUTHORIZATION, LENA_AS_COOK).header("version", "1.0.7"))
+        .andExpect(status().isOk());
+
+    assertThat(duringTheRequest).hasValue(REQUEST_ID);
+    assertThat(MDC.get("helpRequestId")).isNull();
   }
 }

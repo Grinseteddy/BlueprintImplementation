@@ -772,6 +772,22 @@ class HelpRequestTest {
     }
 
     @DisplayName(
+        "Lena cancels with the note '   ' (blank) -> treated as no note: HelpRequestCancelled without a note, no notes kept -- B3-S03 US-CA-03 INV-08 R7.E2 (step 13, D-3)")
+    @Test
+    void blankCancellationNoteIsNoNote() {
+      HelpRequest request = lenaAsksGrandmaAboutStep4();
+      request.pullEvents();
+
+      request.cancel(Optional.of("   "), FRIDAY_18_10);
+
+      assertThat(request.pullEvents())
+          .singleElement()
+          .isInstanceOfSatisfying(
+              HelpRequestCancelled.class, cancelled -> assertThat(cancelled.note()).isEmpty());
+      assertThat(request.notes()).isEmpty();
+    }
+
+    @DisplayName(
         "Grandma answered; Lena cancels -> CANCELLED (Open or Answered may be cancelled) -- B3-S03 US-CA-03 INV-08")
     @Test
     void answeredRequestCanBeCancelled() {
@@ -967,10 +983,46 @@ class HelpRequestTest {
           .hasMessageContaining("CANCELLED");
       assertThat(cancelled.pullEvents()).isEmpty();
     }
+
+    @DisplayName(
+        "accept on a CLOSED request -> InvalidHelpRequestState(CLOSED), no event -- B3-S04 US-CA-03 lifecycle (step 13, D-1)")
+    @Test
+    void closedRequestCannotBeAccepted() {
+      HelpRequest closed = storedRequestToGrandmaIn(HelpRequestStatus.CLOSED);
+
+      assertThatThrownBy(() -> closed.accept(HELP_ID, FRIDAY_18_10))
+          .isInstanceOf(InvalidHelpRequestState.class)
+          .hasMessageContaining("CLOSED");
+      assertThat(closed.pullEvents()).isEmpty();
+    }
   }
 
   @Nested
   class RejectHelp { // B3-S05, US-CA-03
+
+    @DisplayName(
+        "reject on a CLOSED request -> InvalidHelpRequestState(CLOSED), no event -- B3-S05 US-CA-03 lifecycle (step 13, D-1)")
+    @Test
+    void closedRequestCannotBeRejected() {
+      HelpRequest closed = storedRequestToGrandmaIn(HelpRequestStatus.CLOSED);
+
+      assertThatThrownBy(() -> closed.reject(HELP_ID, "warm water didn't help", FRIDAY_18_10))
+          .isInstanceOf(InvalidHelpRequestState.class)
+          .hasMessageContaining("CLOSED");
+      assertThat(closed.pullEvents()).isEmpty();
+    }
+
+    @DisplayName(
+        "reject on a CANCELLED request -> InvalidHelpRequestState(CANCELLED), no event -- B3-S05 US-CA-03 lifecycle (step 13, D-1)")
+    @Test
+    void cancelledRequestCannotBeRejected() {
+      HelpRequest cancelled = storedRequestToGrandmaIn(HelpRequestStatus.CANCELLED);
+
+      assertThatThrownBy(() -> cancelled.reject(HELP_ID, "warm water didn't help", FRIDAY_18_10))
+          .isInstanceOf(InvalidHelpRequestState.class)
+          .hasMessageContaining("CANCELLED");
+      assertThat(cancelled.pullEvents()).isEmpty();
+    }
 
     @DisplayName(
         "Grandma answered; Fri 20:00 Lena rejects it: 'warm water didn't help' -> OPEN; Grandma's Help marked rejected; Grandma asked again, deadline Sat 08:00, side ASKED; HelpRejected {helpRequest, helpRequester Lena, helpId, note, askedProviders [Grandma, Sat 08:00], OPEN, occurredAt Fri 20:00} -- B3-S05 US-CA-03 INV-06 R5.E1")
@@ -1222,6 +1274,19 @@ class HelpRequestTest {
           .hasMessageContaining("CANCELLED");
       assertThat(request.status()).isEqualTo(HelpRequestStatus.CANCELLED);
       assertThat(request.pullEvents()).isEmpty();
+    }
+
+    @DisplayName(
+        "time out a CLOSED request -> InvalidHelpRequestState(CLOSED), no event -- B3-S06 US-CA-03 lifecycle (step 13, D-1)")
+    @Test
+    void closedRequestDoesNotTimeOut() {
+      HelpRequest closed = storedRequestToGrandmaIn(HelpRequestStatus.CLOSED);
+
+      assertThatThrownBy(() -> closed.timeOut(at("2026-11-07T06:00:01")))
+          .isInstanceOf(InvalidHelpRequestState.class)
+          .hasMessageContaining("CLOSED");
+      assertThat(closed.status()).isEqualTo(HelpRequestStatus.CLOSED);
+      assertThat(closed.pullEvents()).isEmpty();
     }
 
     @DisplayName(

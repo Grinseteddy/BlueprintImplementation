@@ -74,7 +74,7 @@ class DatabaseOutageIT {
         .post()
         .uri("/help-requests")
         .header("Authorization", lenasToken())
-        .header("version", "1.0.9")
+        .header("version", "1.0.10")
         .contentType(MediaType.APPLICATION_JSON)
         .body(HelpRequestBodies.sauceSplitsAtStep4("COMMUNITY"))
         .retrieve()
@@ -87,7 +87,7 @@ class DatabaseOutageIT {
         .get()
         .uri("/help-requests/" + helpRequestId)
         .header("Authorization", lenasToken())
-        .header("version", "1.0.9")
+        .header("version", "1.0.10")
         .retrieve()
         .onStatus(HttpStatusCode::isError, (request, response) -> {})
         .toEntity(String.class);

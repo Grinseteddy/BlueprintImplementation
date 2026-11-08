@@ -10,15 +10,21 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.larder.cookingassistance.domain.helprequest.AnswerDoesNotMatchRequest;
+import org.larder.cookingassistance.domain.helprequest.AnswerTooLate;
 import org.larder.cookingassistance.domain.helprequest.ChefNotAllowed;
+import org.larder.cookingassistance.domain.helprequest.DeadlineNotPassed;
 import org.larder.cookingassistance.domain.helprequest.DomainRejection;
+import org.larder.cookingassistance.domain.helprequest.HelpAlreadyRejected;
+import org.larder.cookingassistance.domain.helprequest.HelpNotInRequest;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestStatus;
 import org.larder.cookingassistance.domain.helprequest.InvalidHelpRequestState;
 import org.larder.cookingassistance.domain.helprequest.NoHelpProviderChosen;
 import org.larder.cookingassistance.domain.helprequest.OwnRequest;
+import org.larder.cookingassistance.domain.helprequest.PictureLinkNotSecure;
 import org.larder.cookingassistance.domain.helprequest.PreparationStepRequired;
 import org.larder.cookingassistance.domain.helprequest.ProviderNotAsked;
 import org.larder.cookingassistance.domain.helprequest.RecipeRequired;
+import org.larder.cookingassistance.domain.helprequest.RejectionNoteRequired;
 import org.larder.cookingassistance.domain.helprequest.TooManyPictures;
 import org.springframework.beans.ConversionNotSupportedException;
 import org.springframework.dao.DataAccessResourceFailureException;
@@ -31,7 +37,10 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.method.annotation.ExceptionHandlerMethodResolver;
 
-/** The error map (OpenAPI 1.0.3 Problem codes): each domain rejection -> status, code and rule. */
+/**
+ * The error map (OpenAPI 1.0.11 Problem codes, P11): each domain rejection -> status, code and
+ * rule.
+ */
 class ProblemDetailsAdviceTest {
 
   static Stream<Arguments> rejections() {
@@ -41,6 +50,7 @@ class ProblemDetailsAdviceTest {
         Arguments.of(new RecipeRequired(), 422, "MISSING_FIELD", "INV-02"),
         Arguments.of(new PreparationStepRequired(), 422, "MISSING_FIELD", "INV-02"),
         Arguments.of(new TooManyPictures(), 422, "TOO_MANY_PICTURES", "INV-38"),
+        Arguments.of(new PictureLinkNotSecure(), 422, "INVALID_PICTURE_LINK", "INV-38"),
         Arguments.of(
             new AnswerDoesNotMatchRequest(), 422, "ANSWER_DOES_NOT_MATCH_REQUEST", "INV-37"),
         Arguments.of(new OwnRequest(), 403, "OWN_REQUEST", "INV-36"),
@@ -49,11 +59,16 @@ class ProblemDetailsAdviceTest {
             new InvalidHelpRequestState(HelpRequestStatus.CANCELLED),
             409,
             "INVALID_STATE",
-            "LIFECYCLE"));
+            "LIFECYCLE"),
+        Arguments.of(new AnswerTooLate(), 409, "INVALID_STATE", "INV-09"),
+        Arguments.of(new DeadlineNotPassed(), 409, "INVALID_STATE", "INV-09"),
+        Arguments.of(new HelpAlreadyRejected(), 409, "INVALID_STATE", "INV-39"),
+        Arguments.of(new HelpNotInRequest(), 404, "NOT_FOUND", "INV-05"),
+        Arguments.of(new RejectionNoteRequired(), 422, "MISSING_FIELD", "INV-06"));
   }
 
   @DisplayName(
-      "each of the 9 domain rejections -> its status (OWN_REQUEST, PROVIDER_NOT_ASKED 403; INVALID_STATE 409; the rest 422), its code and its rule -- B3-S01,B3-S02 US-CA-03 op createHelpRequest,provideHelp")
+      "each of the 15 domain rejections -> its status (OWN_REQUEST, PROVIDER_NOT_ASKED 403; NOT_FOUND 404; INVALID_STATE 409; the rest 422), its code and its rule -- B3-S01,B3-S02,B3-S03,B3-S04,B3-S05,B3-S06 US-CA-03 op createHelpRequest,provideHelp,cancelHelpRequest,acceptHelp,rejectHelp")
   @ParameterizedTest(name = "{2} -> {1}")
   @MethodSource("rejections")
   void domainRejectionsMapToStatusCodeAndRule(

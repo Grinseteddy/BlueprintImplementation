@@ -2,20 +2,35 @@ package org.larder.cookingassistance.adapter.in.messaging;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.larder.cookingassistance.application.ProvideGrandmaAvatarHelp;
 import org.larder.cookingassistance.application.fakes.InMemoryHelpRequestRepository;
 import org.larder.cookingassistance.application.fakes.InMemoryProcessedMessages;
 import org.larder.cookingassistance.application.fakes.RecordingUnitOfWork;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
+import org.larder.cookingassistance.domain.helprequest.HelpRequest;
 import org.larder.cookingassistance.fixtures.HelpRequests;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 /**
  * Receive operation consumeGrandmaHelpProvided: the raw message as the transport hands it over ->
@@ -246,5 +261,117 @@ class GrandmaHelpProvidedConsumerTest {
             .formatted(HelpRequests.HELP_REQUEST_ID.value(), HelpRequests.HOLLANDAISE.value());
 
     expectDeadLetteredWithoutEffect(HEADERS, bytes(substitutes));
+  }
+
+  @DisplayName(
+      "Grandma's answer to a request that is cancelled, closed or timed out -> ACK (ignored), nothing changed, one INFO log line with the message id and the request's state -- B3-S03,B3-S04,B3-S06 US-CA-03 op consumeGrandmaHelpProvided (step 9 r2 from step 13, Q-A2)")
+  @ParameterizedTest(name = "{0}")
+  @ValueSource(strings = {"cancelled", "closed", "timed out"})
+  @ExtendWith(OutputCaptureExtension.class)
+  void lateAnswerIsIgnored(String state, CapturedOutput output) {
+    HelpRequest lenas = helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    switch (state) {
+      case "cancelled" -> lenas.cancel(Optional.empty(), HelpRequests.FRIDAY_18_10);
+      case "closed" -> {
+        HelpRequests.grandmaExplainsStep4(lenas);
+        lenas.accept(HelpRequests.HELP_ID, HelpRequests.FRIDAY_18_10);
+      }
+      default -> lenas.timeOut(Clock.fixed(Instant.parse("2026-11-07T05:00:01Z"), ZoneOffset.UTC));
+    }
+    helpRequests.save(lenas);
+    HelpRequest before = helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+
+    Outcome outcome = consumer.handle(HEADERS, bytes(GRANDMAS_ANSWER));
+
+    HelpRequest after = helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    assertThat(outcome).isEqualTo(Outcome.ACK);
+    assertThat(after.status()).isEqualTo(before.status());
+    assertThat(after.helps()).hasSameSizeAs(before.helps());
+    assertThat(output.getOut())
+        .containsOnlyOnce(M1.toString())
+        .contains("INFO")
+        .contains(before.status().name());
+  }
+
+  @DisplayName(
+      "Grandma's answer after her deadline, the request still open -> ACK (ignored), no Help stored, one INFO log line with the message id and the reason -- B3-S02 INV-09 US-CA-03 op consumeGrandmaHelpProvided (step 9 r3 from step 13, Q-A2)")
+  @Test
+  @ExtendWith(OutputCaptureExtension.class)
+  void answerAfterItsDeadlineIsIgnored(CapturedOutput output) {
+    GrandmaHelpProvidedConsumer oneSecondAfterTheDeadline =
+        new GrandmaHelpProvidedConsumer(
+            new ProvideGrandmaAvatarHelp(
+                helpRequests,
+                processedMessages,
+                new RecordingUnitOfWork(),
+                () -> HelpRequests.HELP_ID.value(),
+                Clock.fixed(Instant.parse("2026-11-07T05:00:01Z"), ZoneOffset.UTC)));
+
+    Outcome outcome = oneSecondAfterTheDeadline.handle(HEADERS, bytes(GRANDMAS_ANSWER));
+
+    assertThat(outcome).isEqualTo(Outcome.ACK);
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().helps()).isEmpty();
+    assertThat(output.getOut())
+        .containsOnlyOnce(M1.toString())
+        .contains("INFO")
+        .contains("deadline");
+  }
+
+  /** The consumer's log lines while {@code handling} runs. */
+  private static List<ILoggingEvent> consumerLogLines(Runnable handling) {
+    ListAppender<ILoggingEvent> lines = new ListAppender<>();
+    lines.start();
+    Logger consumerLog = (Logger) LoggerFactory.getLogger(GrandmaHelpProvidedConsumer.class);
+    consumerLog.addAppender(lines);
+    try {
+      handling.run();
+    } finally {
+      consumerLog.detachAppender(lines);
+    }
+    return lines.list;
+  }
+
+  @DisplayName(
+      "M3a Grandma's answer to Lena's cancelled request -> the INFO line 'ignored' has helpRequestId = Lena's request in its log context; afterwards it is cleared -- B3-S03 US-CA-03 ADR0020 QS-14 op consumeGrandmaHelpProvided")
+  @Test
+  void ignoredAnswerLogLineCarriesTheHelpRequestId() {
+    HelpRequest lenas = helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    lenas.cancel(Optional.empty(), HelpRequests.FRIDAY_18_10);
+    helpRequests.save(lenas);
+
+    List<ILoggingEvent> lines =
+        consumerLogLines(() -> consumer.handle(HEADERS, bytes(GRANDMAS_ANSWER)));
+
+    assertThat(lines)
+        .filteredOn(line -> line.getFormattedMessage().contains("ignored"))
+        .singleElement()
+        .satisfies(
+            line ->
+                assertThat(line.getMDCPropertyMap())
+                    .containsEntry(
+                        "helpRequestId", HelpRequests.HELP_REQUEST_ID.value().toString()));
+    assertThat(MDC.get("helpRequestId")).isNull();
+  }
+
+  @DisplayName(
+      "M3b repository throws an unexpected error -> the WARN line 'retrying' has helpRequestId = Lena's request in its log context -- B3-S02 US-CA-03 ADR0020 QS-14 op consumeGrandmaHelpProvided")
+  @Test
+  void retriedAnswerLogLineCarriesTheHelpRequestId() {
+    helpRequests.interleave(
+        () -> {
+          throw new RuntimeException("connection refused for user larder");
+        });
+
+    List<ILoggingEvent> lines =
+        consumerLogLines(() -> consumer.handle(HEADERS, bytes(GRANDMAS_ANSWER)));
+
+    assertThat(lines)
+        .filteredOn(line -> line.getFormattedMessage().contains("retrying"))
+        .singleElement()
+        .satisfies(
+            line ->
+                assertThat(line.getMDCPropertyMap())
+                    .containsEntry(
+                        "helpRequestId", HelpRequests.HELP_REQUEST_ID.value().toString()));
   }
 }

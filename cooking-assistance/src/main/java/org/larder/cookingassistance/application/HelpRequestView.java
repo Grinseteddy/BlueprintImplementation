@@ -33,7 +33,7 @@ public record HelpRequestView(
 
   /**
    * The providers the cook chose: the request asks exactly the preferred providers, so they are the
-   * asked providers' types until re-sending (increment 1 stores them separately).
+   * asked providers' types (a rejection sends the request again to the same providers, B3-S05).
    */
   public Set<HelpProviderType> preferredProviders() {
     return askedProviders.stream().map(AskedProvider::providerType).collect(Collectors.toSet());

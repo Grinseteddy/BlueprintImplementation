@@ -1,6 +1,7 @@
 package org.larder.cookingassistance.adapter.out.messaging;
 
 import java.time.Clock;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -20,8 +21,14 @@ class OutboxPolling {
   private final OutboxRelay relay;
 
   OutboxPolling(
-      JdbcClient jdbc, TransactionTemplate transactions, MessagePublisher publisher, Clock clock) {
+      JdbcClient jdbc,
+      TransactionTemplate transactions,
+      MessagePublisher publisher,
+      Clock clock,
+      ConnectionFactory connections) {
     this.relay = new OutboxRelay(jdbc, transactions, publisher, clock);
+    // ADR0015 addition (A-2): when the broker connection is (re)established, waiting rows go out
+    connections.addConnectionListener(connection -> relay.brokerReconnected());
   }
 
   @Scheduled(fixedDelayString = "${cooking-assistance.outbox.poll-delay:1s}")

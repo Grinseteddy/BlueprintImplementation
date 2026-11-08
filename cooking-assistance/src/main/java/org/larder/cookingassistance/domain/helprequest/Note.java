@@ -20,6 +20,11 @@ public record Note(NoteKind kind, String text, Instant writtenAt, Optional<HelpI
     }
   }
 
+  // INV-06, D-3 (step 13): a blank text says nothing, so it is no note at all
+  static boolean saysSomething(String text) {
+    return text != null && !text.isBlank();
+  }
+
   static Note rejection(String text, Instant writtenAt, HelpId rejectedHelp) {
     return new Note(NoteKind.REJECTION, text, writtenAt, Optional.of(rejectedHelp));
   }
