@@ -2,6 +2,7 @@ package org.larder.cookingassistance.adapter.in.messaging;
 
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.larder.cookingassistance.adapter.messaging.generated.GrandmaHelpProvidedPayload;
 import org.larder.cookingassistance.application.HelpRequestNotFound;
 import org.larder.cookingassistance.application.ProvideGrandmaAvatarHelp;
@@ -21,6 +22,8 @@ public class GrandmaHelpProvidedConsumer {
 
   private static final Logger LOG = LoggerFactory.getLogger(GrandmaHelpProvidedConsumer.class);
   private static final String HELP_REQUEST_ID = "helpRequestId";
+  private static final Pattern UUID_FORM =
+      Pattern.compile("[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}");
 
   private final AsyncApiMessageReader messages = new AsyncApiMessageReader();
   private final ProvideGrandmaAvatarHelp provideGrandmaAvatarHelp;
@@ -51,6 +54,11 @@ public class GrandmaHelpProvidedConsumer {
         | DomainRejection
         | AnswerKindNotBuilt neverSucceeds) {
       // ADR0015: a message that can never succeed goes to the dead-letter queue
+      // SEC-06: the rejection's type only; its text can repeat what the sender wrote
+      LOG.warn(
+          "Grandma Avatar answer {} sent to the dead-letter queue: {}",
+          loggableId(headers.get("messageId")),
+          neverSucceeds.getClass().getSimpleName());
       return Outcome.DEAD_LETTER;
     } catch (RuntimeException mayPass) {
       // ADR0015: delivered again, dead-lettered after 5 deliveries
@@ -59,5 +67,11 @@ public class GrandmaHelpProvidedConsumer {
     } finally {
       MDC.remove(HELP_REQUEST_ID);
     }
+  }
+
+  /** The message id is read before its header is valid: only a UUID may reach the log. */
+  private static String loggableId(Object messageId) {
+    String id = String.valueOf(messageId);
+    return UUID_FORM.matcher(id).matches() ? id : "(invalid message id)";
   }
 }

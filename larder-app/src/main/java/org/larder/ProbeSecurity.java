@@ -8,8 +8,8 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
- * Health and readiness probes of the process are open to the platform; every module API stays
- * protected.
+ * Health and readiness probes and the metrics of the process are open to the platform, on the
+ * management port only (SEC-16); every module API stays protected.
  */
 @Configuration
 class ProbeSecurity {

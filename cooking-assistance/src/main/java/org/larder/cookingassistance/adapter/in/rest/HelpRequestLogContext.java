@@ -3,6 +3,7 @@ package org.larder.cookingassistance.adapter.in.rest;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
+import java.util.regex.Pattern;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -15,6 +16,8 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 class HelpRequestLogContext implements WebMvcConfigurer, HandlerInterceptor {
 
   private static final String HELP_REQUEST_ID = "helpRequestId";
+  private static final Pattern UUID_FORM =
+      Pattern.compile("[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}");
 
   @Override
   public void addInterceptors(InterceptorRegistry registry) {
@@ -27,7 +30,9 @@ class HelpRequestLogContext implements WebMvcConfigurer, HandlerInterceptor {
     // the path variable {helpRequestId} of the spec's paths, once the handler is mapped
     if (request.getAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE)
             instanceof Map<?, ?> variables
-        && variables.get(HELP_REQUEST_ID) instanceof String id) {
+        && variables.get(HELP_REQUEST_ID) instanceof String id
+        // SEC-06: raw path text never reaches a log line
+        && UUID_FORM.matcher(id).matches()) {
       MDC.put(HELP_REQUEST_ID, id);
     }
     return true;

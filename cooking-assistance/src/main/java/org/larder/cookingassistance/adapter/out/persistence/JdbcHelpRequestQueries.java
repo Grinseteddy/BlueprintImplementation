@@ -38,12 +38,29 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Repository
 class JdbcHelpRequestQueries implements HelpRequestQueries {
 
+  // SEC-14: a list page stays bounded however many requests a Cook makes on one step
+  private static final int PREVIOUS_NOTES_SHOWN = 10;
+
   /** A Help's row with its request's requester and the rejection note that names it. */
   private static final String HELPS =
       "select h.id, h.help_request_id, h.provider_type, h.provider_person, h.answer_title,"
           + " h.answer, h.accepted, h.rejected, r.requester, n.text as rejection_note"
           + " from help h join help_request r on r.id = h.help_request_id"
           + " left join help_request_note n on n.help_id = h.id and n.kind = 'REJECTION'";
+
+  /**
+   * INV-07: the notes of the requester's earlier requests (UUIDv7: a smaller id was created
+   * earlier) on the same step of the same recipe as the request read.
+   */
+  private static final String NOTES_OF_EARLIER_REQUESTS_ON_THE_STEP =
+      "select n.help_request_id, n.position, n.kind, n.text, n.written_at, n.help_id"
+          + " from help_request_note n"
+          + " join help_request earlier on earlier.id = n.help_request_id"
+          + " join help_request read on read.id = :id"
+          + " where earlier.id < read.id"
+          + " and earlier.requester = read.requester"
+          + " and earlier.recipe = read.recipe"
+          + " and earlier.how_to_step = read.how_to_step";
 
   private final JdbcClient jdbc;
   private final TransactionTemplate snapshot;
@@ -248,22 +265,16 @@ class JdbcHelpRequestQueries implements HelpRequestQueries {
         .optional();
   }
 
-  /**
-   * INV-07: the notes of the requester's earlier requests (UUIDv7: a smaller id was created
-   * earlier) on the same step of the same recipe.
-   */
+  /** SEC-14: of the notes of earlier requests only the most recent are shown, oldest first. */
   private List<PreviousNote> previousNotes(HelpRequestId id) {
     return jdbc.sql(
-            "select n.help_request_id, n.kind, n.text, n.written_at, n.help_id"
-                + " from help_request_note n"
-                + " join help_request earlier on earlier.id = n.help_request_id"
-                + " join help_request read on read.id = :id"
-                + " where earlier.id < read.id"
-                + " and earlier.requester = read.requester"
-                + " and earlier.recipe = read.recipe"
-                + " and earlier.how_to_step = read.how_to_step"
-                + " order by n.help_request_id, n.position")
+            "select * from ("
+                + NOTES_OF_EARLIER_REQUESTS_ON_THE_STEP
+                + " order by n.help_request_id desc, n.position desc"
+                + " limit :shown"
+                + ") recent order by help_request_id, position")
         .param("id", id.value())
+        .param("shown", PREVIOUS_NOTES_SHOWN)
         .query(
             (rs, n) ->
                 new PreviousNote(

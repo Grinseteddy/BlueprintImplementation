@@ -28,8 +28,11 @@ class CompositionRootIT {
   @Value("${local.server.port}")
   int port;
 
+  @Value("${local.management.port}")
+  int managementPort;
+
   private ResponseEntity<String> probe(String path) {
-    return RestClient.create("http://localhost:" + port)
+    return RestClient.create("http://localhost:" + managementPort)
         .get()
         .uri(path)
         .retrieve()

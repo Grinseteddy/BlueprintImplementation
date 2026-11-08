@@ -2,13 +2,20 @@ package org.larder.cookingassistance.adapter.in.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import java.lang.reflect.Method;
+import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.larder.cookingassistance.application.NotAuthorized;
+import org.larder.cookingassistance.application.Role;
 import org.larder.cookingassistance.domain.helprequest.AnswerDoesNotMatchRequest;
 import org.larder.cookingassistance.domain.helprequest.AnswerTooLate;
 import org.larder.cookingassistance.domain.helprequest.ChefNotAllowed;
@@ -26,6 +33,7 @@ import org.larder.cookingassistance.domain.helprequest.ProviderNotAsked;
 import org.larder.cookingassistance.domain.helprequest.RecipeRequired;
 import org.larder.cookingassistance.domain.helprequest.RejectionNoteRequired;
 import org.larder.cookingassistance.domain.helprequest.TooManyPictures;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.ConversionNotSupportedException;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.ProblemDetail;
@@ -38,7 +46,7 @@ import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.method.annotation.ExceptionHandlerMethodResolver;
 
 /**
- * The error map (OpenAPI 1.0.11 Problem codes, P11): each domain rejection -> status, code and
+ * The error map (OpenAPI 1.0.12 Problem codes, P11): each domain rejection -> status, code and
  * rule.
  */
 class ProblemDetailsAdviceTest {
@@ -79,6 +87,82 @@ class ProblemDetailsAdviceTest {
     ProblemDetail problem = (ProblemDetail) response.getBody();
     assertThat(problem.getStatus()).isEqualTo(status);
     assertThat(problem.getProperties()).containsEntry("code", code).containsEntry("rule", rule);
+  }
+
+  static Stream<Arguments> refusalsOfTheCaller() {
+    return Stream.of(
+        Arguments.of(new OwnRequest(), "OWN_REQUEST"),
+        Arguments.of(new ProviderNotAsked(), "PROVIDER_NOT_ASKED"));
+  }
+
+  @DisplayName(
+      "L3 a domain rejection that refuses the caller (403) -> one WARN line with status and code -- B3-S02 US-CA-03 OWASP-A09 QS-14 SEC-06")
+  @ParameterizedTest(name = "{1}")
+  @MethodSource("refusalsOfTheCaller")
+  void refusalsOfTheCallerAreLogged(DomainRejection refusal, String code) {
+    List<ILoggingEvent> lines =
+        adviceLogLines(() -> new ProblemDetailsAdvice().handleDomainRejection(refusal));
+
+    assertThat(lines)
+        .singleElement()
+        .satisfies(
+            line -> {
+              assertThat(line.getLevel()).isEqualTo(Level.WARN);
+              assertThat(line.getFormattedMessage()).contains("403", code);
+            });
+  }
+
+  @DisplayName(
+      "L3 a business refusal (422, 409) -> no log line: it is the normal answer, not a security event -- B3-S02 US-CA-03 OWASP-A09 SEC-06")
+  @Test
+  void businessRefusalsAreNotLogged() {
+    assertThat(
+            adviceLogLines(
+                () -> new ProblemDetailsAdvice().handleDomainRejection(new RecipeRequired())))
+        .as("422")
+        .isEmpty();
+    assertThat(
+            adviceLogLines(
+                () -> new ProblemDetailsAdvice().handleDomainRejection(new AnswerTooLate())))
+        .as("409")
+        .isEmpty();
+  }
+
+  static Stream<Arguments> refusedCommands() {
+    return Stream.of(
+        Arguments.of(new NotAuthorized("Provide help", Role.COMMUNITY), "NOT_AUTHORIZED"),
+        Arguments.of(NotAuthorized.requesterOnly("Cancel help request"), "NOT_REQUESTER"));
+  }
+
+  @DisplayName(
+      "L4 a command the caller may not issue (403) -> one WARN line with status and code -- B3-S03 US-CA-03 OWASP-A09 QS-14 SEC-06")
+  @ParameterizedTest(name = "{1}")
+  @MethodSource("refusedCommands")
+  void refusedCommandsAreLogged(NotAuthorized refusal, String code) {
+    List<ILoggingEvent> lines =
+        adviceLogLines(() -> new ProblemDetailsAdvice().handleNotAuthorized(refusal));
+
+    assertThat(lines)
+        .singleElement()
+        .satisfies(
+            line -> {
+              assertThat(line.getLevel()).isEqualTo(Level.WARN);
+              assertThat(line.getFormattedMessage()).contains("403", code);
+            });
+  }
+
+  /** The advice's log lines while {@code handling} runs. */
+  private static List<ILoggingEvent> adviceLogLines(Runnable handling) {
+    ListAppender<ILoggingEvent> lines = new ListAppender<>();
+    lines.start();
+    Logger adviceLog = (Logger) LoggerFactory.getLogger(ProblemDetailsAdvice.class);
+    adviceLog.addAppender(lines);
+    try {
+      handling.run();
+    } finally {
+      adviceLog.detachAppender(lines);
+    }
+    return lines.list;
   }
 
   @DisplayName(
