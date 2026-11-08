@@ -9,7 +9,7 @@ info:
 
     Clients must be tolerant readers: ignore unknown fields and handle unknown enum values
     (status, type and error codes can grow in later minor versions).
-  version: 1.0.9
+  version: 1.0.11
   contact:
     name: Annegret Junker
     email: annegret.junker@larder.org
@@ -148,6 +148,7 @@ paths:
         The requester cancels an OPEN or ANSWERED help request at any time, with an optional note
         the providers can see. The request becomes CANCELLED.
         Only the requester may cancel (403 NOT_REQUESTER); a CLOSED or CANCELLED request cannot be cancelled (409 INVALID_STATE).
+        A blank note counts as no note.
       security:
         - oAuth2:
             - help:write
@@ -298,7 +299,8 @@ paths:
       description: |
         The requester accepts one help (command Accept help). Accepting closes the whole request for every
         provider; the request becomes CLOSED and the help is marked accepted.
-        Only the requester may accept (403 NOT_REQUESTER); the request must be ANSWERED (409 INVALID_STATE).
+        Only the requester may accept (403 NOT_REQUESTER); the request must be ANSWERED (409 INVALID_STATE);
+        a help already rejected cannot be accepted (409 INVALID_STATE).
       security:
         - oAuth2:
             - help:write
@@ -497,8 +499,8 @@ components:
       description: Version of the API the client was built against.
       schema:
         type: string
-        default: "1.0.9"
-        enum: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6", "1.0.7", "1.0.8", "1.0.9"]
+        default: "1.0.11"
+        enum: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6", "1.0.7", "1.0.8", "1.0.9", "1.0.10", "1.0.11"]
 
   schemas:
     HelpType:
@@ -870,7 +872,7 @@ components:
           items:
             $ref: '#/components/schemas/Note'
         previousNotes:
-          description: Notes of the requester's earlier requests about the same recipe step or dish, shown so providers don't repeat what didn't work.
+          description: Notes of the requester's earlier requests about the same step of the same recipe (INV-07), shown so providers don't repeat what didn't work; notes about the same dish come with catastrophe help (planned).
           type: array
           items:
             $ref: '#/components/schemas/Note'
@@ -972,7 +974,7 @@ components:
       type: object
       properties:
         note:
-          description: Optional reason for cancelling, shown to the providers.
+          description: Optional reason for cancelling, shown to the providers. A blank note counts as no note.
           type: string
           maxLength: 2000
           examples:
@@ -1408,7 +1410,7 @@ components:
           format: uri-reference
         code:
           description: |
-            Machine-readable domain error code, e.g. CHEF_NOT_ALLOWED, MISSING_FIELD, FIELD_NOT_ALLOWED, TOO_MANY_PICTURES,
+            Machine-readable domain error code, e.g. CHEF_NOT_ALLOWED, MISSING_FIELD, FIELD_NOT_ALLOWED (planned: kinds of help with fields of their own), TOO_MANY_PICTURES,
             INVALID_PICTURE_LINK,
             NOT_PREMIUM, OCCASION_TOO_CLOSE, CHEF_UNAVAILABLE, OWN_REQUEST, PROVIDER_NOT_ASKED, NOT_REQUESTER,
             INVALID_STATE, ANSWER_DOES_NOT_MATCH_REQUEST, SUBSTITUTE_REJECTED_BEFORE, VALIDATION_FAILED,

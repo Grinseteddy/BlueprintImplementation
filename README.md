@@ -70,7 +70,8 @@ Only the health and readiness probes are exposed (`/actuator/health/**`, ADR0020
 The relay dead-letters a row only when it can never be published: it breaks the AsyncAPI spec or
 its event type is unknown (ADR0015, addition L5). Each dead letter is logged at ERROR with row id,
 event type and reason. Broker errors are never dead-lettered; they are retried with a backoff of
-1 s doubling up to 60 s.
+1 s doubling up to 60 s; when the broker connection comes back, the rows waiting for it are due
+at once and go out within seconds (ADR0015).
 
 1. Fix the defect and deploy the fix first. A row replayed against the old build is dead-lettered
    again.

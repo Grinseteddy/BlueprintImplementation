@@ -47,3 +47,23 @@ QS-04, QS-08, QS-10, QS-14
 - **Rows that can never succeed are dead-lettered at once:** a message that breaks the spec, or an event type the spec does not know. `dead_lettered_at` and `last_error` are set; nothing is sent.
 - **A dead-lettered row unblocks its help request:** the later rows go out; the dead letter is logged at ERROR with row id, event type and reason (dead letters come only from defects).
 - **Replay by runbook for now:** after the cause is fixed, an operator resets `dead_lettered_at`, `attempts` and `next_attempt_at` of the row (README); the stable message ID keeps a replay safe for consumers. A replay tool is on the planned list.
+
+## Addition (step 5 revision from step 13, increment 1, 2026-11-07, decided by the user)
+
+- **QS-04 holds over the backoff cap (inspection A-2).** The backoff of L5 stays (1 s, doubling,
+  capped at 60 s), but the broker's return ends the wait: whenever the module's AMQP connection is
+  established (the first time or again), every pending row that has failed before (`attempts` > 0,
+  not dead-lettered) becomes due at once (`next_attempt_at` = now, from the injected clock).
+  `attempts` and `last_error` are kept. The next relay pass (every 1 s) publishes them in order per
+  help request.
+- Only broker errors leave a row pending after a failure; rows that can never succeed are
+  dead-lettered at once (L5). So "failed before and still pending" means "failed for a broker
+  reason".
+- Verification of QS-04 needs a real loss of the connection (broker stopped and started), not only
+  a paused broker: the fault-injection test is extended in step 12.
+
+## Addition (step 5 revision from step 13, increment 1, 2026-11-08, decided by the user)
+
+- **The Grandma listener retries its broker connection every second** (re-inspection N-1). Its reconnect is what ends the backoff of the 2026-11-07 addition in production, and the default of 5 s would miss QS-04's 5 s for about 1 return in 10. With 1 s of recovery and the relay's 1 s pass, publication follows within about 2 s of the broker accepting connections.
+- **Consequence:** during an outage the listener logs a failed reconnect with its stack trace every second (about 40 log lines a second in the fault-injection run). Accepted by the user; quieter logging is on the planned list.
+- **A late Grandma Avatar answer is ignored, not dead-lettered** (Q-A2). An answer after a cancel, an acceptance, a time-out or its provider's deadline can never succeed and is no defect: the consumer acknowledges it without effect and logs it at INFO with its message id and the reason. Dead letters stay reserved for messages that are broken.
