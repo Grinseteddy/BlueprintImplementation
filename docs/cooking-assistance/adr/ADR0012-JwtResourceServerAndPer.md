@@ -43,3 +43,7 @@ QS-12, QS-13
 - The `grandma-avatar` exchange is declared by its owner. The module binds its queue to it by name; the bind fails while the owner has not declared it. The module never gets configure or write rights on it.
 - HEAD on a read path needs `help:read`, the same as GET (security review SEC-02).
 - A test runs the module with a broker user holding exactly these permissions.
+
+## Addition (step 5 revision from step 14, increment 1, 2026-11-08, decided by the user)
+
+- **Accepted risk: no maximum token lifetime in this module** (security review SEC-17, low). A correctly signed token with a far-off `exp` is accepted. Only the identity provider can sign tokens, so a long-lived token can come only from its configuration, and the lifetime is set there. **Owner of the risk: Annegret Junker.**

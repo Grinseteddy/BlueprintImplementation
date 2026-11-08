@@ -48,8 +48,9 @@ a required variable is missing or blank, and names it.
 | `LARDER_PUBLIC_BASE_URL` | yes | the URL every link in a response starts with, e.g. `https://larder.org/cooking-assistance`; never taken from the request (SEC-10) |
 | `LARDER_TIMEOUT_POLLER_ENABLED` | no, default `true` | whether this instance runs the time-out poller (ADR0021) |
 | `LARDER_TIMEOUT_POLL_DELAY` | no, default `10s` | pause between two runs of the time-out poller, e.g. `250ms`, `10s` |
+| `LARDER_MANAGEMENT_PORT` | no, default `8081` | port of the health probes and metrics; keep it off the public route (ADR0020) |
 
-Only the health and readiness probes are exposed (`/actuator/health/**`, ADR0020).
+Only the health and readiness probes (`/actuator/health/**`) and the metrics (`/actuator/prometheus`) are exposed, on the management port only (ADR0020).
 
 ## Before the first deployment
 

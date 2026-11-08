@@ -1,5 +1,12 @@
 # Cook Assistance API — changelog
 
+## OpenAPI 1.0.12 — 2026-11-08 (step 4 r17, from the security review of increment 1, SEC-14)
+
+| Change | Why |
+|---|---|
+| `HelpRequest.previousNotes` is limited to the 10 most recent notes, oldest first (`maxItems: 10`) | a list page repeated the whole note history of each step, growing without limit (OWASP API4). Narrows what a response can hold; the items are unchanged |
+| `version` header accepts 1.0.12 | |
+
 ## OpenAPI 1.0.11 — 2026-11-08 (step 4 r16, from the reverse check of the rework, step 13 of increment 1)
 
 | Change | Why |

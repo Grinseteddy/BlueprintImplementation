@@ -58,7 +58,7 @@ Kinds: *quantitative* and *cardinality* rules get a property test in step 6.
 #### INV-07 — US-CA-03 R6: Notes are kept and shown on future requests for the same step
 - **Slice / command:** B3-S01 (policy/read model) · Request help Preparation step · **kind:** other
 - **Guard / outcome:** notes of earlier requests on the same step are shown — across Help Request instances → read model / query, not an aggregate guard
-- **Sources:** map; red card Q1 answered at the readiness gate of increment 1 (2026-11-02): notes are shown for the same step of the same recipe only, as R6.E1 assumes — not for the same technique
+- **Sources:** map; red card Q1 answered at the readiness gate of increment 1 (2026-11-02): notes are shown for the same step of the same recipe only, as R6.E1 assumes — not for the same technique. *(step 3 r10, 2026-11-08, from the security review SEC-14, decided by the user:)* the 10 most recent notes are shown, oldest first
   - `US-CA-03 R6.E1` **Given/When** Next month Lena asks about step 4 again **Then** note "warm water didn't help" shown
 
 #### INV-08 — US-CA-03 R7: The Cook can cancel an open request at any time, with an optional note
