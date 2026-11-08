@@ -5,9 +5,12 @@ import java.util.UUID;
 import org.larder.cookingassistance.adapter.messaging.generated.GrandmaHelpProvidedPayload;
 import org.larder.cookingassistance.application.HelpRequestNotFound;
 import org.larder.cookingassistance.application.ProvideGrandmaAvatarHelp;
+import org.larder.cookingassistance.domain.helprequest.AnswerTooLate;
 import org.larder.cookingassistance.domain.helprequest.DomainRejection;
+import org.larder.cookingassistance.domain.helprequest.InvalidHelpRequestState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 
 // op: consumeGrandmaHelpProvided (channel cooking-assistance.grandma-help-provided) · cmd: Provide
@@ -17,6 +20,7 @@ import org.springframework.stereotype.Component;
 public class GrandmaHelpProvidedConsumer {
 
   private static final Logger LOG = LoggerFactory.getLogger(GrandmaHelpProvidedConsumer.class);
+  private static final String HELP_REQUEST_ID = "helpRequestId";
 
   private final AsyncApiMessageReader messages = new AsyncApiMessageReader();
   private final ProvideGrandmaAvatarHelp provideGrandmaAvatarHelp;
@@ -31,9 +35,16 @@ public class GrandmaHelpProvidedConsumer {
       GrandmaHelpProvidedPayload payload =
           messages.readPayload(
               body, "GrandmaHelpProvidedPayload", GrandmaHelpProvidedPayload.class);
+      // ADR0020, QS-14: the answer's help request is on the consumer's log lines
+      MDC.put(HELP_REQUEST_ID, payload.helpRequest().toString());
       provideGrandmaAvatarHelp.handle(
           GrandmaAnswerMapper.toGrandmaAnswer(
               UUID.fromString(headers.get("messageId").toString()), payload));
+      return Outcome.ACK;
+    } catch (InvalidHelpRequestState | AnswerTooLate late) {
+      // Q-A2: an answer after a cancel, an acceptance, a time-out or its deadline is ignored,
+      // never dead-lettered
+      LOG.info("Grandma Avatar answer {} ignored: {}", headers.get("messageId"), late.getMessage());
       return Outcome.ACK;
     } catch (InvalidMessage
         | HelpRequestNotFound
@@ -45,6 +56,8 @@ public class GrandmaHelpProvidedConsumer {
       // ADR0015: delivered again, dead-lettered after 5 deliveries
       LOG.warn("Grandma Avatar answer not processed, retrying", mayPass);
       return Outcome.RETRY;
+    } finally {
+      MDC.remove(HELP_REQUEST_ID);
     }
   }
 }

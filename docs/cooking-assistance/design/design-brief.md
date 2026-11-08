@@ -29,7 +29,7 @@ The four per-board briefs are identical in structure and differ only in the vari
 | ingredients | model | B2 only: one ingredient plus substitute requirements (map US-CA-02 R2 vs model "ingredients" 0..* → contradiction `R_EM02_R2`) |
 | title, description, pictures | model / map | pictures 0..* (model v2) vs 0..10 (glossary v2); text only for B3 (map R3); photos allowed for B4 (map R3) |
 | deadline | map, inferred as state | per asked provider, length per type: B3 12 h · B2 24 h · B4 15 min Community / 5 min Grandma · B1 48 h or 24 h before the Occasion |
-| notes | map | rejection notes, kept and shown on future requests (B3 R6, B4 R7); rejected substitutes not proposed again (B2 R5) |
+| notes | map | two kinds: a rejection note names the Help it rejects, a cancellation note names none (INV-06, INV-08); kept and shown on the requester's later requests for the same step of the same recipe (B3 R6, B4 R7); rejected substitutes not proposed again (B2 R5) *(step 2 revision, 2026-11-06, reverse check of increment 1)* |
 | Occasion | map, B1 only | US-CA-01 R1 |
 
 ### Help (**entity inside Help Request** — decision D1; the model and SADR0004 call it an aggregate root; on board as business object "Help <type>")
@@ -43,7 +43,7 @@ The four per-board briefs are identical in structure and differ only in the vari
 - answer title
 - answer, with answerType and oneOf: substitutes / preparation step explanation / catastrophe mitigation / menu proposal
 - images — inside the answer (e.g. the preparation step explanation; `help.answer` is jsonb, ADR0009 addition)
-- isAccepted
+- isAccepted · isRejected — a rejected Help is never accepted later (INV-39) *(step 2 revision, 2026-11-06, reverse check of increment 1)*
 
 **Invariants (model):**
 - answerType = the request's type
@@ -70,7 +70,7 @@ The four per-board briefs are identical in structure and differ only in the vari
 | B3-S03 | Cancel help request → Help Request | only the requester (inferred; `Q_ESD_CancelActor`) · request Open or Answered · optional note (map US-CA-03 R7) · at any time while Open or Answered (map US-CA-03 R7; D4) | Help request cancelled | not requester · already closed or cancelled |
 | B3-S04 | Accept help → Help Request (sets Help.isAccepted; one transaction, D1) *added* | requester only · Help belongs to the request · request Answered · accepting closes the whole request (maps 02 R3, 03 R4, 04 R5) · "at least one Help must be accepted" (model v2) | Help accepted → status Closed | not answered · foreign help |
 | B3-S05 | Reject help → Help Request *added* | requester only · a note on what didn't work · resent to the same providers · new deadline (12 h / 24 h / per type) · rejected substitutes kept (B2 R5) · B1: reset gives 48 h (map R8) | Help rejected → status Open | |
-| B3-S06 | Time out help request → Help Request *added, automation* | trigger: clock at the deadline, if no Help accepted ("System cancels request when answer takes too long", on board) · suggest a provider not yet asked (maps 02 R7, 03 R8, 04 R9) | Help request timed out → status Cancelled (D5) | — |
+| B3-S06 | Time out help request → Help Request *added, automation* | trigger: clock at the deadline, while the request is still Open, with no answer yet (INV-09, §3) *(step 2 revision, 2026-11-06, reverse check of increment 1)* ("System cancels request when answer takes too long", on board) · suggest a provider not yet asked (maps 02 R7, 03 R8, 04 R9) | Help request timed out → status Cancelled (D5) | — |
 
 ## 3. Lifecycle — Help Request (one state machine for all four boards)
 

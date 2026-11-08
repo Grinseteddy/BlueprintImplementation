@@ -55,7 +55,7 @@ class CorrelationIT {
             .header(
                 "Authorization",
                 TestTokens.forCook(HelpRequests.LENA).roles("cook").scope("help:write").bearer())
-            .header("version", "1.0.4")
+            .header("version", "1.0.10")
             .contentType(MediaType.APPLICATION_JSON)
             .body(
                 """
@@ -69,6 +69,45 @@ class CorrelationIT {
     Message published = createdFor(queue, helpRequestId);
     assertThat(published.getMessageProperties().getHeaders())
         .containsEntry("correlationId", helpRequestId);
+  }
+
+  static final String TRACE_ID = "4bf92f3577b34da6a3ce929d0e0e4736";
+
+  @DisplayName(
+      "E3 POST /help-requests with traceparent 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01 -> the published HelpRequestCreated carries a traceparent of trace 4bf92f3577b34da6a3ce929d0e0e4736 -- B3-S01 US-CA-03 QS-14 ADR0020 (step 13, A-1)")
+  @Test
+  void publishedMessageContinuesTheRequestsTrace() throws Exception {
+    String queue = "quality.correlation.trace";
+    admin.declareQueue(new Queue(queue, false, false, false));
+    admin.declareBinding(
+        BindingBuilder.bind(new Queue(queue))
+            .to(new TopicExchange("cooking-assistance"))
+            .with("cooking-assistance.help-request.created"));
+    admin.purgeQueue(queue, false);
+
+    String created =
+        RestClient.create("http://localhost:" + port)
+            .post()
+            .uri("/help-requests")
+            .header(
+                "Authorization",
+                TestTokens.forCook(HelpRequests.LENA).roles("cook").scope("help:write").bearer())
+            .header("version", "1.0.10")
+            .header("traceparent", "00-" + TRACE_ID + "-00f067aa0ba902b7-01")
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(
+                """
+                {"title":"Sauce splits","type":"PREPARATION_STEP_EXPLANATION","description":"Step 4",
+                 "recipe":"%s","howToStep":"%s","preferredProvider":["COMMUNITY"]}"""
+                    .formatted(HelpRequests.HOLLANDAISE.value(), HelpRequests.STEP_4.value()))
+            .retrieve()
+            .body(String.class);
+    String helpRequestId = new ObjectMapper().readTree(created).get("helpRequestId").asText();
+
+    Message published = createdFor(queue, helpRequestId);
+    assertThat(published.getMessageProperties().getHeaders().get("traceparent"))
+        .asString()
+        .startsWith("00-" + TRACE_ID + "-");
   }
 
   /** The HelpRequestCreated of this request; other tests' rows may still be published meanwhile. */

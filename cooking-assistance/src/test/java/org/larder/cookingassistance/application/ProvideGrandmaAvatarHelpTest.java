@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -124,6 +125,46 @@ class ProvideGrandmaAvatarHelpTest {
 
     assertThat(recordedInUnitOfWork).isTrue();
     assertThat(savedInUnitOfWork).isTrue();
+  }
+
+  @DisplayName(
+      "another writer saves first (Jonas answers in between) -> the handler retries once in a new unit of work: no ConcurrencyConflict, message id m1 is looked up again, Jonas's Help is stored -- B3-S02 US-CA-03 ADR0010 ADR0015")
+  @Test
+  void conflictIsRetriedOnce() {
+    // the fakes do not roll back the processed-message record (user 2026-11-07): the retry is shown
+    // by the second lookup; rollback itself is proven on the real unit of work (UnitOfWorkIT)
+    helpRequests.clear();
+    helpRequests.save(
+        HelpRequests.lenaAsksAboutStep4(
+            HelpProviderType.GRANDMA_AVATAR, HelpProviderType.COMMUNITY));
+    List<UUID> lookups = new ArrayList<>();
+    ProcessedMessages lookupSpy =
+        messageId -> {
+          lookups.add(messageId);
+          return processedMessages.recordFirstProcessing(messageId);
+        };
+    ProvideGrandmaAvatarHelp spiedHandler =
+        new ProvideGrandmaAvatarHelp(
+            helpRequests,
+            lookupSpy,
+            unitOfWork,
+            () -> HelpRequests.HELP_ID.value(),
+            HelpRequests.FRIDAY_18_10);
+    helpRequests.interleave(this::jonasAnswersMeanwhile);
+
+    spiedHandler.handle(grandmasAnswer(M1));
+
+    assertThat(lookups).containsExactly(M1, M1);
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().helps())
+        .anyMatch(help -> help.provider().equals(Optional.of(HelpRequests.JONAS)));
+  }
+
+  /** Another writer: Jonas answers the same request and saves first. */
+  private void jonasAnswersMeanwhile() {
+    HelpRequest meanwhile = helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    HelpRequests.communityMemberExplainsStep4(
+        meanwhile, HelpRequests.OTHER_HELP_ID, HelpRequests.JONAS);
+    helpRequests.save(meanwhile);
   }
 
   @DisplayName(

@@ -17,7 +17,8 @@ import net.jqwik.api.constraints.Size;
 
 /**
  * Property tests of the Help Request aggregate for the quantitative and cardinality rules of
- * increment 0 (INV-01, INV-09 deadline, INV-38). Run by jqwik; tries and seed per ADR0017.
+ * increments 0 and 1 (INV-01, INV-06 rejection note, INV-09 deadline, answer and time-out timing,
+ * INV-38). Run by jqwik; tries and seed per ADR0017.
  */
 class HelpRequestPropertiesTest {
 

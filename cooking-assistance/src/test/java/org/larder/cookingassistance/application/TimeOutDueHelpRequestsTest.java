@@ -1,16 +1,23 @@
 package org.larder.cookingassistance.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,7 +25,6 @@ import org.larder.cookingassistance.application.fakes.InMemoryHelpRequestReposit
 import org.larder.cookingassistance.application.fakes.RecordingUnitOfWork;
 import org.larder.cookingassistance.domain.helprequest.AskedProvider;
 import org.larder.cookingassistance.domain.helprequest.CookId;
-import org.larder.cookingassistance.domain.helprequest.DeadlineNotPassed;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequest;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
@@ -113,6 +119,12 @@ class TimeOutDueHelpRequestsTest {
 
   /** A request about step 4 to the Community on Friday 18:00 (deadline Sat 06:00). */
   private static HelpRequest requestToTheCommunity(HelpRequestId id, CookId requester) {
+    return requestToTheCommunity(id, requester, HelpRequests.FRIDAY_18_00);
+  }
+
+  /** A request about step 4 to the Community, asked at {@code askedAt} (deadline 12 h later). */
+  private static HelpRequest requestToTheCommunity(
+      HelpRequestId id, CookId requester, Clock askedAt) {
     return HelpRequest.requestHelpWithPreparationStep(
         id,
         requester,
@@ -121,7 +133,7 @@ class TimeOutDueHelpRequestsTest {
         HelpRequests.HOLLANDAISE,
         HelpRequests.STEP_4,
         Set.of(HelpProviderType.COMMUNITY),
-        HelpRequests.FRIDAY_18_00);
+        askedAt);
   }
 
   @DisplayName(
@@ -159,9 +171,15 @@ class TimeOutDueHelpRequestsTest {
   }
 
   @DisplayName(
-      "the repository hands over a request whose deadline has not passed -> DeadlineNotPassed propagates (a defect of the claim query, ADR0021), nothing saved -- B3-S06 US-CA-03 INV-09")
+      "U2 the claim hands over Lena's request that is not due and Tom's that is -> Tom's CANCELLED, Lena's OPEN without an event, 1 returned, one ERROR line naming Lena's request and the reason (one candidate fails alone, ADR0021) -- B3-S06 US-CA-03 INV-09 ADR0021")
   @Test
-  void aClaimedRequestThatIsNotDuePropagates() {
+  void aClaimedRequestThatIsNotDueFailsAlone() {
+    HelpRequest toms =
+        requestToTheCommunity(
+            TOMS_REQUEST,
+            CancelHelpRequestTest.TOM.id(),
+            Clock.offset(HelpRequests.FRIDAY_18_00, Duration.ofSeconds(-1)));
+    helpRequests.save(toms);
     HelpRequestRepository tooGenerous =
         new HelpRequestRepository() {
           @Override
@@ -171,7 +189,9 @@ class TimeOutDueHelpRequestsTest {
 
           @Override
           public List<HelpRequest> findDueForTimeOut(Instant now, int limit) {
-            return List.of(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow());
+            return List.of(
+                helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow(),
+                helpRequests.findById(TOMS_REQUEST).orElseThrow());
           }
 
           @Override
@@ -179,16 +199,57 @@ class TimeOutDueHelpRequestsTest {
             helpRequests.save(helpRequest);
           }
         };
-    TimeOutDueHelpRequests atTheDeadline =
+    TimeOutDueHelpRequests atLenasDeadline =
         new TimeOutDueHelpRequests(
             tooGenerous,
             unitOfWork,
             Clock.fixed(Instant.parse("2026-11-07T05:00:00Z"), ZoneOffset.UTC),
             10);
 
-    assertThatThrownBy(atTheDeadline::execute).isInstanceOf(DeadlineNotPassed.class);
+    AtomicInteger timedOut = new AtomicInteger();
+    List<LogRecord> lines = useCaseLogLines(() -> timedOut.set(atLenasDeadline.execute()));
+
+    assertThat(timedOut).hasValue(1);
+    assertThat(helpRequests.findById(TOMS_REQUEST).orElseThrow().status())
+        .isEqualTo(HelpRequestStatus.CANCELLED);
     assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().status())
         .isEqualTo(HelpRequestStatus.OPEN);
-    assertThat(helpRequests.recordedEvents()).noneMatch(HelpRequestTimedOut.class::isInstance);
+    assertThat(helpRequests.recordedEvents())
+        .filteredOn(HelpRequestTimedOut.class::isInstance)
+        .extracting(event -> ((HelpRequestTimedOut) event).helpRequest())
+        .containsExactly(TOMS_REQUEST);
+    assertThat(lines)
+        .filteredOn(line -> line.getLevel().equals(Level.SEVERE))
+        .singleElement()
+        .extracting(line -> new SimpleFormatter().formatMessage(line))
+        .asString()
+        .contains(HelpRequests.HELP_REQUEST_ID.value().toString())
+        .contains("Not every asked provider's deadline has passed");
+  }
+
+  /** The use case's log lines (System.Logger, through java.util.logging) while {@code run} runs. */
+  private static List<LogRecord> useCaseLogLines(Runnable run) {
+    Logger useCaseLog = Logger.getLogger(TimeOutDueHelpRequests.class.getName());
+    List<LogRecord> lines = new CopyOnWriteArrayList<>();
+    Handler recorder =
+        new Handler() {
+          @Override
+          public void publish(LogRecord line) {
+            lines.add(line);
+          }
+
+          @Override
+          public void flush() {}
+
+          @Override
+          public void close() {}
+        };
+    useCaseLog.addHandler(recorder);
+    try {
+      run.run();
+    } finally {
+      useCaseLog.removeHandler(recorder);
+    }
+    return lines;
   }
 }

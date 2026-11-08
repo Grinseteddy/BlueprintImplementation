@@ -39,3 +39,7 @@ QS-01, QS-02
 - `adapter.messaging` holds what the inbound and outbound messaging adapters share: the AsyncAPI contract (`AsyncApiContract`).
 - `adapter.out.id` holds the UUIDv7 ID generator (ADR0011) behind the application's `IdGenerator` port.
 - The ArchUnit rules treat all of them as adapters (`..adapter..`): domain and application import none of them.
+
+## Addition (step 5 revision from step 13, increment 1, 2026-11-08, decided by the user)
+
+- `adapter.in.scheduling` holds the time-out poller (`TimeOutPolling`, ADR0021), an inbound adapter driven by the clock. The ArchUnit rules treat it as an adapter (`..adapter..`).

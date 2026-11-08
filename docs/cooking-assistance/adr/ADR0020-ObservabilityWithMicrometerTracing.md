@@ -41,3 +41,10 @@ QS-14
 - **Exposed on `/actuator/prometheus`** next to the health probes (`management.endpoints.web.exposure`
   adds `prometheus`), with the same protection as the probes; nothing else of Actuator is exposed.
 - Alert rules and their routing stay an operations choice (open verification).
+
+## Addition (step 5 revision from step 13, increment 1, 2026-11-08, decided by the user)
+
+- **What a log line carries:** the pattern is `[traceId-spanId] [helpRequestId]` (`logging.pattern.correlation`). The trace id appears where a span exists, on the log lines of an HTTP request. The relay, the time-out poller and the Grandma consumer run without a span.
+- **Help request id in the MDC** under `helpRequestId`: set for requests that name a help request in their path, by the relay per row and by the Grandma consumer per message.
+- **The trace travels with the message:** the command's W3C `traceparent` is stored in `outbox.traceparent` in the command's transaction and sent as the AMQP header `traceparent` (AsyncAPI 1.0.6); absent when the command ran without a trace.
+- **Not yet (planned list):** relay log lines do not show the command's trace id, and an incoming Grandma message does not continue its trace.

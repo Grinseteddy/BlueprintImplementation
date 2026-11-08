@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -39,11 +40,16 @@ class OutboxMessageMapper {
 
   /** The MessageHeader of the spec. */
   private static Map<String, String> headersOf(OutboxRecord row, UUID messageId) {
-    return Map.of(
-        "messageId", messageId.toString(),
-        // one help journey is one help request until correlation is propagated (L8, step 12)
-        "correlationId", row.aggregateId().toString(),
-        "source", SOURCE);
+    Map<String, String> headers = new HashMap<>();
+    headers.put("messageId", messageId.toString());
+    // one help journey is one help request (correlationId); the trace travels as traceparent
+    headers.put("correlationId", row.aggregateId().toString());
+    headers.put("source", SOURCE);
+    // ADR0020: the trace of the command that wrote the row, absent without a trace
+    if (row.traceparent() != null) {
+      headers.put("traceparent", row.traceparent());
+    }
+    return Map.copyOf(headers);
   }
 
   private static UnmappedEvent unmapped(OutboxRecord row) {

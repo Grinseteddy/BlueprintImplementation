@@ -20,10 +20,10 @@ class TimeOutPolling {
 
   @Scheduled(fixedDelayString = "${cooking-assistance.timeout.poll-delay:10s}")
   void poll() {
-    // F5: drain in the same poll while more may be due (QS-09)
+    // F5: drain in the same poll, full batch after full batch (QS-09)
     int timedOut;
     do {
       timedOut = timeOut.execute();
-    } while (timeOut.moreMayBeDueAfter(timedOut));
+    } while (timeOut.shouldClaimAgainAfter(timedOut));
   }
 }

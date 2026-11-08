@@ -1,7 +1,7 @@
 asyncapi: 3.0.0
 info:
   title: Cooking Assistance
-  version: 1.0.5
+  version: 1.0.7
   description: |
     Event-driven API of the Cooking Assistance bounded context. It provides help
     for cooks in planning and preparation of meals and dinners: cooks create help
@@ -201,7 +201,9 @@ operations:
       This context consumes the Grandma Avatar's answers (command Provide Help with provider type
       GRANDMA_AVATAR). The same rules apply as for answers through the REST API. Messages are
       acknowledged manually after the help request has been stored; a redelivered message
-      (same messageId) is acknowledged without effect.
+      (same messageId) is acknowledged without effect. An answer that comes too late (after a
+      cancel, an acceptance, a time-out or its deadline) is acknowledged and ignored, never
+      dead-lettered; REST callers get the refusal instead.
     channel:
       $ref: '#/channels/grandmaHelpProvidedQueue'
     messages:
@@ -474,6 +476,10 @@ components:
           description: Source system generating the event
           minLength: 2
           maxLength: 20
+        traceparent:
+          type: string
+          pattern: '^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$'
+          description: W3C Trace Context of the command that caused the event (ADR0020); absent when there was no trace
 
     HelpType:
       type: string

@@ -1,5 +1,33 @@
 # Cook Assistance API — changelog
 
+## OpenAPI 1.0.11 — 2026-11-08 (step 4 r16, from the reverse check of the rework, step 13 of increment 1)
+
+| Change | Why |
+|---|---|
+| `cancelHelpRequest` and `Cancellation.note` state that a blank note counts as no note | INV-08 (step 3 r8, inspection D-3). Clarification, no shape change |
+| `acceptHelp` states that a help already rejected cannot be accepted (409 INVALID_STATE) | INV-39 was built and tested but missing from the description. Clarification |
+| `version` header accepts 1.0.11 | |
+
+## AsyncAPI 1.0.7 — 2026-11-08 (step 4 r15, from the reverse check of the rework, step 13 of increment 1)
+
+| Change | Why |
+|---|---|
+| `consumeGrandmaHelpProvided` states that a late answer is acknowledged and ignored, never dead-lettered | Q-A2, ADR0015 addition of 2026-11-08: "the same rules as REST" did not say what happens to a refused message. Clarification, no shape change |
+
+## AsyncAPI 1.0.6 — 2026-11-07 (step 4 r14, from the Fagan inspection of increment 1, A-1)
+
+| Change | Why |
+|---|---|
+| `MessageHeader` gains the optional `traceparent` (W3C Trace Context, `00-<trace id>-<span id>-<flags>`) | ADR0020: the trace id travels with AMQP messages; the inspection (A-1) found only `correlationId` on published messages. Optional, so additive: absent when the command ran without a trace |
+
+## OpenAPI 1.0.10 — 2026-11-06 (step 4 r13, from the reverse check of increment 1, step 13)
+
+| Change | Why |
+|---|---|
+| `HelpRequest.previousNotes` describes the same step of the same recipe; notes about the same dish are marked planned | the description said "recipe step or dish"; INV-07 (red card Q1) and the ADR0016 addition decide the same step of the same recipe. Clarification, no shape change |
+| `Problem.code` marks `FIELD_NOT_ALLOWED` as planned | nothing in increment 1 produces it; it belongs to kinds of help with fields of their own. Clarification |
+| `version` header accepts 1.0.10 | |
+
 ## OpenAPI 1.0.9 — 2026-11-05 (step 4 r12, from step 12 of increment 1)
 
 | Change | Why |

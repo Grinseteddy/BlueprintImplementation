@@ -5,6 +5,8 @@ import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
+import org.springframework.amqp.rabbit.config.ContainerCustomizer;
+import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -21,6 +23,14 @@ class AmqpConsuming {
   static final String DEAD_LETTER_EXCHANGE = "cooking-assistance.dlx";
   // RabbitMQ counts the redeliveries allowed after the first delivery: 4 means 5 deliveries
   static final int DELIVERY_LIMIT = 4;
+  // the listener's reconnect ends the outbox backoff: 1 s + the 1 s relay pass stays within QS-04
+  static final long RECOVERY_INTERVAL_MILLIS = 1_000;
+
+  /** How often the listener tries to get its broker connection back (ADR0015, QS-04). */
+  @Bean
+  ContainerCustomizer<SimpleMessageListenerContainer> listenerRecovery() {
+    return container -> container.setRecoveryInterval(RECOVERY_INTERVAL_MILLIS);
+  }
 
   @Bean
   Queue grandmaHelpProvidedQueue() {

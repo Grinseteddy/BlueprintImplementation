@@ -159,7 +159,7 @@
     dkg:environment "normal operation" ;
     dkg:artifact "metrics, alerting" ;
     dkg:response "alert raised" ;
-    dkg:responseMeasure "backlog > 100 or oldest entry > 1 min → alert; correlationId on every log line, HTTP ↔ message" ;
+    dkg:responseMeasure "backlog > 100 or oldest entry > 1 min → alert; trace id on request log lines, help request id on relay and consumer lines, the trace travels with the message (ADR0020), HTTP ↔ message" ;
     dkg:priority "M/M" ;
     dkg:verifiedBy "test (12) for metrics and correlation; alert routing: open verification" ;
     dkg:mentions :Ctx_CookingAssistance ; dkg:source :Art_QualityScenarios_CookAssistance ; dkg:confidence dkg:OnArtifact .

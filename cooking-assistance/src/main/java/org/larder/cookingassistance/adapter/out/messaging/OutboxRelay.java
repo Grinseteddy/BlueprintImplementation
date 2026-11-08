@@ -1,7 +1,6 @@
 package org.larder.cookingassistance.adapter.out.messaging;
 
 import java.time.Clock;
-import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.HashSet;
@@ -10,6 +9,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -27,6 +27,7 @@ public class OutboxRelay {
   private final MessagePublisher publisher;
   private final Clock clock;
   private final OutboxMessageMapper mapper = new OutboxMessageMapper();
+  private final OutboxRetrySchedule retries;
 
   public OutboxRelay(
       JdbcClient jdbc, TransactionTemplate transactions, MessagePublisher publisher, Clock clock) {
@@ -34,6 +35,7 @@ public class OutboxRelay {
     this.transactions = transactions;
     this.publisher = publisher;
     this.clock = clock;
+    this.retries = new OutboxRetrySchedule(jdbc);
   }
 
   /**
@@ -49,6 +51,11 @@ public class OutboxRelay {
     }
   }
 
+  /** ADR0015 addition (step 13, A-2): the broker's return ends the wait of the failed rows. */
+  public void brokerReconnected() {
+    retries.endBackoff(now());
+  }
+
   /**
    * One transaction over the oldest pending row of each help request; true if the round made
    * progress, i.e. a row was published or dead-lettered.
@@ -56,30 +63,39 @@ public class OutboxRelay {
   private boolean relayRound(Set<UUID> heldBack) {
     boolean progressed = false;
     for (OutboxRecord row : claimPending()) {
-      // ADR0015: in order per help request; a pending row holds back its aggregate for the run
-      if (heldBack.contains(row.aggregateId())) {
-        continue;
-      }
-      OutgoingMessage message;
-      try {
-        message = mapper.toMessage(row);
-      } catch (InvalidOutgoingMessage | UnmappedEvent unpublishable) {
-        deadLetter(row, unpublishable);
-        progressed = true;
-        continue;
-      }
-      try {
-        publisher.publish(message);
-        markPublished(row);
-        progressed = true;
-      } catch (RuntimeException notConfirmed) {
-        // ADR0015: at least once; the row stays pending and goes out again, same message id
-        LOG.warn("outbox row {} not published", row.id(), notConfirmed);
-        scheduleNextAttempt(row, notConfirmed);
-        heldBack.add(row.aggregateId());
+      // ADR0020, QS-14: the row's help request is on the relay's log lines
+      try (MDC.MDCCloseable context =
+          MDC.putCloseable("helpRequestId", row.aggregateId().toString())) {
+        progressed |= deliver(row, heldBack);
       }
     }
     return progressed;
+  }
+
+  /** True if the row left the pending rows, i.e. it was published or dead-lettered. */
+  private boolean deliver(OutboxRecord row, Set<UUID> heldBack) {
+    // ADR0015: in order per help request; a pending row holds back its aggregate for the run
+    if (heldBack.contains(row.aggregateId())) {
+      return false;
+    }
+    OutgoingMessage message;
+    try {
+      message = mapper.toMessage(row);
+    } catch (InvalidOutgoingMessage | UnmappedEvent unpublishable) {
+      deadLetter(row, unpublishable);
+      return true;
+    }
+    try {
+      publisher.publish(message);
+      markPublished(row);
+      return true;
+    } catch (RuntimeException notConfirmed) {
+      // ADR0015: at least once; the row stays pending and goes out again, same message id
+      LOG.warn("outbox row {} not published", row.id(), notConfirmed);
+      retries.afterBrokerError(row, notConfirmed, now());
+      heldBack.add(row.aggregateId());
+      return false;
+    }
   }
 
   /** ADR0015 L5: retrying cannot fix a row that breaks the spec; it is dead-lettered at once. */
@@ -93,36 +109,14 @@ public class OutboxRelay {
         .update();
   }
 
-  /** ADR0015 L5: a broker error is retried later, never dead-lettered. */
-  private void scheduleNextAttempt(OutboxRecord row, RuntimeException error) {
-    int failures =
-        jdbc.sql("select attempts from outbox where id = :id")
-                .param("id", row.id())
-                .query(Integer.class)
-                .single()
-            + 1;
-    jdbc.sql(
-            "update outbox set attempts = :failures, last_error = :error,"
-                + " next_attempt_at = :nextAttemptAt where id = :id")
-        .param("failures", failures)
-        .param("error", error.getMessage())
-        .param("nextAttemptAt", now().plus(backoffAfter(failures)))
-        .param("id", row.id())
-        .update();
-  }
-
-  /** ADR0015 L5: 1 s, doubling per consecutive failure, at most 60 s. */
-  private static Duration backoffAfter(int failures) {
-    return Duration.ofSeconds(Math.min(60, 1L << Math.min(failures - 1, 6)));
-  }
-
   private OffsetDateTime now() {
     return OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
   }
 
   private List<OutboxRecord> claimPending() {
     return jdbc.sql(
-            "select id, aggregate_id, event_type, payload::text as payload from outbox"
+            "select id, aggregate_id, event_type, payload::text as payload, traceparent"
+                + " from outbox"
                 + " where "
                 + PENDING
                 + " and next_attempt_at <= :now"

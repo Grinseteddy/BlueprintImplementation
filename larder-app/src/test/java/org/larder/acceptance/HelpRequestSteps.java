@@ -713,4 +713,40 @@ public class HelpRequestSteps {
   public void lenasRequestIsStillOpen() {
     assertThat(statusOfLenasRequest()).isEqualTo("OPEN");
   }
+
+  // S3.E4 (INV-39) — a rejected answer is never accepted later
+
+  @Given("Lena rejected Grandma's answer {string}")
+  public void lenaRejectedGrandmasAnswer(String note) {
+    grandmaAnswered(4);
+    helpsBy.put("Grandma's first", helpsBy.get("Grandma"));
+    lenaRejectsOnFridayEvening("Grandma", note);
+  }
+
+  @When("Grandma Avatar answers again")
+  public void grandmaAnswersAgain() {
+    grandmaAnsweredStep4("93a4b5c6-d7e8-4f90-a123-8e9fa0b1c2d3");
+  }
+
+  @When("Lena tries to accept the first answer")
+  public void lenaTriesToAcceptTheFirstAnswer() {
+    lastResponse =
+        driver.post(
+            "/help-requests/"
+                + lenasRequest()
+                + "/helps/"
+                + helpsBy.get("Grandma's first")
+                + "/acceptance",
+            HelpRequests.LENA,
+            "cook",
+            null);
+  }
+
+  @Then("she is refused because that answer was rejected")
+  public void refusedBecauseTheAnswerWasRejected() {
+    assertThat(lastResponse.getStatusCode().value()).isEqualTo(409);
+    assertThat(lastResponse.getBody())
+        .contains("\"code\":\"INVALID_STATE\"")
+        .contains("\"rule\":\"INV-39\"");
+  }
 }

@@ -18,6 +18,7 @@ import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestRepository;
 import org.larder.cookingassistance.fixtures.Eventually;
 import org.larder.cookingassistance.fixtures.HelpRequests;
+import org.larder.cookingassistance.fixtures.StoryClock;
 import org.larder.cookingassistance.fixtures.TestSigningKeys;
 import org.springframework.amqp.core.AmqpAdmin;
 import org.springframework.amqp.core.Message;
@@ -34,7 +35,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 @SpringBootTest(
     classes = LarderApplication.class,
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import({AcceptanceInfrastructure.class, TestSigningKeys.class})
+@Import({AcceptanceInfrastructure.class, TestSigningKeys.class, StoryClock.class})
 class AsyncApiContractIT {
 
   static final String QUEUE = "cooking-assistance.grandma-help-provided";

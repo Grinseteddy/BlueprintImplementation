@@ -1,6 +1,6 @@
 | Kind | Item | Passing tests | Levels |
 |---|---|---|---|
-| user story | US-CA-03 | 476 | acceptance, adapter, application, architecture, composition, contract, domain, other, quality |
+| user story | US-CA-03 | 477 | acceptance, adapter, application, architecture, composition, contract, domain, other, quality |
 | example | US-CA-03 R1.E1 | 2 | acceptance, domain |
 | example | US-CA-03 R1.E2 | 3 | acceptance, adapter, domain |
 | example | US-CA-03 R1.E3 | 2 | acceptance, domain |
@@ -25,6 +25,7 @@
 | example | US-CA-03 S3.E1 | 2 | acceptance, domain |
 | example | US-CA-03 S3.E2 | 2 | acceptance, domain |
 | example | US-CA-03 S3.E3 | 2 | acceptance, domain |
+| example | US-CA-03 S3.E4 | 2 | acceptance, domain |
 | rule | INV-01 | 19 | acceptance, adapter, application, domain, other |
 | rule | INV-02 | 11 | acceptance, adapter, application, domain |
 | rule | INV-03 | 1 | acceptance |
@@ -37,7 +38,7 @@
 | rule | INV-36 | 4 | acceptance, adapter, application, domain |
 | rule | INV-37 | 5 | acceptance, adapter, application, domain |
 | rule | INV-38 | 11 | acceptance, adapter, application, domain, other |
-| rule | INV-39 | 11 | adapter, application, domain |
+| rule | INV-39 | 12 | acceptance, adapter, application, domain |
 | HTTP operation | createHelpRequest | 36 | adapter, contract |
 | HTTP operation | provideHelp | 30 | adapter, contract, domain |
 | HTTP operation | getHelpRequestById | 19 | adapter, contract, domain |

@@ -204,12 +204,14 @@ public final class HelpRequest {
   public void cancel(Optional<String> note, Clock clock) {
     ensureNotFinal();
     Instant cancelledAt = clock.instant();
+    // D-3 (step 13): a blank note says nothing and is treated as no note
+    Optional<String> said = note.filter(Note::saysSomething);
     // INV-07, INV-08: the cancellation note is kept and shown to providers and on future requests
-    note.ifPresent(text -> notes.add(Note.cancellation(text, cancelledAt)));
+    said.ifPresent(text -> notes.add(Note.cancellation(text, cancelledAt)));
     status = HelpRequestStatus.CANCELLED;
     // evt: Help request cancelled
     pendingEvents.add(
-        new HelpRequestCancelled(id, requester, note, askedProviders, status, cancelledAt));
+        new HelpRequestCancelled(id, requester, said, askedProviders, status, cancelledAt));
   }
 
   // slice: B3-S04, story: US-CA-03, cmd: Accept help
@@ -255,7 +257,7 @@ public final class HelpRequest {
 
   // INV-06: a rejection says what didn't work (step 3 r5)
   private static void ensureNoteGiven(String note) {
-    if (note == null || note.isBlank()) {
+    if (!Note.saysSomething(note)) {
       throw new RejectionNoteRequired();
     }
   }

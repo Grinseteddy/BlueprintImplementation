@@ -55,6 +55,11 @@
       <groupId>io.micrometer</groupId>
       <artifactId>micrometer-core</artifactId>
     </dependency>
+    <!-- the trace context written with the outbox rows (ADR0020, inspection A-1); API only -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-tracing</artifactId>
+    </dependency>
     <!-- JWT resource server (ADR0012, ADR0013) -->
     <dependency>
       <groupId>org.springframework.boot</groupId>

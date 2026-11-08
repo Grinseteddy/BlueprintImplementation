@@ -38,3 +38,8 @@ AP0002 (honors), ADR0010, ADR0015
 
 ## Quality scenarios
 QS-09, QS-10
+
+## Addition (step 5 revision from step 13, increment 1, 2026-11-08, decided by the user)
+
+- **Each candidate runs in its own savepoint** (inspection A-5). A failing candidate is logged at ERROR with its id and reason and undone, and the batch goes on.
+- **The poller claims again in the same poll only after a full batch** (`shouldClaimAgainAfter`, QS-09). A run with a failing candidate times out fewer than a batch, so it ends the drain even when more are due; the next poll claims those, and the failed candidate again.

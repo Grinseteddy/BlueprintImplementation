@@ -14,6 +14,7 @@ import org.larder.cookingassistance.fixtures.HelpRequests;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
@@ -26,6 +27,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 class UnitOfWorkIT {
 
   static final UUID MESSAGE_ID = UUID.fromString("8d9e0f1a-2b3c-4d5e-8f6a-7b8c9d0e1f77");
+  static final UUID OTHER_MESSAGE_ID = UUID.fromString("9e0f1a2b-3c4d-4e5f-9a6b-8c9d0e1f2a88");
 
   @Autowired UnitOfWork unitOfWork;
   @Autowired JdbcClient jdbc;
@@ -97,5 +99,27 @@ class UnitOfWorkIT {
     assertThat(jdbc.sql("select count(*) from help_request").query(Integer.class).single())
         .isZero();
     assertThat(jdbc.sql("select count(*) from outbox").query(Integer.class).single()).isZero();
+  }
+
+  @DisplayName(
+      "U1 inside transactionally(...), a savepoint fails with a database error (processed message A inserted twice) and is undone; the work goes on and commits processed message B -> A absent, B present -- B3-S06 US-CA-03 ADR0021 unit of work (step 13, A-5)")
+  @Test
+  void failedSavepointIsUndoneAndTheUnitOfWorkGoesOn() {
+    unitOfWork.transactionally(
+        () -> {
+          try {
+            unitOfWork.inSavepoint(
+                () -> {
+                  insertProcessedMessage(MESSAGE_ID);
+                  return insertProcessedMessage(MESSAGE_ID);
+                });
+          } catch (DataAccessException duplicate) {
+            // the failing part of the work; the rest goes on
+          }
+          return insertProcessedMessage(OTHER_MESSAGE_ID);
+        });
+
+    assertThat(processedMessageCount(MESSAGE_ID)).isZero();
+    assertThat(processedMessageCount(OTHER_MESSAGE_ID)).isEqualTo(1);
   }
 }

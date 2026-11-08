@@ -63,14 +63,14 @@ Kinds: *quantitative* and *cardinality* rules get a property test in step 6.
 
 #### INV-08 — US-CA-03 R7: The Cook can cancel an open request at any time, with an optional note
 - **Slice / command:** B3-S03 · Cancel help request · **kind:** other
-- **Guard / outcome:** the requester can cancel an Open or Answered request at any time, optional note; providers see the note → Cancelled
+- **Guard / outcome:** the requester can cancel an Open or Answered request at any time, optional note; a blank note counts as no note *(step 3 r8, 2026-11-08, from the inspection D-3, decided by the user)*; providers see the note → Cancelled
 - **Sources:** map (US-CA-02 R6, US-CA-03 R7, US-CA-04 R8 — one card); board 'Cook can cancel their request'; decision D4
   - `US-CA-03 R7.E1` **Given/When** Lena cancels: "an ice cube saved it" **Then** cancelled, providers see the note
   - `US-CA-03 R7.E2` **Given/When** Lena cancels without a note **Then** cancelled
 
 #### INV-09 — US-CA-03 R8: Unanswered after 12 h: cancelled; a provider not yet asked is suggested
 - **Slice / command:** B3-S06 · Time out help request · **kind:** quantitative — the 12 h deadline of each asked provider is set in B3-S01 (Request help Preparation step); only the timeout is B3-S06 *(step 3 r2, 2026-11-01, reverse check of increment 0)*
-- **Guard / outcome:** no answer within 12 h → Help request timed out (Cancelled); a provider not yet asked is suggested; an answer at 11:59 h counts. *(step 3 r5, 2026-11-03, decided by the user at the increment 1 test list:)* an answer **at or before** its provider's deadline counts, a later one is refused → AnswerTooLate (B3-S02); an Open request times out only **after** every asked provider's deadline → DeadlineNotPassed before that; only an Open request times out (D5) → InvalidHelpRequestState otherwise
+- **Guard / outcome:** no answer within 12 h → Help request timed out (Cancelled); a provider not yet asked is suggested; an answer at 11:59 h counts. *(step 3 r5, 2026-11-03, decided by the user at the increment 1 test list:)* an answer **at or before** its provider's deadline counts, a later one is refused → AnswerTooLate (B3-S02); an Open request times out only **after** every asked provider's deadline → DeadlineNotPassed before that; only an Open request times out (D5) → InvalidHelpRequestState otherwise. *(step 3 r9, 2026-11-08, from the reverse check of step 13, decided by the user:)* on the REST API the refusal is the response; a Grandma Avatar message that comes too late (after a cancel, an acceptance, a time-out or its deadline) is acknowledged and ignored, never dead-lettered (Q-A2, ADR0015)
 - **Sources:** map; board 'System cancels request when answer takes too long'; hotspot 'Define timeouts'
   - `US-CA-03 R8.E1` **Given/When** Only Community asked Fri 18:00, silent until Sat 06:00 **Then** cancelled, Grandma suggested
   - `US-CA-03 R8.E2` **Given/When** Only Grandma asked Fri 18:00, silent until Sat 06:00 **Then** cancelled, Community suggested
@@ -87,13 +87,13 @@ Kinds: *quantitative* and *cardinality* rules get a property test in step 6.
 - **Slice / command:** B3-S02 · Provide Help · **kind:** other (B2: same ingredient; B4: same recipe if one was given)
 - **Guard / outcome:** AnswerDoesNotMatchRequest
 - **Sources:** Help model 'Must be the same as request type', 'Same recipe as in request', 'Same howTo as in request', 'Same ingredientId as in request'; example added by the user 2026-10-31
-  - `US-CA-03 S3.E2` **Given/When** Grandma answers Lena's step-4 request with an explanation of step 6 **Then** refused, the answer must be about step 4
+  - `US-CA-03 S3.E2` **Given/When** Grandma answers Lena's step-4 request with an explanation of step 6 **Then** refused and set aside, the answer must be about step 4; the request is still open
 
 #### INV-38 — added in step 3: At most 10 pictures
 - **Slice / command:** B3-S02 · Provide Help (answer pictures); B4-S01 · Request help Catastrophe (request photos) · **kind:** cardinality
 - **Guard / outcome:** TooManyPictures — 0..10 pictures; PictureLinkNotSecure (INVALID_PICTURE_LINK) — every picture is an https link *(step 3 r3, 2026-11-01, from the security review SEC-07)*; the domain compares the scheme case-insensitively (RFC 3986 §3.1), both specs are stricter at the edge (`^https://`) *(step 3 r4, 2026-11-02, reverse check of step 14)*
 - **Sources:** glossary v2 'Help Request contains Picture 0..10' (chosen over model v2 0..*); example added by the user 2026-10-31
-  - `US-CA-03 S3.E3` **Given/When** Grandma's answer carries 11 photos **Then** refused, max 10
+  - `US-CA-03 S3.E3` **Given/When** Grandma's answer carries 11 photos **Then** refused and set aside, max 10; the request is still open
 
 #### INV-39 — added in step 3 r5: A rejected answer is never accepted later
 - **Slice / command:** B3-S04 · Accept help (and B3-S05 · Reject help, which marks the answer) · **kind:** other

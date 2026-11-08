@@ -121,7 +121,7 @@ class TimeOutTimelinessIT {
             .header(
                 "Authorization",
                 TestTokens.forCook(HelpRequests.LENA).roles("cook").scope("help:write").bearer())
-            .header("version", "1.0.9")
+            .header("version", "1.0.10")
             .contentType(MediaType.APPLICATION_JSON)
             .body(HelpRequestBodies.sauceSplitsAtStep4("COMMUNITY"))
             .retrieve()

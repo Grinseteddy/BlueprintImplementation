@@ -83,7 +83,7 @@ class ConcurrentAnswersIT {
             .post()
             .uri("/help-requests")
             .header("Authorization", token(HelpRequests.LENA, "cook"))
-            .header("version", "1.0.9")
+            .header("version", "1.0.10")
             .contentType(MediaType.APPLICATION_JSON)
             .body(HelpRequestBodies.sauceSplitsAtStep4("COMMUNITY", "GRANDMA_AVATAR"))
             .retrieve()
@@ -96,7 +96,7 @@ class ConcurrentAnswersIT {
         .post()
         .uri("/help-requests/" + helpRequestId + "/helps")
         .header("Authorization", token(HelpRequests.JONAS, "cook,community"))
-        .header("version", "1.0.9")
+        .header("version", "1.0.10")
         .contentType(MediaType.APPLICATION_JSON)
         .body(
             """
@@ -140,7 +140,7 @@ class ConcurrentAnswersIT {
               .get()
               .uri("/help-requests/" + helpRequestId + "/helps")
               .header("Authorization", token(HelpRequests.LENA, "cook"))
-              .header("version", "1.0.9")
+              .header("version", "1.0.10")
               .retrieve()
               .body(String.class);
       providers =

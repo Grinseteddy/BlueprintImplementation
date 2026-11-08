@@ -42,6 +42,11 @@ cooking-assistance:
       enabled: ${LARDER_TIMEOUT_POLLER_ENABLED:true}
     poll-delay: ${LARDER_TIMEOUT_POLL_DELAY:10s}
 
+# trace, span and the help request on every log line (ADR0020, QS-14)
+logging:
+  pattern:
+    correlation: "[%X{traceId:-}-%X{spanId:-}] [%X{helpRequestId:-}] "
+
 # health and readiness probes and the metrics for the platform (ADR0020); nothing else is exposed
 management:
   endpoints:
