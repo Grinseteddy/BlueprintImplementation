@@ -47,8 +47,11 @@ logging:
   pattern:
     correlation: "[%X{traceId:-}-%X{spanId:-}] [%X{helpRequestId:-}] "
 
-# health and readiness probes and the metrics for the platform (ADR0020); nothing else is exposed
+# health and readiness probes and the metrics for the platform (ADR0020); nothing else is exposed,
+# and on a port of their own, never the API's (SEC-16)
 management:
+  server:
+    port: ${LARDER_MANAGEMENT_PORT:8081}
   endpoints:
     web:
       exposure:

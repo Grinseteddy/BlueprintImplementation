@@ -36,6 +36,9 @@ class OutboxBacklogMetricIT {
   @Value("${local.server.port}")
   int port;
 
+  @Value("${local.management.port}")
+  int managementPort;
+
   @Autowired AcceptanceClock clock;
 
   @DisplayName(
@@ -49,7 +52,7 @@ class OutboxBacklogMetricIT {
 
     clock.moveTo(friday1800.plus(Duration.ofMinutes(2)));
     String metrics =
-        RestClient.create("http://localhost:" + port)
+        RestClient.create("http://localhost:" + managementPort)
             .get()
             .uri("/actuator/prometheus")
             .retrieve()

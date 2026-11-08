@@ -2,6 +2,7 @@ package org.larder.cookingassistance.adapter.in.messaging;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
@@ -157,6 +158,45 @@ class GrandmaHelpProvidedConsumerTest {
         GRANDMAS_ANSWER.replace("\"answerTitle\": \"Butter in a thin stream\",", "");
 
     expectDeadLetteredWithoutEffect(HEADERS, bytes(withoutTitle));
+  }
+
+  @DisplayName(
+      "L5 a message that can never succeed -> DEAD_LETTER and one WARN line with its message id and the reason, never the answer's text -- B3-S02 US-CA-03 OWASP-A09 QS-14 SEC-06 ADR0015")
+  @Test
+  void deadLetterIsLogged() {
+    String withoutTitle =
+        GRANDMAS_ANSWER.replace("\"answerTitle\": \"Butter in a thin stream\",", "");
+
+    List<ILoggingEvent> lines =
+        consumerLogLines(() -> consumer.handle(HEADERS, bytes(withoutTitle)));
+
+    assertThat(lines)
+        .singleElement()
+        .satisfies(
+            line -> {
+              assertThat(line.getLevel()).isEqualTo(Level.WARN);
+              assertThat(line.getFormattedMessage())
+                  .contains(HEADERS.get("messageId").toString(), "dead-letter")
+                  .doesNotContain("Add the butter in a thin stream");
+            });
+  }
+
+  @DisplayName(
+      "L5b a message id with a line break -> DEAD_LETTER and one WARN line that has no line break: the sender cannot forge a log line -- B3-S02 US-CA-03 OWASP-A09 SEC-06")
+  @Test
+  void aMessageIdCannotForgeALogLine() {
+    Map<String, Object> forged = new HashMap<>(HEADERS);
+    forged.put("messageId", "x\n2026-11-08 ERROR forged line");
+
+    List<ILoggingEvent> lines =
+        consumerLogLines(
+            () ->
+                assertThat(consumer.handle(forged, bytes(GRANDMAS_ANSWER)))
+                    .isEqualTo(Outcome.DEAD_LETTER));
+
+    assertThat(lines)
+        .singleElement()
+        .satisfies(line -> assertThat(line.getFormattedMessage()).doesNotContain("\n"));
   }
 
   private void expectDeadLetteredWithoutEffect(Map<String, Object> headers, byte[] body) {

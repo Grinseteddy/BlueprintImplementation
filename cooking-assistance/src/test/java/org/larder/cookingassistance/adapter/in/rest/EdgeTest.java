@@ -15,6 +15,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
@@ -31,6 +35,7 @@ import org.larder.cookingassistance.application.fakes.InMemoryHelpRequestReposit
 import org.larder.cookingassistance.fixtures.HelpRequests;
 import org.larder.cookingassistance.fixtures.TestSigningKeys;
 import org.larder.cookingassistance.fixtures.TestTokens;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -231,5 +236,144 @@ class EdgeTest {
                 .content("{}"))
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.code").value("INSUFFICIENT_SCOPE"));
+  }
+
+  @DisplayName(
+      "L1 a request with an invalid token -> 401 and one WARN line with method, path, status and code, never the token -- B3-S01 US-CA-03 OWASP-A09 QS-14 SEC-06")
+  @Test
+  void refusedAuthenticationIsLogged() throws Exception {
+    List<ILoggingEvent> lines =
+        securityLogLines(
+            () ->
+                mvc.perform(
+                        post("/help-requests")
+                            .header(AUTHORIZATION, "Bearer secret-token-value")
+                            .header("version", "1.0.3")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{}"))
+                    .andExpect(status().isUnauthorized()));
+
+    assertThat(lines)
+        .singleElement()
+        .satisfies(
+            line -> {
+              assertThat(line.getLevel()).isEqualTo(Level.WARN);
+              assertThat(line.getFormattedMessage())
+                  .contains("POST", "/help-requests", "401", "UNAUTHENTICATED")
+                  .doesNotContain("secret-token-value");
+            });
+  }
+
+  @DisplayName(
+      "L2 a token without the operation's scope -> 403 and one WARN line with method, path, status and code, never the token or its subject (ADR0019: no personal data) -- B3-S01 US-CA-03 OWASP-A09 QS-14 SEC-06")
+  @Test
+  void refusedScopeIsLogged() throws Exception {
+    String readOnly =
+        TestTokens.forCook(HelpRequests.LENA).roles("cook").scope("help:read").bearer();
+
+    List<ILoggingEvent> lines =
+        securityLogLines(
+            () ->
+                mvc.perform(
+                        post("/help-requests")
+                            .header(AUTHORIZATION, readOnly)
+                            .header("version", "1.0.3")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{}"))
+                    .andExpect(status().isForbidden()));
+
+    assertThat(lines)
+        .singleElement()
+        .satisfies(
+            line -> {
+              assertThat(line.getLevel()).isEqualTo(Level.WARN);
+              assertThat(line.getFormattedMessage())
+                  .contains("POST", "/help-requests", "403", "INSUFFICIENT_SCOPE")
+                  .doesNotContain(
+                      readOnly.substring("Bearer ".length()), HelpRequests.LENA.value().toString());
+            });
+  }
+
+  @DisplayName(
+      "W1 /.well-known/oauth-protected-resource with Host evil.example -> resource is the configured public base URL, token binding is not claimed -- B3-S01 US-CA-03 OWASP-API8 OWASP-API9 SEC-15")
+  @Test
+  void resourceMetadataNeverEchoesTheHost() throws Exception {
+    mvc.perform(
+            get("/.well-known/oauth-protected-resource")
+                .with(
+                    request -> {
+                      request.setServerName("evil.example");
+                      return request;
+                    }))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.resource").value("http://localhost"))
+        .andExpect(jsonPath("$.tls_client_certificate_bound_access_tokens").value(false));
+  }
+
+  @DisplayName(
+      "W2 a 401 for a request with Host evil.example -> WWW-Authenticate never names that host -- B3-S01 US-CA-03 OWASP-API8 SEC-15")
+  @Test
+  void bearerChallengeNeverEchoesTheHost() throws Exception {
+    String challenge =
+        mvc.perform(
+                get("/help-requests")
+                    .header("version", "1.0.3")
+                    .with(
+                        request -> {
+                          request.setServerName("evil.example");
+                          return request;
+                        }))
+            .andExpect(status().isUnauthorized())
+            .andReturn()
+            .getResponse()
+            .getHeader("WWW-Authenticate");
+
+    assertThat(challenge)
+        .isEqualTo(
+            "Bearer resource_metadata=\"http://localhost/.well-known/oauth-protected-resource\"");
+  }
+
+  @DisplayName(
+      "L7 a 6000-character path, refused with 401 and with 403 -> the WARN line holds only the path's first 200 characters: a sender cannot size the security log -- B3-S01 US-CA-03 OWASP-A09 SEC-19")
+  @Test
+  void aLongPathCannotSizeTheSecurityLog() throws Exception {
+    String path = "/help-requests/" + "x".repeat(6000);
+    String readOnly =
+        TestTokens.forCook(HelpRequests.LENA).roles("cook").scope("help:read").bearer();
+
+    List<ILoggingEvent> lines =
+        securityLogLines(
+            () -> {
+              mvc.perform(post(path).header("version", "1.0.3"))
+                  .andExpect(status().isUnauthorized());
+              mvc.perform(post(path).header(AUTHORIZATION, readOnly).header("version", "1.0.3"))
+                  .andExpect(status().isForbidden());
+            });
+
+    assertThat(lines)
+        .hasSize(2)
+        .allSatisfy(
+            line ->
+                assertThat(line.getFormattedMessage())
+                    .contains("/help-requests/" + "x".repeat(185))
+                    .doesNotContain("x".repeat(186)));
+  }
+
+  private interface Request {
+    void perform() throws Exception;
+  }
+
+  /** The security adapter's log lines while {@code request} runs. */
+  private static List<ILoggingEvent> securityLogLines(Request request) throws Exception {
+    ListAppender<ILoggingEvent> lines = new ListAppender<>();
+    lines.start();
+    Logger securityLog = (Logger) LoggerFactory.getLogger(SecurityConfiguration.class);
+    securityLog.addAppender(lines);
+    try {
+      request.perform();
+    } finally {
+      securityLog.detachAppender(lines);
+    }
+    return lines.list;
   }
 }

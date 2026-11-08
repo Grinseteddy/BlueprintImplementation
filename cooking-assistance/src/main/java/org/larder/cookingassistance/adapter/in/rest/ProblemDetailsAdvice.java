@@ -154,6 +154,10 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
   @ExceptionHandler(DomainRejection.class)
   ResponseEntity<Object> handleDomainRejection(DomainRejection rejection) {
     HttpStatus status = statusOf(rejection.code());
+    // SEC-06: a refused caller is a security event; a business refusal is the normal answer
+    if (status == HttpStatus.FORBIDDEN) {
+      LOG.warn("Refused: 403 {}, rule {}", rejection.code(), rejection.rule());
+    }
     ProblemDetail problem = Problems.of(status, rejection.code(), rejection.getMessage());
     problem.setProperty("rule", rejection.rule());
     return ResponseEntity.status(status).body(problem);
@@ -185,6 +189,7 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
   /** ADR0013: the refusal names its own code (NOT_AUTHORIZED, NOT_REQUESTER). */
   @ExceptionHandler(NotAuthorized.class)
   ResponseEntity<Object> handleNotAuthorized(NotAuthorized refusal) {
+    LOG.warn("Refused: 403 {}", refusal.code());
     return NamedProblem.valueOf(refusal.code()).response();
   }
 

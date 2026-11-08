@@ -9,7 +9,7 @@ info:
 
     Clients must be tolerant readers: ignore unknown fields and handle unknown enum values
     (status, type and error codes can grow in later minor versions).
-  version: 1.0.11
+  version: 1.0.12
   contact:
     name: Annegret Junker
     email: annegret.junker@larder.org
@@ -499,8 +499,8 @@ components:
       description: Version of the API the client was built against.
       schema:
         type: string
-        default: "1.0.11"
-        enum: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6", "1.0.7", "1.0.8", "1.0.9", "1.0.10", "1.0.11"]
+        default: "1.0.12"
+        enum: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6", "1.0.7", "1.0.8", "1.0.9", "1.0.10", "1.0.11", "1.0.12"]
 
   schemas:
     HelpType:
@@ -872,8 +872,9 @@ components:
           items:
             $ref: '#/components/schemas/Note'
         previousNotes:
-          description: Notes of the requester's earlier requests about the same step of the same recipe (INV-07), shown so providers don't repeat what didn't work; notes about the same dish come with catastrophe help (planned).
+          description: Notes of the requester's earlier requests about the same step of the same recipe (INV-07), shown so providers don't repeat what didn't work; notes about the same dish come with catastrophe help (planned). The 10 most recent notes, oldest first.
           type: array
+          maxItems: 10
           items:
             $ref: '#/components/schemas/Note'
         acceptedHelpLink:

@@ -102,6 +102,7 @@ class TimeOutTimelinessIT {
     return new SpringApplicationBuilder(LarderApplication.class, AcceptanceTime.class)
         .run(
             "--server.port=0",
+            "--management.server.port=0",
             "--LARDER_DB_URL=" + postgres.getJdbcUrl(),
             "--LARDER_DB_USERNAME=" + postgres.getUsername(),
             "--LARDER_DB_PASSWORD=" + postgres.getPassword(),

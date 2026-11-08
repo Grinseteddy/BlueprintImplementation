@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -380,6 +381,34 @@ class HelpRequestQueryIT {
         .isEqualTo(friday2000.instant());
     assertThat(previous.get(0).get("helpRequestLink").asText())
         .isEqualTo("http://localhost/help-requests/" + NOVEMBER_REQUEST_ID.value());
+  }
+
+  @DisplayName(
+      "P1 Lena has cancelled 12 earlier requests on step 4 with a note each -> previousNotes are the 10 most recent, oldest first: a page stays bounded however many requests she makes -- B3-S01 US-CA-03 INV-07 OWASP-API4 SEC-14")
+  @Test
+  void previousNotesAreBoundedToTheMostRecent() throws Exception {
+    for (int n = 1; n <= 12; n++) {
+      helpRequests.save(
+          cancelledEarlier(
+              earlierId(n), HelpRequests.LENA, HelpRequests.HOLLANDAISE, HelpRequests.STEP_4));
+    }
+    helpRequests.save(lenaAsksAboutStep4AgainNextMonth());
+
+    String body = read(NEXT_MONTH_REQUEST_ID.value().toString(), JONAS_READING, 200);
+
+    assertThat(
+            new ObjectMapper()
+                .readTree(body)
+                .get("previousNotes")
+                .findValuesAsText("helpRequestLink"))
+        .containsExactlyElementsOf(
+            IntStream.rangeClosed(3, 12)
+                .mapToObj(n -> "http://localhost/help-requests/" + earlierId(n))
+                .toList());
+  }
+
+  private static String earlierId(int n) {
+    return "019a6f00-0000-7000-8000-%012d".formatted(n);
   }
 
   @DisplayName(
