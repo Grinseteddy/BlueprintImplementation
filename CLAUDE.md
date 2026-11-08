@@ -2,8 +2,8 @@
 
 ## How this repository is built
 - Implemented with the `blueprint-service-implementation` pipeline, one increment at a time
-  (increment 0 = walking skeleton US-CA-03; next: increment 1 — Board: Help with a preparation
-  step). The ledger is `docs/cooking-assistance/implementation-log.md`, with the journals in
+  (increment 0 = walking skeleton US-CA-03; increment 1 = Board: Help with a preparation step;
+  next: increment 2 — Board: Help with ingredient substitution). The ledger is `docs/cooking-assistance/implementation-log.md`, with the journals in
   `docs/cooking-assistance/ledger/`; the planned list is in the ledger.
 - Method: EXACT Coding (Predictive TDD), vendored in `.claude/skills/` at 88fb3f9, autonomy
   **full-hitl**: stop after the test list, after each Red, after each refactor (keep or undo)
@@ -16,7 +16,7 @@
 ## Commands
 - `./mvnw test` fast suite; `./mvnw verify` everything (generation, Spotless, Error Prone, fast
   and slow suites on Testcontainers, Spectral); work offline with `mvn -o`.
-- Intent coverage: `python3 tools/coverage/intent_coverage.py docs/cooking-assistance/coverage/inventory-inc0.yaml .`
+- Intent coverage: `python3 tools/coverage/intent_coverage.py docs/cooking-assistance/coverage/inventory-inc1.yaml .`
 
 ## Layout
 - `cooking-assistance/`: hexagonal module (`domain`, `application`, `adapter.in.rest`,
