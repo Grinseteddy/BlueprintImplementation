@@ -12,6 +12,7 @@ import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestStatus;
 import org.larder.cookingassistance.domain.helprequest.HelpType;
 import org.larder.cookingassistance.domain.helprequest.HowToStepId;
+import org.larder.cookingassistance.domain.helprequest.IngredientId;
 import org.larder.cookingassistance.domain.helprequest.Note;
 import org.larder.cookingassistance.domain.helprequest.NoteKind;
 import org.larder.cookingassistance.domain.helprequest.ProviderState;
@@ -34,6 +35,8 @@ final class HelpRequestMapper {
         request.type().name(),
         request.recipe() == null ? null : request.recipe().value(),
         request.howToStep() == null ? null : request.howToStep().value(),
+        request.ingredient() == null ? null : request.ingredient().value(),
+        request.substituteRequirements(),
         request.status().name(),
         request.version(),
         request.askedProviders().stream().map(HelpRequestMapper::toRow).toList(),
@@ -50,6 +53,8 @@ final class HelpRequestMapper {
         HelpType.valueOf(row.type()),
         row.recipe() == null ? null : new RecipeId(row.recipe()),
         row.howToStep() == null ? null : new HowToStepId(row.howToStep()),
+        row.ingredient() == null ? null : new IngredientId(row.ingredient()),
+        row.substituteRequirements(),
         row.askedProviders().stream().map(HelpRequestMapper::toDomain).toList(),
         HelpRequestStatus.valueOf(row.status()),
         row.helps().stream().map(HelpRequestMapper::toDomain).toList(),

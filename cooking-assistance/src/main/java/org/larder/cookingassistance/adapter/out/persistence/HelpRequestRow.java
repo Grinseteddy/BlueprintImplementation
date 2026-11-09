@@ -17,6 +17,8 @@ record HelpRequestRow(
     String type,
     UUID recipe,
     UUID howToStep,
+    UUID ingredient,
+    String substituteRequirements,
     String status,
     @Version long version,
     @MappedCollection(idColumn = "help_request_id", keyColumn = "position")
