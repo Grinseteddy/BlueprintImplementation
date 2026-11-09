@@ -4,14 +4,25 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
+import org.larder.cookingassistance.domain.helprequest.HelpAnswer;
 import org.larder.cookingassistance.domain.helprequest.HowToStepId;
 import org.larder.cookingassistance.domain.helprequest.PreparationStepExplanation;
 import org.larder.cookingassistance.domain.helprequest.RecipeId;
+import org.larder.cookingassistance.domain.helprequest.Substitutes;
 
 /** Writes and reads a Help's answer as JSON under the AsyncAPI field names. */
 final class AnswerJsonMapper {
 
   private AnswerJsonMapper() {}
+
+  /** Substitutes are stored from step 7 of increment 2; until then no answer of that kind is. */
+  static AnswerJson toJson(HelpAnswer answer) {
+    return switch (answer) {
+      case PreparationStepExplanation explanation -> toJson(explanation);
+      case Substitutes substitutes ->
+          throw new IllegalArgumentException("Substitutes cannot be stored yet");
+    };
+  }
 
   static AnswerJson toJson(PreparationStepExplanation answer) {
     try {

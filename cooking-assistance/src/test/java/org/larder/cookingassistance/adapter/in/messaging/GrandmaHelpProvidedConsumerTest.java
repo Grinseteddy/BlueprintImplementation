@@ -27,6 +27,7 @@ import org.larder.cookingassistance.application.fakes.InMemoryProcessedMessages;
 import org.larder.cookingassistance.application.fakes.RecordingUnitOfWork;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequest;
+import org.larder.cookingassistance.domain.helprequest.PreparationStepExplanation;
 import org.larder.cookingassistance.fixtures.HelpRequests;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -96,7 +97,8 @@ class GrandmaHelpProvidedConsumerTest {
             help -> {
               assertThat(help.providerType()).isEqualTo(HelpProviderType.GRANDMA_AVATAR);
               assertThat(help.answerTitle()).isEqualTo("Butter in a thin stream");
-              assertThat(help.answer().howToStep()).isEqualTo(HelpRequests.STEP_4);
+              assertThat(((PreparationStepExplanation) help.answer()).howToStep())
+                  .isEqualTo(HelpRequests.STEP_4);
             });
     assertThat(processedMessages.recordFirstProcessing(M1)).as("M1 already recorded").isFalse();
   }

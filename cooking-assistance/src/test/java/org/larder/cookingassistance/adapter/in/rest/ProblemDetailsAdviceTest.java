@@ -46,7 +46,7 @@ import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.method.annotation.ExceptionHandlerMethodResolver;
 
 /**
- * The error map (OpenAPI 1.0.12 Problem codes, P11): each domain rejection -> status, code and
+ * The error map (OpenAPI 1.0.13 Problem codes, P11): each domain rejection -> status, code and
  * rule.
  */
 class ProblemDetailsAdviceTest {

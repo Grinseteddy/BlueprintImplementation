@@ -227,6 +227,7 @@ class HelpRequestsControllerTest {
           "description": "What can I use instead of butter?",
           "recipe": "%s",
           "ingredient": "8956b2e5-8d0c-470e-ae9c-6071bd7c5b0d",
+          "substituteRequirements": "200 g, not available",
           "preferredProvider": ["COMMUNITY"]
         }
         """

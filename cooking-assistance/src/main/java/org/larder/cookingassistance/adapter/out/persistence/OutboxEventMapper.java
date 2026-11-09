@@ -80,6 +80,12 @@ final class OutboxEventMapper {
 
   // evt: Help provided -> AsyncAPI HelpProvided
   private static OutboxEvent toOutboxEvent(HelpProvided event) {
+    // substitutes are published from step 10 of increment 2
+    if (!(event.answer()
+        instanceof
+        org.larder.cookingassistance.domain.helprequest.PreparationStepExplanation answer)) {
+      throw new IllegalArgumentException("Substitutes cannot be published yet");
+    }
     return new OutboxEvent(
         "HelpProvided",
         json(
@@ -92,10 +98,10 @@ final class OutboxEventMapper {
                 event.helpProvider().map(CookId::value).orElse(null),
                 new PreparationStepExplanation(
                     PreparationStepExplanationAnswerType.PREPARATION_STEP_EXPLANATION,
-                    event.answer().recipe().value(),
-                    event.answer().howToStep().value(),
-                    event.answer().description(),
-                    event.answer().images().stream().map(URI::toString).toList(),
+                    answer.recipe().value(),
+                    answer.howToStep().value(),
+                    answer.description(),
+                    answer.images().stream().map(URI::toString).toList(),
                     null),
                 HelpProvidedStatus.fromValue(event.helpRequestStatus().name()),
                 utc(event.occurredAt()),

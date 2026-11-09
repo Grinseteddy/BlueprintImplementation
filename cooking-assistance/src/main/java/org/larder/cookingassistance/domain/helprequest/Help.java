@@ -1,5 +1,6 @@
 package org.larder.cookingassistance.domain.helprequest;
 
+import java.util.List;
 import java.util.Optional;
 
 /** A Help answering a Help Request; an entity of the Help Request aggregate (SADR0008). */
@@ -8,11 +9,11 @@ public final class Help {
   private final HelpId id;
   private final HelpProvider provider;
   private final String answerTitle;
-  private final PreparationStepExplanation answer;
+  private final HelpAnswer answer;
   private final boolean accepted;
   private final boolean rejected;
 
-  Help(HelpId id, HelpProvider provider, String answerTitle, PreparationStepExplanation answer) {
+  Help(HelpId id, HelpProvider provider, String answerTitle, HelpAnswer answer) {
     this(id, provider, answerTitle, answer, false, false);
   }
 
@@ -20,7 +21,7 @@ public final class Help {
       HelpId id,
       HelpProvider provider,
       String answerTitle,
-      PreparationStepExplanation answer,
+      HelpAnswer answer,
       boolean accepted,
       boolean rejected) {
     this.id = id;
@@ -33,11 +34,7 @@ public final class Help {
 
   /** Rebuilds a stored Help: no guards. */
   public static Help reconstitute(
-      HelpId id,
-      HelpProvider provider,
-      String answerTitle,
-      PreparationStepExplanation answer,
-      boolean accepted) {
+      HelpId id, HelpProvider provider, String answerTitle, HelpAnswer answer, boolean accepted) {
     return reconstitute(id, provider, answerTitle, answer, accepted, false);
   }
 
@@ -46,7 +43,7 @@ public final class Help {
       HelpId id,
       HelpProvider provider,
       String answerTitle,
-      PreparationStepExplanation answer,
+      HelpAnswer answer,
       boolean accepted,
       boolean rejected) {
     return new Help(id, provider, answerTitle, answer, accepted, rejected);
@@ -60,6 +57,13 @@ public final class Help {
   /** This Help, rejected by the requester (INV-39: never accepted later). */
   Help rejected() {
     return new Help(id, provider, answerTitle, answer, accepted, true);
+  }
+
+  /** INV-15: every substitute of a rejected Help counts as rejected; no other Help has any. */
+  List<Substitute> rejectedSubstitutes() {
+    return rejected && answer instanceof Substitutes substitutes
+        ? substitutes.substitute()
+        : List.of();
   }
 
   public HelpId id() {
@@ -78,7 +82,7 @@ public final class Help {
     return answerTitle;
   }
 
-  public PreparationStepExplanation answer() {
+  public HelpAnswer answer() {
     return answer;
   }
 

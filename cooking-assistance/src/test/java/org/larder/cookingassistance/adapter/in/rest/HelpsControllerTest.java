@@ -22,6 +22,7 @@ import org.larder.cookingassistance.domain.helprequest.HelpId;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequest;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestStatus;
+import org.larder.cookingassistance.domain.helprequest.PreparationStepExplanation;
 import org.larder.cookingassistance.fixtures.HelpRequests;
 import org.larder.cookingassistance.fixtures.TestSigningKeys;
 import org.larder.cookingassistance.fixtures.TestTokens;
@@ -112,7 +113,8 @@ class HelpsControllerTest {
 
     assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().helps())
         .singleElement()
-        .satisfies(help -> assertThat(help.answer().images()).isEmpty());
+        .satisfies(
+            help -> assertThat(((PreparationStepExplanation) help.answer()).images()).isEmpty());
   }
 
   private void expectValidationFailed(String body) throws Exception {

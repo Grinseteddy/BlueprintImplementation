@@ -15,9 +15,12 @@ public final class HelpRequest {
   // INV-09: a provider asked about a preparation step answers within 12 h (US-CA-03 R8);
   // INV-06: asked again after a rejection, it has the same 12 h again (US-CA-03 R5)
   private static final Duration PREPARATION_STEP_ANSWER_TIME = Duration.ofHours(12);
+  // INV-17: an ingredient request has 24 h
+  private static final Duration INGREDIENT_ANSWER_TIME = Duration.ofHours(24);
 
-  // INV-01: help with a preparation step comes from the Community or Grandma Avatar, never a Chef
-  private static final List<HelpProviderType> PREPARATION_STEP_PROVIDERS =
+  // INV-01, INV-10: help with a preparation step or an ingredient comes from the Community or
+  // Grandma Avatar, never a Chef; INV-09, INV-17: a time-out suggests only these
+  private static final List<HelpProviderType> PROVIDERS_TO_SUGGEST =
       List.of(HelpProviderType.COMMUNITY, HelpProviderType.GRANDMA_AVATAR);
 
   // INV-38: a request or an answer carries at most 10 pictures (glossary Picture 0..10)
@@ -30,6 +33,8 @@ public final class HelpRequest {
   private final HelpType type;
   private final RecipeId recipe;
   private final HowToStepId howToStep;
+  private final IngredientId ingredient;
+  private final String substituteRequirements;
   private List<AskedProvider> askedProviders;
   private HelpRequestStatus status;
   private final long version;
@@ -45,6 +50,8 @@ public final class HelpRequest {
       HelpType type,
       RecipeId recipe,
       HowToStepId howToStep,
+      IngredientId ingredient,
+      String substituteRequirements,
       List<AskedProvider> askedProviders,
       HelpRequestStatus status,
       long version) {
@@ -55,9 +62,38 @@ public final class HelpRequest {
     this.type = type;
     this.recipe = recipe;
     this.howToStep = howToStep;
+    this.ingredient = ingredient;
+    this.substituteRequirements = substituteRequirements;
     this.askedProviders = askedProviders;
     this.status = status;
     this.version = version;
+  }
+
+  // slice: B2-S01, story: US-CA-02, cmd: Request help ingredients
+  public static HelpRequest requestHelpWithIngredient(
+      HelpRequestId id,
+      CookId requester,
+      String title,
+      String description,
+      RecipeId recipe,
+      IngredientId ingredient,
+      String substituteRequirements,
+      Set<HelpProviderType> preferredProviders,
+      Clock clock) {
+    ensureProvidersMayBeAsked(preferredProviders);
+    ensureOneIngredientOfOneRecipe(recipe, ingredient, substituteRequirements);
+    return opened(
+        id,
+        requester,
+        title,
+        description,
+        HelpType.INGREDIENT_SUBSTITUTE,
+        recipe,
+        null,
+        ingredient,
+        substituteRequirements,
+        preferredProviders,
+        clock);
   }
 
   // slice: B3-S01, story: US-CA-03, cmd: Request help Preparation step
@@ -72,17 +108,47 @@ public final class HelpRequest {
       Clock clock) {
     ensureProvidersMayBeAsked(preferredProviders);
     ensureOneStepOfOneRecipe(recipe, howToStep);
+    return opened(
+        id,
+        requester,
+        title,
+        description,
+        HelpType.PREPARATION_STEP_EXPLANATION,
+        recipe,
+        howToStep,
+        null,
+        null,
+        preferredProviders,
+        clock);
+  }
+
+  /** A new request of any kind: open, version 0, providers asked, Help requested raised. */
+  private static HelpRequest opened(
+      HelpRequestId id,
+      CookId requester,
+      String title,
+      String description,
+      HelpType type,
+      RecipeId recipe,
+      HowToStepId howToStep,
+      IngredientId ingredient,
+      String substituteRequirements,
+      Set<HelpProviderType> preferredProviders,
+      Clock clock) {
     Instant requestedAt = clock.instant();
-    List<AskedProvider> asked = askPreferredProviders(preferredProviders, requestedAt);
+    List<AskedProvider> asked =
+        askPreferredProviders(preferredProviders, requestedAt, answerTimeOf(type));
     HelpRequest request =
         new HelpRequest(
             id,
             requester,
             title,
             description,
-            HelpType.PREPARATION_STEP_EXPLANATION,
+            type,
             recipe,
             howToStep,
+            ingredient,
+            substituteRequirements,
             asked,
             HelpRequestStatus.OPEN,
             0L);
@@ -96,13 +162,15 @@ public final class HelpRequest {
             request.description,
             request.recipe,
             request.howToStep,
+            request.ingredient,
+            request.substituteRequirements,
             request.askedProviders,
             request.status,
             requestedAt));
     return request;
   }
 
-  /** Rebuilds a stored Help Request: no guards, no events. */
+  /** Rebuilds a stored Help Request that names no ingredient: no guards, no events. */
   public static HelpRequest reconstitute(
       HelpRequestId id,
       CookId requester,
@@ -111,6 +179,39 @@ public final class HelpRequest {
       HelpType type,
       RecipeId recipe,
       HowToStepId howToStep,
+      List<AskedProvider> askedProviders,
+      HelpRequestStatus status,
+      List<Help> helps,
+      List<Note> notes,
+      long version) {
+    return reconstitute(
+        id,
+        requester,
+        title,
+        description,
+        type,
+        recipe,
+        howToStep,
+        null,
+        null,
+        askedProviders,
+        status,
+        helps,
+        notes,
+        version);
+  }
+
+  /** Rebuilds a stored Help Request of any kind: no guards, no events. */
+  public static HelpRequest reconstitute(
+      HelpRequestId id,
+      CookId requester,
+      String title,
+      String description,
+      HelpType type,
+      RecipeId recipe,
+      HowToStepId howToStep,
+      IngredientId ingredient,
+      String substituteRequirements,
       List<AskedProvider> askedProviders,
       HelpRequestStatus status,
       List<Help> helps,
@@ -125,6 +226,8 @@ public final class HelpRequest {
             type,
             recipe,
             howToStep,
+            ingredient,
+            substituteRequirements,
             askedProviders,
             status,
             version);
@@ -133,8 +236,8 @@ public final class HelpRequest {
     return request;
   }
 
-  // INV-01: help with a preparation step goes to 1..2 providers - the Community and/or
-  // Grandma Avatar, never a Chef (US-CA-03 R1)
+  // INV-01, INV-10: help goes to 1..2 providers - the Community and/or Grandma Avatar,
+  // never a Chef (US-CA-03 R1, US-CA-02 R1)
   private static void ensureProvidersMayBeAsked(Set<HelpProviderType> preferredProviders) {
     if (preferredProviders.isEmpty()) {
       throw new NoHelpProviderChosen();
@@ -154,10 +257,24 @@ public final class HelpRequest {
     }
   }
 
-  // INV-09: each asked provider's deadline is the request time + 12 h (US-CA-03 R8)
+  // INV-11: an ingredient request names one ingredient of one recipe (US-CA-02 R2)
+  private static void ensureOneIngredientOfOneRecipe(
+      RecipeId recipe, IngredientId ingredient, String substituteRequirements) {
+    if (recipe == null) {
+      throw new RecipeRequired();
+    }
+    if (ingredient == null) {
+      throw new IngredientRequired();
+    }
+    if (substituteRequirements == null || substituteRequirements.isBlank()) {
+      throw new SubstituteRequirementsRequired();
+    }
+  }
+
+  // INV-09, INV-17: each asked provider's deadline is the request time + the type's answer time
   private static List<AskedProvider> askPreferredProviders(
-      Set<HelpProviderType> preferredProviders, Instant requestedAt) {
-    Instant deadline = requestedAt.plus(PREPARATION_STEP_ANSWER_TIME);
+      Set<HelpProviderType> preferredProviders, Instant requestedAt, Duration answerTime) {
+    Instant deadline = requestedAt.plus(answerTime);
     return preferredProviders.stream().map(type -> new AskedProvider(type, deadline)).toList();
   }
 
@@ -169,12 +286,37 @@ public final class HelpRequest {
       PreparationStepExplanation answer,
       Clock clock) {
     Instant answeredAt = clock.instant();
+    ensureProviderMayAnswer(provider, answeredAt);
+    ensurePicturesMayBeAttached(answer.images());
+    ensureAnswerMatchesRequest(answer);
+    recordHelp(helpId, provider, answerTitle, answer, answeredAt);
+  }
+
+  // slice: B2-S02, story: US-CA-02, cmd: Provide Help
+  public void provideHelp(
+      HelpId helpId, HelpProvider provider, String answerTitle, Substitutes answer, Clock clock) {
+    Instant answeredAt = clock.instant();
+    ensureProviderMayAnswer(provider, answeredAt);
+    ensureSomethingProposed(answer);
+    ensureSubstitutesMatchRequest(answer);
+    ensureNotRejectedBefore(answer);
+    recordHelp(helpId, provider, answerTitle, answer, answeredAt);
+  }
+
+  /** Who may answer and until when: the same for every kind of help. */
+  private void ensureProviderMayAnswer(HelpProvider provider, Instant answeredAt) {
     ensureNotFinal();
     ensureProviderWasAsked(provider);
     ensureAnsweredInTime(provider, answeredAt);
     ensureNotOwnRequest(provider);
-    ensurePicturesMayBeAttached(answer.images());
-    ensureAnswerMatchesRequest(answer);
+  }
+
+  private void recordHelp(
+      HelpId helpId,
+      HelpProvider provider,
+      String answerTitle,
+      HelpAnswer answer,
+      Instant answeredAt) {
     helps.add(new Help(helpId, provider, answerTitle, answer));
     status = HelpRequestStatus.ANSWERED;
     markSideAnswered(provider);
@@ -192,6 +334,29 @@ public final class HelpRequest {
             answeredAt));
   }
 
+  // INV-15: a substitute of a rejected Help is not proposed again in this request (S3)
+  private void ensureNotRejectedBefore(Substitutes answer) {
+    List<Substitute> rejected =
+        helps.stream().flatMap(help -> help.rejectedSubstitutes().stream()).toList();
+    if (answer.repeatsAnyOf(rejected)) {
+      throw new SubstituteRejectedBefore();
+    }
+  }
+
+  // INV-37: substitutes are about the request's recipe and its one ingredient
+  private void ensureSubstitutesMatchRequest(Substitutes answer) {
+    if (!answer.isAbout(recipe, ingredient)) {
+      throw new AnswerDoesNotMatchRequest();
+    }
+  }
+
+  // INV-12: an answer proposes at least one substitute, each naming at least one ingredient
+  private static void ensureSomethingProposed(Substitutes answer) {
+    if (!answer.proposesSomething()) {
+      throw new NoSubstituteProposed();
+    }
+  }
+
   /** Each asked provider has its own state: only the answering provider's side is ANSWERED. */
   private void markSideAnswered(HelpProvider provider) {
     askedProviders =
@@ -200,13 +365,14 @@ public final class HelpRequest {
             .toList();
   }
 
-  // slice: B3-S03, story: US-CA-03, cmd: Cancel help request
+  // slice: B3-S03, story: US-CA-03/US-CA-02, cmd: Cancel help request
   public void cancel(Optional<String> note, Clock clock) {
     ensureNotFinal();
     Instant cancelledAt = clock.instant();
     // D-3 (step 13): a blank note says nothing and is treated as no note
     Optional<String> said = note.filter(Note::saysSomething);
-    // INV-07, INV-08: the cancellation note is kept and shown to providers and on future requests
+    // INV-07, INV-08, INV-16: the cancellation note is kept and shown to providers and on future
+    // requests
     said.ifPresent(text -> notes.add(Note.cancellation(text, cancelledAt)));
     status = HelpRequestStatus.CANCELLED;
     // evt: Help request cancelled
@@ -214,7 +380,7 @@ public final class HelpRequest {
         new HelpRequestCancelled(id, requester, said, askedProviders, status, cancelledAt));
   }
 
-  // slice: B3-S04, story: US-CA-03, cmd: Accept help
+  // slice: B3-S04, story: US-CA-03/US-CA-02, cmd: Accept help
   public void accept(HelpId helpId, Clock clock) {
     ensureAnswered();
     Help help = helpGivenToThisRequest(helpId);
@@ -227,14 +393,15 @@ public final class HelpRequest {
             id, requester, helpId, help.providerType(), help.provider(), status, clock.instant()));
   }
 
-  // slice: B3-S05, story: US-CA-03, cmd: Reject help
+  // slice: B3-S05, story: US-CA-03/US-CA-02, cmd: Reject help
   public void reject(HelpId helpId, String note, Clock clock) {
     ensureAnswered();
     ensureNoteGiven(note);
     Help help = helpGivenToThisRequest(helpId);
     ensureNotRejected(help);
     Instant rejectedAt = clock.instant();
-    // INV-06, INV-07: what didn't work is kept and shown to providers and on future requests
+    // INV-06, INV-07, INV-15: what didn't work is kept and shown to providers and on future
+    // requests
     notes.add(Note.rejection(note, rejectedAt, helpId));
     replaceHelp(help, help.rejected());
     askAgain(rejectedAt);
@@ -244,10 +411,17 @@ public final class HelpRequest {
         new HelpRejected(id, requester, helpId, note, askedProviders, status, rejectedAt));
   }
 
-  // INV-06: sent again to the same providers, each with a new 12 h deadline from the rejection
+  // INV-06, INV-14: sent again to the same providers, each with a new deadline from the rejection
   private void askAgain(Instant rejectedAt) {
-    Instant newDeadline = rejectedAt.plus(PREPARATION_STEP_ANSWER_TIME);
+    Instant newDeadline = rejectedAt.plus(answerTimeOf(type));
     askedProviders = askedProviders.stream().map(asked -> asked.askedAgain(newDeadline)).toList();
+  }
+
+  // INV-09: 12 h for a preparation step; INV-17: 24 h for an ingredient
+  private static Duration answerTimeOf(HelpType type) {
+    return type == HelpType.INGREDIENT_SUBSTITUTE
+        ? INGREDIENT_ANSWER_TIME
+        : PREPARATION_STEP_ANSWER_TIME;
   }
 
   /** A Help is immutable: marking it swaps it for its marked copy in this request. */
@@ -277,7 +451,7 @@ public final class HelpRequest {
         .orElseThrow(HelpNotInRequest::new);
   }
 
-  // slice: B3-S06, story: US-CA-03, cmd: Time out help request (clock)
+  // slice: B3-S06, story: US-CA-03/US-CA-02, cmd: Time out help request (clock)
   public void timeOut(Clock clock) {
     Instant timedOutAt = clock.instant();
     ensureOpen();
@@ -297,20 +471,20 @@ public final class HelpRequest {
   }
 
   /**
-   * INV-09: the providers suggested to the requester after a time-out (event and read side): the
-   * preparation-step providers not yet asked, once every asked provider has timed out.
+   * INV-09, INV-17: the providers suggested to the requester after a time-out (event and read
+   * side): those not yet asked, once every asked provider has timed out.
    */
   public static List<HelpProviderType> suggestionsAfterTimeOut(List<AskedProvider> asked) {
     if (asked.stream().anyMatch(provider -> provider.state() != ProviderState.TIMED_OUT)) {
       return List.of();
     }
     List<HelpProviderType> askedTypes = asked.stream().map(AskedProvider::providerType).toList();
-    return PREPARATION_STEP_PROVIDERS.stream()
+    return PROVIDERS_TO_SUGGEST.stream()
         .filter(provider -> !askedTypes.contains(provider))
         .toList();
   }
 
-  // INV-09: a request times out only after every asked provider's deadline (step 3 r5)
+  // INV-09, INV-17: a request times out only after every asked provider's deadline (step 3 r5)
   private void ensureEveryDeadlinePassed(Instant timedOutAt) {
     if (!askedProviders.stream().allMatch(asked -> asked.deadlinePassedAt(timedOutAt))) {
       throw new DeadlineNotPassed();
@@ -345,7 +519,8 @@ public final class HelpRequest {
     }
   }
 
-  // INV-09: an answer counts at or before the provider's deadline, not after it (step 3 r5)
+  // INV-09, INV-17: an answer counts at or before the provider's deadline, not after it
+  // (step 3 r5)
   private void ensureAnsweredInTime(HelpProvider provider, Instant answeredAt) {
     boolean late =
         askedProviders.stream()
@@ -415,6 +590,14 @@ public final class HelpRequest {
 
   public RecipeId recipe() {
     return recipe;
+  }
+
+  public IngredientId ingredient() {
+    return ingredient;
+  }
+
+  public String substituteRequirements() {
+    return substituteRequirements;
   }
 
   public HowToStepId howToStep() {

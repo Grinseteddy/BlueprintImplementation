@@ -24,6 +24,7 @@ import org.larder.cookingassistance.domain.helprequest.HelpRequestStatus;
 import org.larder.cookingassistance.domain.helprequest.HelpType;
 import org.larder.cookingassistance.domain.helprequest.HowToStepId;
 import org.larder.cookingassistance.domain.helprequest.Note;
+import org.larder.cookingassistance.domain.helprequest.PreparationStepExplanation;
 import org.larder.cookingassistance.domain.helprequest.RecipeId;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -195,7 +196,8 @@ class JdbcHelpRequestQueries implements HelpRequestQueries {
         new CookId(rs.getObject("requester", UUID.class)),
         help.answerTitle(),
         new HelpProvider(help.providerType(), help.provider()),
-        help.answer(),
+        // only preparation step explanations are stored so far (step 7 of increment 2)
+        (PreparationStepExplanation) help.answer(),
         help.isAccepted(),
         Optional.ofNullable(rs.getString("rejection_note")));
   }
