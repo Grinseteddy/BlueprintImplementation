@@ -3,6 +3,7 @@ package org.larder.cookingassistance.adapter.in.rest;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.larder.cookingassistance.adapter.in.rest.generated.model.AskedProvider;
@@ -20,10 +21,13 @@ import org.larder.cookingassistance.application.HelpRequestFilter;
 import org.larder.cookingassistance.application.HelpRequestView;
 import org.larder.cookingassistance.application.Page;
 import org.larder.cookingassistance.application.PreviousNote;
+import org.larder.cookingassistance.application.RequestHelpWithIngredient;
 import org.larder.cookingassistance.application.RequestHelpWithPreparationStep;
 import org.larder.cookingassistance.domain.helprequest.CookId;
+import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HowToStepId;
+import org.larder.cookingassistance.domain.helprequest.IngredientId;
 import org.larder.cookingassistance.domain.helprequest.RecipeId;
 import org.springframework.lang.Nullable;
 
@@ -32,16 +36,33 @@ final class HelpRequestMapper {
 
   private HelpRequestMapper() {}
 
-  static RequestHelpWithPreparationStep.Command toCommand(Actor actor, HelpRequestCreate body) {
+  static RequestHelpWithPreparationStep.Command toPreparationStepCommand(
+      Actor actor, HelpRequestCreate body) {
     return new RequestHelpWithPreparationStep.Command(
         actor,
         body.getTitle(),
         body.getDescription(),
         new RecipeId(body.getRecipe()),
         new HowToStepId(body.getHowToStep()),
-        body.getPreferredProvider().stream()
-            .map(HelpVocabulary::toDomain)
-            .collect(Collectors.toSet()));
+        preferredProviders(body));
+  }
+
+  static RequestHelpWithIngredient.Command toIngredientCommand(
+      Actor actor, HelpRequestCreate body) {
+    return new RequestHelpWithIngredient.Command(
+        actor,
+        body.getTitle(),
+        body.getDescription(),
+        new RecipeId(body.getRecipe()),
+        new IngredientId(body.getIngredient()),
+        body.getSubstituteRequirements(),
+        preferredProviders(body));
+  }
+
+  private static Set<HelpProviderType> preferredProviders(HelpRequestCreate body) {
+    return body.getPreferredProvider().stream()
+        .map(HelpVocabulary::toDomain)
+        .collect(Collectors.toSet());
   }
 
   static CancelHelpRequest.Command toCommand(

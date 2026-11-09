@@ -8,6 +8,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.HashMap;
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.larder.cookingassistance.application.ProvideGrandmaAvatarHelp;
 import org.larder.cookingassistance.application.fakes.InMemoryHelpRequestRepository;
@@ -28,6 +30,9 @@ import org.larder.cookingassistance.application.fakes.RecordingUnitOfWork;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequest;
 import org.larder.cookingassistance.domain.helprequest.PreparationStepExplanation;
+import org.larder.cookingassistance.domain.helprequest.SubstituteIngredient;
+import org.larder.cookingassistance.domain.helprequest.Substitutes;
+import org.larder.cookingassistance.domain.helprequest.Unit;
 import org.larder.cookingassistance.fixtures.HelpRequests;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -280,32 +285,6 @@ class GrandmaHelpProvidedConsumerTest {
   }
 
   @DisplayName(
-      "answer of kind Substitutes -> DEAD_LETTER (increment 2) -- B3-S02 US-CA-03 op consumeGrandmaHelpProvided")
-  @Test
-  void substitutesAnswerIsDeadLettered() {
-    String substitutes =
-        """
-        {
-          "helpRequest": "%s",
-          "answerTitle": "Use yogurt",
-          "answer": {
-            "answerType": "INGREDIENT_SUBSTITUTE",
-            "recipe": "%s",
-            "substitute": [
-              {
-                "ingredient": "8956b2e5-8d0c-470e-ae9c-6071bd7c5b0d",
-                "substituteIngredients": [{"name": "yogurt", "value": 100, "unit": "GRAM"}]
-              }
-            ]
-          }
-        }
-        """
-            .formatted(HelpRequests.HELP_REQUEST_ID.value(), HelpRequests.HOLLANDAISE.value());
-
-    expectDeadLetteredWithoutEffect(HEADERS, bytes(substitutes));
-  }
-
-  @DisplayName(
       "Grandma's answer to a request that is cancelled, closed or timed out -> ACK (ignored), nothing changed, one INFO log line with the message id and the request's state -- B3-S03,B3-S04,B3-S06 US-CA-03 op consumeGrandmaHelpProvided (step 9 r2 from step 13, Q-A2)")
   @ParameterizedTest(name = "{0}")
   @ValueSource(strings = {"cancelled", "closed", "timed out"})
@@ -415,5 +394,134 @@ class GrandmaHelpProvidedConsumerTest {
                 assertThat(line.getMDCPropertyMap())
                     .containsEntry(
                         "helpRequestId", HelpRequests.HELP_REQUEST_ID.value().toString()));
+  }
+
+  @DisplayName(
+      "Grandma's answer with substitutes for an ingredient request -> ACK; her Help holds the Substitutes (replaces the dead-letter placeholder) -- B2-S02 US-CA-02 INV-12 op consumeGrandmaHelpProvided")
+  @Test
+  void grandmasSubstitutesAreProvided() {
+    lenasIngredientRequestToGrandmaIsStored();
+
+    Outcome outcome = consumer.handle(HEADERS, bytes(grandmaProposes("yogurt", "200", "GRAM")));
+
+    assertThat(outcome).isEqualTo(Outcome.ACK);
+    SubstituteIngredient proposed = firstIngredientOfGrandmasHelp();
+    assertThat(proposed.name()).isEqualTo("yogurt");
+    assertThat(proposed.value()).isEqualByComparingTo("200");
+    assertThat(proposed.unit()).isEqualTo(Unit.GRAM);
+  }
+
+  @DisplayName(
+      "a substitute ingredient in each unit of the message -> ACK, the same unit in the Help -- B2-S02 US-CA-02 INV-12 op consumeGrandmaHelpProvided")
+  @ParameterizedTest
+  @EnumSource(Unit.class)
+  void everyUnitOfTheMessageArrives(Unit unit) {
+    lenasIngredientRequestToGrandmaIsStored();
+
+    assertThat(consumer.handle(HEADERS, bytes(grandmaProposes("quark", "2", unit.name()))))
+        .isEqualTo(Outcome.ACK);
+
+    assertThat(firstIngredientOfGrandmasHelp().unit()).isEqualTo(unit);
+  }
+
+  @DisplayName(
+      "an amount of 0.125 in the message -> ACK, 0.125 in the Help -- B2-S02 US-CA-02 INV-12 op consumeGrandmaHelpProvided")
+  @Test
+  void aFractionalAmountOfTheMessageArrives() {
+    lenasIngredientRequestToGrandmaIsStored();
+
+    assertThat(consumer.handle(HEADERS, bytes(grandmaProposes("quark", "0.125", "KILOGRAM"))))
+        .isEqualTo(Outcome.ACK);
+
+    assertThat(firstIngredientOfGrandmasHelp().value()).isEqualByComparingTo("0.125");
+  }
+
+  @DisplayName(
+      "an answer with an empty substitute list (schema) -> DEAD_LETTER, nothing changed -- B2-S02 US-CA-02 op consumeGrandmaHelpProvided")
+  @Test
+  @ExtendWith(OutputCaptureExtension.class)
+  void substitutesAgainstTheSchemaAreDeadLettered(CapturedOutput output) {
+    lenasIngredientRequestToGrandmaIsStored();
+    String noSubstitute =
+        grandmaProposes("yogurt", "200", "GRAM").replaceAll("(?s)\\[\\s*\\{.*\\}\\s*\\]", "[]");
+
+    expectDeadLetteredWithoutEffect(HEADERS, bytes(noSubstitute));
+
+    assertThat(output).contains("InvalidMessage");
+  }
+
+  @DisplayName(
+      "a name of only spaces from Grandma -> DEAD_LETTER (NoSubstituteProposed), nothing changed -- B2-S02 US-CA-02 INV-12 (step 3 r13) op consumeGrandmaHelpProvided")
+  @Test
+  void aBlankNameFromGrandmaIsDeadLettered() {
+    lenasIngredientRequestToGrandmaIsStored();
+
+    expectDeadLetteredWithoutEffect(HEADERS, bytes(grandmaProposes("   ", "200", "GRAM")));
+  }
+
+  @DisplayName(
+      "Lena rejected yogurt; Grandma proposes yogurt again -> ACK (ignored), no further Help, one INFO line with message id and the rejection type -- B3-S05 US-CA-02 INV-15 (step 3 r14) op consumeGrandmaHelpProvided")
+  @Test
+  @ExtendWith(OutputCaptureExtension.class)
+  void aRepeatedRejectedSubstituteIsIgnored(CapturedOutput output) {
+    helpRequests.clear();
+    HelpRequest request = HelpRequests.lenaAsksForASubstitute(HelpProviderType.GRANDMA_AVATAR);
+    HelpRequests.grandmaProposes(request, HelpRequests.gramsOf("yogurt", "200"));
+    request.reject(
+        HelpRequests.HELP_ID,
+        "too sour",
+        Clock.offset(HelpRequests.MONDAY_18_00, Duration.ofHours(2)));
+    helpRequests.save(request);
+
+    Outcome outcome = consumer.handle(HEADERS, bytes(grandmaProposes("Yogurt", "150", "GRAM")));
+
+    assertThat(outcome).isEqualTo(Outcome.ACK);
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().helps())
+        .hasSize(1);
+    assertThat(output).contains(M1.toString()).contains("SubstituteRejectedBefore");
+  }
+
+  private void lenasIngredientRequestToGrandmaIsStored() {
+    helpRequests.clear();
+    helpRequests.save(HelpRequests.lenaAsksForASubstitute(HelpProviderType.GRANDMA_AVATAR));
+  }
+
+  /** Grandma's message proposing one ingredient for the creme fraiche. */
+  private static String grandmaProposes(String name, String value, String unit) {
+    return """
+        {
+          "helpRequest": "%s",
+          "answerTitle": "Use this",
+          "answer": {
+            "answerType": "INGREDIENT_SUBSTITUTE",
+            "recipe": "%s",
+            "substitute": [
+              {
+                "ingredient": "%s",
+                "substituteIngredients": [{"name": "%s", "value": %s, "unit": "%s"}]
+              }
+            ]
+          }
+        }
+        """
+        .formatted(
+            HelpRequests.HELP_REQUEST_ID.value(),
+            HelpRequests.TOMATO_SOUP.value(),
+            HelpRequests.CREME_FRAICHE.value(),
+            name,
+            value,
+            unit);
+  }
+
+  private SubstituteIngredient firstIngredientOfGrandmasHelp() {
+    Substitutes answer =
+        (Substitutes)
+            helpRequests
+                .findById(HelpRequests.HELP_REQUEST_ID)
+                .orElseThrow()
+                .helps()
+                .getFirst()
+                .answer();
+    return answer.substitute().getFirst().substituteIngredients().getFirst();
   }
 }

@@ -12,6 +12,7 @@ import org.larder.cookingassistance.application.HelpView;
 import org.larder.cookingassistance.application.Page;
 import org.larder.cookingassistance.application.ProvideHelp;
 import org.larder.cookingassistance.application.RejectHelp;
+import org.larder.cookingassistance.application.RequestHelpWithIngredient;
 import org.larder.cookingassistance.application.RequestHelpWithPreparationStep;
 import org.larder.cookingassistance.application.fakes.InMemoryHelpRequestRepository;
 import org.larder.cookingassistance.domain.helprequest.HelpId;
@@ -33,6 +34,12 @@ class RestTestConfiguration {
   RequestHelpWithPreparationStep requestHelpWithPreparationStep(
       InMemoryHelpRequestRepository helpRequests) {
     return new RequestHelpWithPreparationStep(
+        helpRequests, () -> HelpRequests.HELP_REQUEST_ID.value(), HelpRequests.FRIDAY_18_00);
+  }
+
+  @Bean
+  RequestHelpWithIngredient requestHelpWithIngredient(InMemoryHelpRequestRepository helpRequests) {
+    return new RequestHelpWithIngredient(
         helpRequests, () -> HelpRequests.HELP_REQUEST_ID.value(), HelpRequests.FRIDAY_18_00);
   }
 

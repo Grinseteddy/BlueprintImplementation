@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.larder.cookingassistance.application.fakes.InMemoryHelpRequestRepository;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequest;
+import org.larder.cookingassistance.domain.helprequest.HelpType;
 import org.larder.cookingassistance.fixtures.HelpRequests;
 import org.larder.cookingassistance.fixtures.TestSigningKeys;
 import org.larder.cookingassistance.fixtures.TestTokens;
@@ -50,6 +51,20 @@ class HelpRequestsControllerTest {
       }
       """
           .formatted(HelpRequests.HOLLANDAISE.value(), HelpRequests.STEP_4.value());
+
+  static final String LENAS_INGREDIENT_REQUEST =
+      """
+      {
+        "title": "No creme fraiche",
+        "type": "INGREDIENT_SUBSTITUTE",
+        "description": "The shop has none",
+        "recipe": "%s",
+        "ingredient": "%s",
+        "substituteRequirements": "200 g, not available",
+        "preferredProvider": ["COMMUNITY"]
+      }
+      """
+          .formatted(HelpRequests.TOMATO_SOUP.value(), HelpRequests.CREME_FRAICHE.value());
 
   @Autowired MockMvc mvc;
   @Autowired InMemoryHelpRequestRepository helpRequests;
@@ -213,36 +228,6 @@ class HelpRequestsControllerTest {
   @Test
   void emptyBodyIsRejected() throws Exception {
     expectValidationFailed("");
-  }
-
-  @DisplayName(
-      "valid INGREDIENT_SUBSTITUTE request -> 501 NOT_IMPLEMENTED, nothing saved (increment 2) -- B3-S01 US-CA-03 op createHelpRequest")
-  @Test
-  void ingredientSubstituteIsNotImplementedYet() throws Exception {
-    String substituteRequest =
-        """
-        {
-          "title": "No butter at home",
-          "type": "INGREDIENT_SUBSTITUTE",
-          "description": "What can I use instead of butter?",
-          "recipe": "%s",
-          "ingredient": "8956b2e5-8d0c-470e-ae9c-6071bd7c5b0d",
-          "substituteRequirements": "200 g, not available",
-          "preferredProvider": ["COMMUNITY"]
-        }
-        """
-            .formatted(HelpRequests.HOLLANDAISE.value());
-
-    mvc.perform(
-            post("/help-requests")
-                .header(AUTHORIZATION, LENA_AS_COOK)
-                .header("version", "1.0.2")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(substituteRequest))
-        .andExpect(status().isNotImplemented())
-        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
-        .andExpect(jsonPath("$.code").value("NOT_IMPLEMENTED"));
-    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID)).isEmpty();
   }
 
   @DisplayName(
@@ -428,5 +413,91 @@ class HelpRequestsControllerTest {
         .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
         .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
         .andExpect(content().string(not(containsString("connection refused"))));
+  }
+
+  @DisplayName(
+      "valid INGREDIENT_SUBSTITUTE request by Lena -> 201 with the link; a request with recipe, ingredient and requirements is saved (replaces the 501 placeholder) -- B2-S01 US-CA-02 INV-11 R2.E1 op createHelpRequest")
+  @Test
+  void validIngredientRequestIsCreated() throws Exception {
+    MvcResult result =
+        mvc.perform(
+                post("/help-requests")
+                    .header(AUTHORIZATION, LENA_AS_COOK)
+                    .header("version", "1.0.2")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(LENAS_INGREDIENT_REQUEST))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.helpRequestId").value(ID))
+            .andReturn();
+
+    SpecSchemas.assertMatches(result.getResponse().getContentAsString(), "HelpRequestLink");
+    HelpRequest stored = helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    assertThat(stored.type()).isEqualTo(HelpType.INGREDIENT_SUBSTITUTE);
+    assertThat(stored.recipe()).isEqualTo(HelpRequests.TOMATO_SOUP);
+    assertThat(stored.ingredient()).isEqualTo(HelpRequests.CREME_FRAICHE);
+    assertThat(stored.substituteRequirements()).isEqualTo("200 g, not available");
+  }
+
+  @DisplayName(
+      "INGREDIENT_SUBSTITUTE without ingredient -> 400 VALIDATION_FAILED, nothing saved -- B2-S01 US-CA-02 INV-11 op createHelpRequest")
+  @Test
+  void ingredientRequestWithoutIngredientIsRejected() throws Exception {
+    expectValidationFailed(
+        LENAS_INGREDIENT_REQUEST.replace(
+            "\"ingredient\": \"" + HelpRequests.CREME_FRAICHE.value() + "\",", ""));
+  }
+
+  @DisplayName(
+      "INGREDIENT_SUBSTITUTE without substituteRequirements -> 400 VALIDATION_FAILED, nothing saved -- B2-S01 US-CA-02 INV-11 S2 op createHelpRequest")
+  @Test
+  void ingredientRequestWithoutRequirementsIsRejected() throws Exception {
+    expectValidationFailed(
+        LENAS_INGREDIENT_REQUEST.replace(
+            "\"substituteRequirements\": \"200 g, not available\",", ""));
+  }
+
+  @DisplayName(
+      "INGREDIENT_SUBSTITUTE with a howToStep -> 400 VALIDATION_FAILED, nothing saved -- B2-S01 US-CA-02 INV-11 op createHelpRequest")
+  @Test
+  void ingredientRequestWithAStepIsRejected() throws Exception {
+    expectValidationFailed(
+        LENAS_INGREDIENT_REQUEST.replace(
+            "\"substituteRequirements\"",
+            "\"howToStep\": \"" + HelpRequests.STEP_4.value() + "\", \"substituteRequirements\""));
+  }
+
+  @DisplayName(
+      "INGREDIENT_SUBSTITUTE with pictures -> 400 VALIDATION_FAILED, nothing saved -- B2-S01 US-CA-02 pictures no op createHelpRequest")
+  @Test
+  void ingredientRequestWithPicturesIsRejected() throws Exception {
+    expectValidationFailed(
+        LENAS_INGREDIENT_REQUEST.replace(
+            "\"substituteRequirements\"",
+            "\"pictures\": [\"https://larder.org/media/images/photo-1\"], \"substituteRequirements\""));
+  }
+
+  @DisplayName(
+      "INGREDIENT_SUBSTITUTE naming the Chef -> 400 VALIDATION_FAILED, nothing saved (schema else branch) -- B2-S01 US-CA-02 INV-10 R1.E4 op createHelpRequest")
+  @Test
+  void ingredientRequestToAChefIsRefused() throws Exception {
+    expectValidationFailed(LENAS_INGREDIENT_REQUEST.replace("[\"COMMUNITY\"]", "[\"CHEF\"]"));
+  }
+
+  @DisplayName(
+      "INGREDIENT_SUBSTITUTE by an actor without role cook -> 403 NOT_AUTHORIZED, nothing saved -- B2-S01 US-CA-02 ADR0013 op createHelpRequest")
+  @Test
+  void ingredientRequestWithoutCookRoleIsRefused() throws Exception {
+    String chefOnly =
+        TestTokens.forCook(HelpRequests.LENA).roles("chef").scope("help:write").bearer();
+
+    mvc.perform(
+            post("/help-requests")
+                .header(AUTHORIZATION, chefOnly)
+                .header("version", "1.0.2")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(LENAS_INGREDIENT_REQUEST))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("NOT_AUTHORIZED"));
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID)).isEmpty();
   }
 }
