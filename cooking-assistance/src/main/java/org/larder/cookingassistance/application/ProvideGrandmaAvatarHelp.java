@@ -2,15 +2,15 @@ package org.larder.cookingassistance.application;
 
 import java.time.Clock;
 import java.util.UUID;
+import org.larder.cookingassistance.domain.helprequest.HelpAnswer;
 import org.larder.cookingassistance.domain.helprequest.HelpId;
 import org.larder.cookingassistance.domain.helprequest.HelpProvider;
 import org.larder.cookingassistance.domain.helprequest.HelpRequest;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestRepository;
-import org.larder.cookingassistance.domain.helprequest.PreparationStepExplanation;
 
-// cmd: Provide Help (Grandma Avatar, via GrandmaHelpProvided) · agg: Help Request · slice: B3-S02,
-// story: US-CA-03
+// cmd: Provide Help (Grandma Avatar, via GrandmaHelpProvided) · agg: Help Request ·
+// slice: B3-S02/B2-S02, story: US-CA-03/US-CA-02
 /**
  * Handles the Grandma Avatar's answers from the broker as the service's own identity: idempotent by
  * message id, record and save in one unit of work (ADR0015).
@@ -70,8 +70,5 @@ public class ProvideGrandmaAvatarHelp {
 
   /** The Grandma Avatar's answer in the context's own language; step 9 maps the message to it. */
   public record GrandmaAnswer(
-      UUID messageId,
-      HelpRequestId helpRequestId,
-      String answerTitle,
-      PreparationStepExplanation answer) {}
+      UUID messageId, HelpRequestId helpRequestId, String answerTitle, HelpAnswer answer) {}
 }

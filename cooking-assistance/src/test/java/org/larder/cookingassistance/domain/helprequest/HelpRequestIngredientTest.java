@@ -1129,4 +1129,43 @@ class HelpRequestIngredientTest {
     assertThat(request.version()).isEqualTo(3L);
     assertThat(request.pullEvents()).isEmpty();
   }
+
+  @DisplayName(
+      "substitutes handed over as a HelpAnswer -> recorded like any substitutes, request ANSWERED -- B2-S02 US-CA-02 INV-12 (step 6 r1)")
+  @Test
+  void substitutesGivenAsAnAnswerAreRecorded() {
+    HelpRequest request = lenasRequest("200 g, not available", Set.of(HelpProviderType.COMMUNITY));
+    HelpAnswer answer = new Substitutes(TOMATO_SOUP, List.of(YOGURT));
+
+    request.provideHelp(
+        HelpRequests.HELP_ID,
+        HelpProvider.community(HelpRequests.JONAS),
+        "Yogurt",
+        answer,
+        MONDAY_19_00);
+
+    assertThat(request.helps()).singleElement().extracting(Help::answer).isEqualTo(answer);
+    assertThat(request.status()).isEqualTo(HelpRequestStatus.ANSWERED);
+  }
+
+  @DisplayName(
+      "a preparation step explanation handed over as a HelpAnswer on an ingredient request -> rejected with AnswerDoesNotMatchRequest, rule INV-37 -- B2-S02 US-CA-02 INV-37 (step 6 r1)")
+  @Test
+  void anExplanationGivenAsAnAnswerIsRefused() {
+    HelpRequest request = lenasRequest("200 g, not available", Set.of(HelpProviderType.COMMUNITY));
+    HelpAnswer answer = HelpRequests.BUTTER_WITH_THREE_PHOTOS;
+
+    assertThatThrownBy(
+            () ->
+                request.provideHelp(
+                    HelpRequests.HELP_ID,
+                    HelpProvider.community(HelpRequests.JONAS),
+                    "Butter",
+                    answer,
+                    MONDAY_19_00))
+        .isInstanceOfSatisfying(
+            AnswerDoesNotMatchRequest.class,
+            rejected -> assertThat(rejected.rule()).isEqualTo("INV-37"));
+    assertThat(request.helps()).isEmpty();
+  }
 }

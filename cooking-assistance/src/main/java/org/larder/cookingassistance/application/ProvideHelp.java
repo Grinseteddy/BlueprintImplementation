@@ -1,15 +1,15 @@
 package org.larder.cookingassistance.application;
 
 import java.time.Clock;
+import org.larder.cookingassistance.domain.helprequest.HelpAnswer;
 import org.larder.cookingassistance.domain.helprequest.HelpId;
 import org.larder.cookingassistance.domain.helprequest.HelpProvider;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequest;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestRepository;
-import org.larder.cookingassistance.domain.helprequest.PreparationStepExplanation;
 
-// cmd: Provide Help · agg: Help Request · slice: B3-S02, story: US-CA-03
+// cmd: Provide Help · agg: Help Request · slice: B3-S02/B2-S02, story: US-CA-03/US-CA-02
 /** Use case: a Community member answers a help request through the REST API. */
 public class ProvideHelp {
 
@@ -62,5 +62,5 @@ public class ProvideHelp {
       HelpProviderType providerType,
       HelpRequestId helpRequestId,
       String answerTitle,
-      PreparationStepExplanation answer) {}
+      HelpAnswer answer) {}
 }

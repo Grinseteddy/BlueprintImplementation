@@ -303,6 +303,17 @@ public final class HelpRequest {
     recordHelp(helpId, provider, answerTitle, answer, answeredAt);
   }
 
+  // slice: B3-S02/B2-S02, story: US-CA-03/US-CA-02, cmd: Provide Help, for any kind of answer
+  public void provideHelp(
+      HelpId helpId, HelpProvider provider, String answerTitle, HelpAnswer answer, Clock clock) {
+    switch (answer) {
+      case PreparationStepExplanation explanation ->
+          provideHelp(helpId, provider, answerTitle, explanation, clock);
+      case Substitutes substitutes ->
+          provideHelp(helpId, provider, answerTitle, substitutes, clock);
+    }
+  }
+
   /** Who may answer and until when: the same for every kind of help. */
   private void ensureProviderMayAnswer(HelpProvider provider, Instant answeredAt) {
     ensureNotFinal();

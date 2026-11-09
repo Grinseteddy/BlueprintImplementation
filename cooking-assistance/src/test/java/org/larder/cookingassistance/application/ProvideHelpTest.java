@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.net.URI;
+import java.time.Clock;
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -15,6 +17,7 @@ import org.larder.cookingassistance.application.fakes.InMemoryHelpRequestReposit
 import org.larder.cookingassistance.domain.helprequest.AnswerDoesNotMatchRequest;
 import org.larder.cookingassistance.domain.helprequest.ConcurrencyConflict;
 import org.larder.cookingassistance.domain.helprequest.CookId;
+import org.larder.cookingassistance.domain.helprequest.Help;
 import org.larder.cookingassistance.domain.helprequest.HelpId;
 import org.larder.cookingassistance.domain.helprequest.HelpProvided;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
@@ -22,10 +25,15 @@ import org.larder.cookingassistance.domain.helprequest.HelpRequest;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestStatus;
 import org.larder.cookingassistance.domain.helprequest.HowToStepId;
+import org.larder.cookingassistance.domain.helprequest.IngredientId;
 import org.larder.cookingassistance.domain.helprequest.InvalidHelpRequestState;
+import org.larder.cookingassistance.domain.helprequest.NoSubstituteProposed;
 import org.larder.cookingassistance.domain.helprequest.OwnRequest;
 import org.larder.cookingassistance.domain.helprequest.PreparationStepExplanation;
 import org.larder.cookingassistance.domain.helprequest.ProviderNotAsked;
+import org.larder.cookingassistance.domain.helprequest.Substitute;
+import org.larder.cookingassistance.domain.helprequest.SubstituteRejectedBefore;
+import org.larder.cookingassistance.domain.helprequest.Substitutes;
 import org.larder.cookingassistance.domain.helprequest.TooManyPictures;
 import org.larder.cookingassistance.fixtures.HelpRequests;
 
@@ -41,6 +49,12 @@ class ProvideHelpTest {
   final InMemoryHelpRequestRepository helpRequests = new InMemoryHelpRequestRepository();
   final ProvideHelp useCase =
       new ProvideHelp(helpRequests, () -> HelpRequests.HELP_ID.value(), HelpRequests.FRIDAY_18_10);
+
+  /** One hour after Lena asked about the creme fraiche. */
+  static final Clock MONDAY_19_00 = Clock.offset(HelpRequests.MONDAY_18_00, Duration.ofHours(1));
+
+  final ProvideHelp ingredientUseCase =
+      new ProvideHelp(helpRequests, () -> HelpRequests.OTHER_HELP_ID.value(), MONDAY_19_00);
 
   @BeforeEach
   void lenasRequestToTheCommunityIsStored() {
@@ -313,5 +327,100 @@ class ProvideHelpTest {
     assertThatThrownBy(() -> useCase.execute(answerAs(jonasAsChefToo, HelpProviderType.CHEF)))
         .isInstanceOf(NotAuthorized.class);
     assertNoHelpSaved();
+  }
+
+  @DisplayName(
+      "Jonas (role community) proposes yogurt on Lena's ingredient request -> the help id is returned; the saved Help holds the Substitutes; HelpProvided is saved with it -- B2-S02 US-CA-02 cmd Provide Help")
+  @Test
+  void communityMemberProposesSubstitutes() {
+    helpRequests.clear();
+    helpRequests.save(HelpRequests.lenaAsksForASubstitute(HelpProviderType.COMMUNITY));
+    Substitutes yogurt =
+        new Substitutes(HelpRequests.TOMATO_SOUP, List.of(HelpRequests.gramsOf("yogurt", "200")));
+
+    HelpId id = ingredientUseCase.execute(jonasProposes(yogurt));
+
+    assertThat(id).isEqualTo(HelpRequests.OTHER_HELP_ID);
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID))
+        .hasValueSatisfying(
+            saved ->
+                assertThat(saved.helps())
+                    .singleElement()
+                    .extracting(Help::answer)
+                    .isEqualTo(yogurt));
+    assertThat(helpRequests.recordedEvents()).last().isInstanceOf(HelpProvided.class);
+  }
+
+  @DisplayName(
+      "an answer with no substitute -> NoSubstituteProposed passes through unchanged (rule INV-12), no Help saved -- B2-S02 US-CA-02 INV-12")
+  @Test
+  void noSubstituteProposedPassesThrough() {
+    helpRequests.clear();
+    helpRequests.save(HelpRequests.lenaAsksForASubstitute(HelpProviderType.COMMUNITY));
+
+    assertThatThrownBy(
+            () ->
+                ingredientUseCase.execute(
+                    jonasProposes(new Substitutes(HelpRequests.TOMATO_SOUP, List.of()))))
+        .isInstanceOfSatisfying(
+            NoSubstituteProposed.class,
+            rejection -> assertThat(rejection.rule()).isEqualTo("INV-12"));
+    assertNoHelpSaved();
+  }
+
+  @DisplayName(
+      "substitutes for another ingredient -> AnswerDoesNotMatchRequest passes through unchanged (rule INV-37), no Help saved -- B2-S02 US-CA-02 INV-37")
+  @Test
+  void substitutesForAnotherIngredientPassThrough() {
+    helpRequests.clear();
+    helpRequests.save(HelpRequests.lenaAsksForASubstitute(HelpProviderType.COMMUNITY));
+    Substitute forBacon =
+        new Substitute(
+            new IngredientId(UUID.fromString("5b1f0a2e-7c3d-4e8f-9a6b-1d2c3e4f5a6b")),
+            HelpRequests.gramsOf("yogurt", "200").substituteIngredients());
+
+    assertThatThrownBy(
+            () ->
+                ingredientUseCase.execute(
+                    jonasProposes(new Substitutes(HelpRequests.TOMATO_SOUP, List.of(forBacon)))))
+        .isInstanceOfSatisfying(
+            AnswerDoesNotMatchRequest.class,
+            rejection -> assertThat(rejection.rule()).isEqualTo("INV-37"));
+    assertNoHelpSaved();
+  }
+
+  @DisplayName(
+      "Lena rejected yogurt; Jonas proposes yogurt -> SubstituteRejectedBefore passes through unchanged (rule INV-15), no further Help saved -- B3-S05 US-CA-02 INV-15")
+  @Test
+  void substituteRejectedBeforePassesThrough() {
+    helpRequests.clear();
+    HelpRequest request =
+        HelpRequests.lenaAsksForASubstitute(
+            HelpProviderType.COMMUNITY, HelpProviderType.GRANDMA_AVATAR);
+    HelpRequests.grandmaProposes(request, HelpRequests.gramsOf("yogurt", "200"));
+    request.reject(HelpRequests.HELP_ID, "too sour", MONDAY_19_00);
+    helpRequests.save(request);
+
+    assertThatThrownBy(
+            () ->
+                ingredientUseCase.execute(
+                    jonasProposes(
+                        new Substitutes(
+                            HelpRequests.TOMATO_SOUP,
+                            List.of(HelpRequests.gramsOf("yogurt", "200"))))))
+        .isInstanceOfSatisfying(
+            SubstituteRejectedBefore.class,
+            rejection -> assertThat(rejection.rule()).isEqualTo("INV-15"));
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().helps())
+        .hasSize(1);
+  }
+
+  private static ProvideHelp.Command jonasProposes(Substitutes answer) {
+    return new ProvideHelp.Command(
+        JONAS_AS_COMMUNITY,
+        HelpProviderType.COMMUNITY,
+        HelpRequests.HELP_REQUEST_ID,
+        "Yogurt",
+        answer);
   }
 }
