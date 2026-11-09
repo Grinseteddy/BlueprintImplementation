@@ -1,5 +1,11 @@
 # Cook Assistance API — changelog
 
+## AsyncAPI 1.0.9 — 2026-11-09 (step 4 r20, from step 9 of increment 2)
+
+| Change | Why |
+|---|---|
+| `consumeGrandmaHelpProvided`: an answer repeating a substitute the cook rejected earlier on this request is acknowledged and ignored, never dead-lettered | decided by the user: a repeat is a normal event, not a broken message. Description only; no schema change |
+
 ## OpenAPI 1.0.13 — 2026-11-08 (step 4 r19, from the test list of increment 2, S2)
 
 | Change | Why |

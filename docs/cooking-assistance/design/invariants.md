@@ -150,7 +150,7 @@ Each asked provider has its own deadline. A provider's side times out alone, and
 
 #### INV-15 — US-CA-02 R5: Rejected substitutes are kept as notes and not proposed again, now or later
 - **Slice / command:** B2-S02 / B3-S05 · Provide Help · **kind:** other
-- **Guard / outcome:** rejected substitutes are kept as notes and are not proposed again in this request (guard) nor later (read model across requests). The same substitute = the same set of ingredient names, whatever the amounts, letter case or outer spaces; every substitute of a rejected Help counts as rejected; a mix that contains a rejected ingredient is a new substitute (S3). Later requests show the note and do not refuse the answer (S4) *(step 3 r12, 2026-11-08, test list of increment 2, decided by the user)*
+- **Guard / outcome:** rejected substitutes are kept as notes and are not proposed again in this request (guard) nor later (read model across requests). The same substitute = the same set of ingredient names, whatever the amounts, letter case or outer spaces; *(step 3 r14, 2026-11-09, step 9 of increment 2, decided by the user: a repeat from the Grandma Avatar is acknowledged and ignored, not dead-lettered; REST callers get the refusal)* every substitute of a rejected Help counts as rejected; a mix that contains a rejected ingredient is a new substitute (S3). Later requests show the note and do not refuse the answer (S4) *(step 3 r12, 2026-11-08, test list of increment 2, decided by the user)*
 - **Sources:** map
   - `US-CA-02 R5.E1` **Given/When** Lena rejects mascarpone, too heavy **Then** note "mascarpone – too heavy"
   - `US-CA-02 R5.E2` **Given/When** Request sent again **Then** Community sees note, no mascarpone
