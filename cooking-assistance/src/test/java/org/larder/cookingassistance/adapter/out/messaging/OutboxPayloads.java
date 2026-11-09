@@ -65,4 +65,33 @@ final class OutboxPayloads {
         "suggestedProviders":[],"helpRequestStatus":"CANCELLED","occurredAt":"2026-11-07T06:00:10Z"}"""
         .formatted(helpRequestId, HelpRequests.LENA.value());
   }
+
+  static String helpRequestCreatedForAnIngredient(UUID helpRequestId) {
+    return """
+        {"helpRequestId":"%s","requester":"%s","title":"No creme fraiche",\
+        "type":"INGREDIENT_SUBSTITUTE","description":"The shop has none",\
+        "recipe":"%s","ingredient":"%s","substituteRequirements":"200 g, not available",\
+        "askedProviders":[{"providerType":"COMMUNITY","deadline":"2026-11-10T17:00:00Z"}],\
+        "status":"OPEN","occurredAt":"2026-11-09T17:00:00Z"}"""
+        .formatted(
+            helpRequestId,
+            HelpRequests.LENA.value(),
+            HelpRequests.TOMATO_SOUP.value(),
+            HelpRequests.CREME_FRAICHE.value());
+  }
+
+  static String helpProvidedWithSubstitutes(UUID helpRequestId) {
+    return """
+        {"helpId":"%s","helpRequest":"%s","helpRequester":"%s","answerTitle":"Yogurt",\
+        "helpProviderType":"GRANDMA_AVATAR","answer":{"answerType":"INGREDIENT_SUBSTITUTE",\
+        "recipe":"%s","substitute":[{"ingredient":"%s",\
+        "substituteIngredients":[{"name":"yogurt","value":200.0,"unit":"GRAM"}]}]},\
+        "helpRequestStatus":"ANSWERED","occurredAt":"2026-11-09T18:00:00Z"}"""
+        .formatted(
+            HelpRequests.HELP_ID.value(),
+            helpRequestId,
+            HelpRequests.LENA.value(),
+            HelpRequests.TOMATO_SOUP.value(),
+            HelpRequests.CREME_FRAICHE.value());
+  }
 }

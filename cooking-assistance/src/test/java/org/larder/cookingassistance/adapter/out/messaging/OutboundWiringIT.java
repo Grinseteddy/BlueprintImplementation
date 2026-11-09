@@ -5,14 +5,19 @@ import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Clock;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.larder.cookingassistance.adapter.out.persistence.PersistenceTestApplication;
 import org.larder.cookingassistance.adapter.out.persistence.PostgresTestContainer;
+import org.larder.cookingassistance.application.ProvideGrandmaAvatarHelp;
+import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
+import org.larder.cookingassistance.domain.helprequest.Substitutes;
 import org.larder.cookingassistance.fixtures.HelpRequests;
 import org.larder.cookingassistance.fixtures.TestSigningKeys;
 import org.larder.cookingassistance.fixtures.TestTokens;
@@ -39,6 +44,7 @@ class OutboundWiringIT {
   @Autowired TransactionTemplate transactions;
   @Autowired Clock clock;
   @Autowired ObjectMapper json;
+  @Autowired ProvideGrandmaAvatarHelp provideGrandmaAvatarHelp;
 
   final RecordingPublisher publisher = new RecordingPublisher();
 
@@ -131,6 +137,104 @@ class OutboundWiringIT {
             "cooking-assistance.help-request.created", "cooking-assistance.help-request.cancelled");
     assertThat(publisher.published().getLast().headers().get("correlationId"))
         .isEqualTo(helpRequestId.toString());
+    assertThat(
+            jdbc.sql("select count(*) from outbox where published_at is null")
+                .query(Integer.class)
+                .single())
+        .isZero();
+  }
+
+  @DisplayName(
+      "RequestHelpWithIngredient through the real adapters, then one relay run -> one message on the created channel with ingredient and substituteRequirements, no pending rows -- B2-S01 US-CA-02 wiring")
+  @Test
+  void ingredientRequestReachesItsChannel() throws Exception {
+    lenaAsksForASubstitute("COMMUNITY");
+
+    new OutboxRelay(jdbc, transactions, publisher, clock).runOnce();
+
+    assertThat(publisher.published())
+        .singleElement()
+        .satisfies(
+            message -> {
+              assertThat(message.channel()).isEqualTo("cooking-assistance.help-request.created");
+              JsonNode payload = json.readTree(message.payload());
+              assertThat(payload.get("ingredient").asText())
+                  .isEqualTo(HelpRequests.CREME_FRAICHE.value().toString());
+              assertThat(payload.get("substituteRequirements").asText())
+                  .isEqualTo("200 g, not available");
+            });
+    assertNothingPending();
+  }
+
+  @DisplayName(
+      "Grandma's substitutes saved through the real adapters, then one relay run -> one message on the provided channel with the substitute, no pending rows -- B2-S02 US-CA-02 wiring")
+  @Test
+  void substitutesReachTheirChannel() throws Exception {
+    UUID helpRequestId = lenaAsksForASubstitute("GRANDMA_AVATAR");
+    provideGrandmaAvatarHelp.handle(
+        new ProvideGrandmaAvatarHelp.GrandmaAnswer(
+            UUID.fromString("7182a3b4-b5c6-4d7e-8f01-6c7d8e9fa0b1"),
+            new HelpRequestId(helpRequestId),
+            "Yogurt",
+            new Substitutes(
+                HelpRequests.TOMATO_SOUP, List.of(HelpRequests.gramsOf("yogurt", "200")))));
+
+    new OutboxRelay(jdbc, transactions, publisher, clock).runOnce();
+
+    assertThat(publisher.published())
+        .extracting(OutgoingMessage::channel)
+        .containsExactly(
+            "cooking-assistance.help-request.created", "cooking-assistance.help.provided");
+    JsonNode answer = json.readTree(publisher.published().getLast().payload()).get("answer");
+    assertThat(
+            answer
+                .get("substitute")
+                .get(0)
+                .get("substituteIngredients")
+                .get(0)
+                .get("name")
+                .asText())
+        .isEqualTo("yogurt");
+    assertNothingPending();
+  }
+
+  /** Lena asks for a substitute for creme fraiche through the API; returns the new request's id. */
+  private UUID lenaAsksForASubstitute(String provider) throws Exception {
+    String response =
+        mvc.perform(
+                post("/help-requests")
+                    .header(
+                        AUTHORIZATION,
+                        TestTokens.forCook(HelpRequests.LENA)
+                            .roles("cook")
+                            .scope("help:write")
+                            .bearer())
+                    .header("version", "1.0.13")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        """
+                    {
+                      "title": "No creme fraiche",
+                      "type": "INGREDIENT_SUBSTITUTE",
+                      "description": "The shop has none",
+                      "recipe": "%s",
+                      "ingredient": "%s",
+                      "substituteRequirements": "200 g, not available",
+                      "preferredProvider": ["%s"]
+                    }
+                    """
+                            .formatted(
+                                HelpRequests.TOMATO_SOUP.value(),
+                                HelpRequests.CREME_FRAICHE.value(),
+                                provider)))
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    return UUID.fromString(json.readTree(response).get("helpRequestId").asText());
+  }
+
+  private void assertNothingPending() {
     assertThat(
             jdbc.sql("select count(*) from outbox where published_at is null")
                 .query(Integer.class)
