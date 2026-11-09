@@ -1,5 +1,18 @@
 # Cook Assistance API — changelog
 
+## OpenAPI 1.0.13 — 2026-11-08 (step 4 r19, from the test list of increment 2, S2)
+
+| Change | Why |
+|---|---|
+| A request of type `INGREDIENT_SUBSTITUTE` requires `substituteRequirements` | INV-11: one ingredient "with its substitute requirements". Stricter, but the operation answers 501 for this type so far, so no caller breaks |
+| `version` header accepts 1.0.13 | |
+
+## AsyncAPI 1.0.8 — 2026-11-08 (step 4 r18, from the readiness gate of increment 2, Q-D1)
+
+| Change | Why |
+|---|---|
+| `HelpRequestTimedOut.occurredAt` is the moment the time-out was detected | decided by the user (D-2, Q-D1): the event records when the system found the time-out. The description said "when the last deadline passed"; the service has always sent the detection time. Clarification, no shape change |
+
 ## OpenAPI 1.0.12 — 2026-11-08 (step 4 r17, from the security review of increment 1, SEC-14)
 
 | Change | Why |

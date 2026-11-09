@@ -25,7 +25,7 @@ checks.positive_data_acceptance.enabled = false
 [[operations]]
 include-operation-id = "createHelpRequest"
 checks.positive_data_acceptance.enabled = false
-# Variants later increments build answer the declared 501 (OpenAPI 1.0.12); any other 5xx still fails.
+# Variants later increments build answer the declared 501 (OpenAPI 1.0.13); any other 5xx still fails.
 checks.not_a_server_error.expected-statuses = ["2xx", "3xx", "4xx", "501"]
 
 [[operations]]

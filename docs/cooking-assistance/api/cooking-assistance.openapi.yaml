@@ -9,7 +9,7 @@ info:
 
     Clients must be tolerant readers: ignore unknown fields and handle unknown enum values
     (status, type and error codes can grow in later minor versions).
-  version: 1.0.12
+  version: 1.0.13
   contact:
     name: Annegret Junker
     email: annegret.junker@larder.org
@@ -499,8 +499,8 @@ components:
       description: Version of the API the client was built against.
       schema:
         type: string
-        default: "1.0.12"
-        enum: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6", "1.0.7", "1.0.8", "1.0.9", "1.0.10", "1.0.11", "1.0.12"]
+        default: "1.0.13"
+        enum: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6", "1.0.7", "1.0.8", "1.0.9", "1.0.10", "1.0.11", "1.0.12", "1.0.13"]
 
   schemas:
     HelpType:
@@ -694,10 +694,11 @@ components:
                 description: Applies to the type INGREDIENT_SUBSTITUTE.
                 const: INGREDIENT_SUBSTITUTE
           then:
-            description: An ingredient substitute names a recipe and exactly one ingredient.
+            description: An ingredient substitute names a recipe, exactly one ingredient and what a substitute must meet.
             required:
               - recipe
               - ingredient
+              - substituteRequirements
             not:
               anyOf:
                 - required:
