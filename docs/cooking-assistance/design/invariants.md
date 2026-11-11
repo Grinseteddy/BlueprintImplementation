@@ -119,7 +119,7 @@ Each asked provider has its own deadline. A provider's side times out alone, and
 
 #### INV-11 — US-CA-02 R2: A request covers one ingredient in any recipe, with its substitute requirements
 - **Slice / command:** B2-S01 · Request help ingredients · **kind:** cardinality
-- **Guard / outcome:** exactly one ingredient of one recipe, with its substitute requirements, which are required (S2) *(step 3 r12, 2026-11-08, test list of increment 2, decided by the user)*; two ingredients → two requests
+- **Guard / outcome:** exactly one ingredient of one recipe, named (*step 3 r15, 2026-11-09: the client sends the ingredient's name, required, taken as given, decided by the user*), with its substitute requirements, which are required (S2) *(step 3 r12, 2026-11-08, test list of increment 2, decided by the user)*; two ingredients → two requests
 - **Sources:** map; contradicts glossary 'ingredients 0..*' (graph R_EM02_R2) → map wins for this type; model 'recipe mandatory', 'ingredients only for Ingredient Substitute'
   - `US-CA-02 R2.E1` **Given/When** 200 g crème fraîche in tomato soup, shop has none **Then** shows recipe, amount, "not available"
   - `US-CA-02 R2.E2` **Given/When** Bacon in carbonara for a vegetarian guest **Then** shows "vegetarian"
@@ -150,7 +150,7 @@ Each asked provider has its own deadline. A provider's side times out alone, and
 
 #### INV-15 — US-CA-02 R5: Rejected substitutes are kept as notes and not proposed again, now or later
 - **Slice / command:** B2-S02 / B3-S05 · Provide Help · **kind:** other
-- **Guard / outcome:** rejected substitutes are kept as notes and are not proposed again in this request (guard) nor later (read model across requests). The same substitute = the same set of ingredient names, whatever the amounts, letter case or outer spaces; *(step 3 r14, 2026-11-09, step 9 of increment 2, decided by the user: a repeat from the Grandma Avatar is acknowledged and ignored, not dead-lettered; REST callers get the refusal)* every substitute of a rejected Help counts as rejected; a mix that contains a rejected ingredient is a new substitute (S3). Later requests show the note and do not refuse the answer (S4) *(step 3 r12, 2026-11-08, test list of increment 2, decided by the user)*
+- **Guard / outcome:** rejected substitutes are kept as notes and are not proposed again in this request (guard) nor later (read model across requests: the notes of the cook's earlier requests about an ingredient of the same name, in any recipe; *step 3 r15*). The same substitute = the same set of ingredient names, whatever the amounts, letter case or outer spaces; *(step 3 r14, 2026-11-09, step 9 of increment 2, decided by the user: a repeat from the Grandma Avatar is acknowledged and ignored, not dead-lettered; REST callers get the refusal)* every substitute of a rejected Help counts as rejected; a mix that contains a rejected ingredient is a new substitute (S3). Later requests show the note and do not refuse the answer (S4) *(step 3 r12, 2026-11-08, test list of increment 2, decided by the user)*
 - **Sources:** map
   - `US-CA-02 R5.E1` **Given/When** Lena rejects mascarpone, too heavy **Then** note "mascarpone – too heavy"
   - `US-CA-02 R5.E2` **Given/When** Request sent again **Then** Community sees note, no mascarpone

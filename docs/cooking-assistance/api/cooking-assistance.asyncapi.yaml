@@ -1,7 +1,7 @@
 asyncapi: 3.0.0
 info:
   title: Cooking Assistance
-  version: 1.0.9
+  version: 1.0.10
   description: |
     Event-driven API of the Cooking Assistance bounded context. It provides help
     for cooks in planning and preparation of meals and dinners: cooks create help
@@ -611,6 +611,11 @@ components:
           type: string
           format: uuid
           description: The one referenced ingredient to be substituted — only for INGREDIENT_SUBSTITUTE
+        ingredientName:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Name of the ingredient to be substituted — only for INGREDIENT_SUBSTITUTE
         substituteRequirements:
           type: string
           maxLength: 2000

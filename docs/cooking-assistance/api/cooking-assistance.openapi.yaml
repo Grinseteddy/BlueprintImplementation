@@ -9,7 +9,7 @@ info:
 
     Clients must be tolerant readers: ignore unknown fields and handle unknown enum values
     (status, type and error codes can grow in later minor versions).
-  version: 1.0.13
+  version: 1.0.14
   contact:
     name: Annegret Junker
     email: annegret.junker@larder.org
@@ -499,8 +499,8 @@ components:
       description: Version of the API the client was built against.
       schema:
         type: string
-        default: "1.0.13"
-        enum: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6", "1.0.7", "1.0.8", "1.0.9", "1.0.10", "1.0.11", "1.0.12", "1.0.13"]
+        default: "1.0.14"
+        enum: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6", "1.0.7", "1.0.8", "1.0.9", "1.0.10", "1.0.11", "1.0.12", "1.0.13", "1.0.14"]
 
   schemas:
     HelpType:
@@ -685,6 +685,8 @@ components:
                 - required:
                     - ingredient
                 - required:
+                    - ingredientName
+                - required:
                     - pictures
         - if:
             required:
@@ -698,6 +700,7 @@ components:
             required:
               - recipe
               - ingredient
+              - ingredientName
               - substituteRequirements
             not:
               anyOf:
@@ -720,6 +723,8 @@ components:
                     - howToStep
                 - required:
                     - ingredient
+                - required:
+                    - ingredientName
         - if:
             required:
               - type
@@ -744,6 +749,8 @@ components:
                     - howToStep
                 - required:
                     - ingredient
+                - required:
+                    - ingredientName
                 - required:
                     - pictures
           else:
@@ -826,6 +833,11 @@ components:
           format: uuid
           examples:
             - 8956b2e5-8d0c-470e-ae9c-6071bd7c5b0d
+        ingredientName:
+          description: Name of the ingredient to be substituted, as the recipe has it. Only for the type Ingredient Substitute.
+          type: string
+          minLength: 1
+          maxLength: 200
         substituteRequirements:
           description: What a substitute must meet, e.g. amount, availability or the guests' diet. Only for the type Ingredient Substitute.
           type: string
@@ -873,7 +885,7 @@ components:
           items:
             $ref: '#/components/schemas/Note'
         previousNotes:
-          description: Notes of the requester's earlier requests about the same step of the same recipe (INV-07), shown so providers don't repeat what didn't work; notes about the same dish come with catastrophe help (planned). The 10 most recent notes, oldest first.
+          description: Notes of the requester's earlier requests about the same step of the same recipe (INV-07) or an ingredient of the same name in any recipe (INV-15), shown so providers don't repeat what didn't work; notes about the same dish come with catastrophe help (planned). The 10 most recent notes, oldest first.
           type: array
           maxItems: 10
           items:
@@ -949,6 +961,11 @@ components:
           description: Reference to the one ingredient to be substituted. Only for the type Ingredient Substitute.
           type: string
           format: uuid
+        ingredientName:
+          description: Name of the ingredient to be substituted, as the recipe has it. Only for the type Ingredient Substitute.
+          type: string
+          minLength: 1
+          maxLength: 200
         substituteRequirements:
           description: What a substitute must meet. Only for the type Ingredient Substitute.
           type: string

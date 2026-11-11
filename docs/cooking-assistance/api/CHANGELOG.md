@@ -1,5 +1,19 @@
 # Cook Assistance API — changelog
 
+## AsyncAPI 1.0.10 — 2026-11-09 (step 4 r21, from step 11 of increment 2)
+
+| Change | Why |
+|---|---|
+| `HelpRequestCreated` carries `ingredientName` for an ingredient request | step 3 r15: the name the client sends. Optional, as the other type-dependent fields |
+
+## OpenAPI 1.0.14 — 2026-11-09 (step 4 r21, from step 11 of increment 2)
+
+| Change | Why |
+|---|---|
+| A request of type `INGREDIENT_SUBSTITUTE` requires `ingredientName` (read and create); other types may not send it | decided by the user (step 3 r15): notes carry over to an ingredient of the same name, and the service has no name otherwise. Stricter, but this type was never released |
+| `previousNotes`: also the notes of the requester's earlier requests about an ingredient of the same name, in any recipe | INV-15, R5.E3 |
+| `version` header accepts 1.0.14 | |
+
 ## AsyncAPI 1.0.9 — 2026-11-09 (step 4 r20, from step 9 of increment 2)
 
 | Change | Why |
