@@ -30,3 +30,6 @@ EXACT Coding at 88fb3f9, autonomy full-hitl. Database: PostgreSQL 16 on Testcont
 - Planned: `AnswerJsonMapper.toAnswer` becomes exhaustive with the next kinds of answer (a missing `answerType` is a NullPointerException, unreachable today); `recipe` in `HelpRequestCreated` for B4 (INV-19, optional recipe).
 - Accepted (user): the published amount is a `double`; an amount too long for a double would differ from the stored one.
 - Step 11: `JdbcHelpRequestQueries` still casts to `PreparationStepExplanation`.
+
+## Reworked in step 11 (step 3 r15, user 2026-11-09)
+- V8 `help_request.ingredient_name`; `HelpRequestRow` and `HelpRequestMapper` round-trip the name; the outbox payload of `HelpRequestCreated` carries it (AsyncAPI 1.0.10). The step 11 query reads the columns without the cast. Test-first; see journal-inc2-step11.md.

@@ -28,3 +28,6 @@ EXACT Coding at 88fb3f9, autonomy full-hitl. Fast loop: the use-case tests with 
 
 ## Handed on
 - Step 9: REST mapping for ingredient requests and substitutes; the Grandma consumer and mapper; what a repeated rejected substitute from Grandma does (today it would dead-letter, as other refused answers do); blank names at the door.
+
+## Reworked in step 11 (step 3 r15, user 2026-11-09)
+- `RequestHelpWithIngredient.Command` carries `ingredientName`; `IngredientNameRequired` passes through unchanged, nothing saved. Test-first; see journal-inc2-step11.md.

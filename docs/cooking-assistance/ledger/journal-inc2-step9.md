@@ -28,3 +28,6 @@ EXACT Coding at 88fb3f9, autonomy full-hitl. Generators unchanged (openapi-gener
 
 ## Handed on
 - Step 11: the `PreparationStepExplanation` cast and `HelpView` for listing a Substitutes Help; `HelpRequestView` without ingredient and requirements; the "later" part of INV-15 (S4).
+
+## Reworked in step 11 (step 3 r15, user 2026-11-09)
+- `createHelpRequest` maps `ingredientName` (OpenAPI 1.0.14): missing or empty → 400 `VALIDATION_FAILED`, a preparation step with a name → 400, a name of only spaces → 422 `MISSING_FIELD`, rule INV-11. Test-first; see journal-inc2-step11.md.

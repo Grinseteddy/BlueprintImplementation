@@ -35,3 +35,6 @@ EXACT Coding at 88fb3f9, autonomy full-hitl. Fast loop: `HelpRequestIngredientTe
 - Step 7: `HelpRequestMapper` calls the overload without ingredient; columns for ingredient and requirements; `Substitutes` in `AnswerJsonMapper`.
 - Step 9: `OutboxEventMapper` and the REST 501 for ingredient requests (with step 10); blank names arrive here (`minLength: 1` alone allows spaces).
 - Step 11: the "later" part of INV-15 across requests (S4).
+
+## Reworked in step 11 (step 3 r15, user 2026-11-09)
+- The aggregate and `HelpRequested` carry `ingredientName`; `ensureOneIngredientOfOneRecipe` refuses a null or blank name with `IngredientNameRequired` (INV-11, `MISSING_FIELD`), after `IngredientRequired`. Test-first; see journal-inc2-step11.md.
