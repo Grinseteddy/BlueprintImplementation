@@ -62,6 +62,7 @@ final class OutboxEventMapper {
                 event.recipe().value(),
                 event.howToStep() == null ? null : event.howToStep().value(),
                 event.ingredient() == null ? null : event.ingredient().value(),
+                event.ingredientName(),
                 event.substituteRequirements(),
                 null,
                 null,

@@ -35,6 +35,7 @@ public class RequestHelpWithIngredient {
             command.description(),
             command.recipe(),
             command.ingredient(),
+            command.ingredientName(),
             command.substituteRequirements(),
             command.preferredProviders(),
             clock);
@@ -49,6 +50,7 @@ public class RequestHelpWithIngredient {
       String description,
       RecipeId recipe,
       IngredientId ingredient,
+      String ingredientName,
       String substituteRequirements,
       Set<HelpProviderType> preferredProviders) {}
 }

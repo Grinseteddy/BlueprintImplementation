@@ -250,6 +250,7 @@ class HelpRequestPropertiesTest {
         "The shop has none",
         HelpRequestIngredientTest.TOMATO_SOUP,
         HelpRequestIngredientTest.CREME_FRAICHE,
+        "creme fraiche",
         "200 g, not available",
         Set.of(providers),
         fixedAt(requestedAt));

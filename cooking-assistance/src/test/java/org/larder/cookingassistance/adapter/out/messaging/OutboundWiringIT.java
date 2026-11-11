@@ -219,6 +219,7 @@ class OutboundWiringIT {
                       "description": "The shop has none",
                       "recipe": "%s",
                       "ingredient": "%s",
+                      "ingredientName": "creme fraiche",
                       "substituteRequirements": "200 g, not available",
                       "preferredProvider": ["%s"]
                     }

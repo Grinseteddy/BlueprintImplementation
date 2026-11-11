@@ -13,6 +13,7 @@ import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestStatus;
 import org.larder.cookingassistance.domain.helprequest.HelpType;
 import org.larder.cookingassistance.domain.helprequest.HowToStepId;
+import org.larder.cookingassistance.domain.helprequest.IngredientId;
 import org.larder.cookingassistance.domain.helprequest.Note;
 import org.larder.cookingassistance.domain.helprequest.RecipeId;
 
@@ -25,6 +26,9 @@ public record HelpRequestView(
     String description,
     RecipeId recipe,
     HowToStepId howToStep,
+    IngredientId ingredient,
+    String ingredientName,
+    String substituteRequirements,
     List<AskedProvider> askedProviders,
     HelpRequestStatus status,
     List<Note> notes,

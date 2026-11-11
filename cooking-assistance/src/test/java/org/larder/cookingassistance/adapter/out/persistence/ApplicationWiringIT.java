@@ -224,6 +224,7 @@ class ApplicationWiringIT {
                 "The shop has none",
                 HelpRequests.TOMATO_SOUP,
                 HelpRequests.CREME_FRAICHE,
+                "creme fraiche",
                 "200 g, not available",
                 Set.of(HelpProviderType.GRANDMA_AVATAR)));
 

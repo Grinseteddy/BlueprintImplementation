@@ -18,6 +18,7 @@ record HelpRequestRow(
     UUID recipe,
     UUID howToStep,
     UUID ingredient,
+    String ingredientName,
     String substituteRequirements,
     String status,
     @Version long version,

@@ -14,6 +14,7 @@ import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HelpRequested;
 import org.larder.cookingassistance.domain.helprequest.IngredientId;
+import org.larder.cookingassistance.domain.helprequest.IngredientNameRequired;
 import org.larder.cookingassistance.domain.helprequest.IngredientRequired;
 import org.larder.cookingassistance.domain.helprequest.NoHelpProviderChosen;
 import org.larder.cookingassistance.domain.helprequest.RecipeId;
@@ -55,6 +56,7 @@ class RequestHelpWithIngredientTest {
         "The shop has none",
         recipe,
         ingredient,
+        "creme fraiche",
         requirements,
         Set.of(providers));
   }
@@ -65,7 +67,7 @@ class RequestHelpWithIngredientTest {
   }
 
   @DisplayName(
-      "Lena (role cook) asks Grandma Avatar for a substitute for creme fraiche in tomato soup -> the id from the id generator is returned; a request with Lena, the ingredient and the requirements is saved -- B2-S01 US-CA-02 cmd Request help ingredients")
+      "Lena (role cook) asks Grandma Avatar for a substitute for creme fraiche in tomato soup -> the id from the id generator is returned; a request with Lena, the ingredient, its name \"creme fraiche\" and the requirements is saved -- B2-S01 US-CA-02 cmd Request help ingredients")
   @Test
   void cookRequestsHelpWithAnIngredientAndGetsTheNewId() {
     HelpRequestId id = useCase.execute(lenaAsksGrandma(LENA_AS_COOK));
@@ -76,6 +78,7 @@ class RequestHelpWithIngredientTest {
             saved -> {
               assertThat(saved.requester()).isEqualTo(HelpRequests.LENA);
               assertThat(saved.ingredient()).isEqualTo(HelpRequests.CREME_FRAICHE);
+              assertThat(saved.ingredientName()).isEqualTo("creme fraiche");
               assertThat(saved.substituteRequirements()).isEqualTo("200 g, not available");
             });
   }
@@ -212,6 +215,28 @@ class RequestHelpWithIngredientTest {
 
     assertThatThrownBy(() -> useCase.execute(lenaAsksGrandma(chefOnly)))
         .isInstanceOf(NotAuthorized.class);
+    assertNothingSaved();
+  }
+
+  @DisplayName(
+      "no ingredient name -> IngredientNameRequired passes through unchanged (rule INV-11), nothing saved -- B2-S01 US-CA-02 INV-11")
+  @Test
+  void ingredientNameRequiredPassesThroughUnchanged() {
+    RequestHelpWithIngredient.Command withoutName =
+        new RequestHelpWithIngredient.Command(
+            LENA_AS_COOK,
+            "Creme fraiche in tomato soup",
+            "The shop has none",
+            HelpRequests.TOMATO_SOUP,
+            HelpRequests.CREME_FRAICHE,
+            null,
+            "200 g, not available",
+            Set.of(HelpProviderType.COMMUNITY));
+
+    assertThatThrownBy(() -> useCase.execute(withoutName))
+        .isInstanceOfSatisfying(
+            IngredientNameRequired.class,
+            rejection -> assertThat(rejection.rule()).isEqualTo("INV-11"));
     assertNothingSaved();
   }
 }

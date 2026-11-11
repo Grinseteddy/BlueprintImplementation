@@ -14,6 +14,7 @@ public record HelpRequested(
     RecipeId recipe,
     HowToStepId howToStep,
     IngredientId ingredient,
+    String ingredientName,
     String substituteRequirements,
     List<AskedProvider> askedProviders,
     HelpRequestStatus status,

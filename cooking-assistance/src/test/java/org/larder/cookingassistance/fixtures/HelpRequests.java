@@ -125,6 +125,7 @@ public final class HelpRequests {
         "The shop has none",
         TOMATO_SOUP,
         CREME_FRAICHE,
+        "creme fraiche",
         "200 g, not available",
         Set.of(providers),
         MONDAY_18_00);

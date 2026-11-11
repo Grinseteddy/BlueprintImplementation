@@ -263,7 +263,7 @@ class OutboxEventMapperTest {
   }
 
   @DisplayName(
-      "HelpRequested for an ingredient -> payload with exactly helpRequestId, requester, title, type, description, recipe, ingredient, substituteRequirements, askedProviders, status, occurredAt, no howToStep and no null field -- B2-S01 US-CA-02 AsyncAPI HelpRequestCreated")
+      "HelpRequested for an ingredient -> payload with exactly helpRequestId, requester, title, type, description, recipe, ingredient, ingredientName \"creme fraiche\", substituteRequirements, askedProviders, status, occurredAt, no howToStep and no null field -- B2-S01 US-CA-02 AsyncAPI HelpRequestCreated")
   @Test
   void helpRequestCreatedForAnIngredientCarriesExactlyTheSpecFields() throws Exception {
     HelpRequest request = HelpRequests.lenaAsksForASubstitute(HelpProviderType.GRANDMA_AVATAR);
@@ -279,12 +279,14 @@ class OutboxEventMapperTest {
             "description",
             "recipe",
             "ingredient",
+            "ingredientName",
             "substituteRequirements",
             "askedProviders",
             "status",
             "occurredAt");
     assertThat(payload.get("ingredient").asText())
         .isEqualTo(HelpRequests.CREME_FRAICHE.value().toString());
+    assertThat(payload.get("ingredientName").asText()).isEqualTo("creme fraiche");
     assertThat(payload.get("substituteRequirements").asText()).isEqualTo("200 g, not available");
     assertNoNulls(payload);
   }

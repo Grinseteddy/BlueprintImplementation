@@ -73,6 +73,7 @@ class HelpRequestIngredientTest {
         "The shop has none",
         TOMATO_SOUP,
         ingredient,
+        "creme fraiche",
         "200 g, not available",
         Set.of(HelpProviderType.COMMUNITY),
         MONDAY_18_00);
@@ -86,6 +87,7 @@ class HelpRequestIngredientTest {
         "The shop has none",
         TOMATO_SOUP,
         CREME_FRAICHE,
+        "creme fraiche",
         requirements,
         providers,
         MONDAY_18_00);
@@ -179,6 +181,7 @@ class HelpRequestIngredientTest {
             "The shop has none",
             TOMATO_SOUP,
             CREME_FRAICHE,
+            "creme fraiche",
             "200 g, not available",
             Set.of(HelpProviderType.COMMUNITY),
             MONDAY_18_00);
@@ -218,6 +221,7 @@ class HelpRequestIngredientTest {
                     "The shop has none",
                     null,
                     CREME_FRAICHE,
+                    "creme fraiche",
                     "200 g, not available",
                     Set.of(HelpProviderType.GRANDMA_AVATAR),
                     MONDAY_18_00))
@@ -238,6 +242,7 @@ class HelpRequestIngredientTest {
                     "The shop has none",
                     TOMATO_SOUP,
                     null,
+                    "creme fraiche",
                     "200 g, not available",
                     Set.of(HelpProviderType.GRANDMA_AVATAR),
                     MONDAY_18_00))
@@ -1052,6 +1057,7 @@ class HelpRequestIngredientTest {
             "The shop has none",
             TOMATO_SOUP,
             CREME_FRAICHE,
+            "creme fraiche",
             "200 g, not available",
             Set.of(HelpProviderType.GRANDMA_AVATAR),
             MONDAY_10_00);
@@ -1114,6 +1120,7 @@ class HelpRequestIngredientTest {
             TOMATO_SOUP,
             null,
             CREME_FRAICHE,
+            "creme fraiche",
             "200 g, not available",
             List.of(new AskedProvider(HelpProviderType.CHEF, MONDAY_18_00.instant())),
             HelpRequestStatus.ANSWERED,
@@ -1167,5 +1174,71 @@ class HelpRequestIngredientTest {
             AnswerDoesNotMatchRequest.class,
             rejected -> assertThat(rejected.rule()).isEqualTo("INV-37"));
     assertThat(request.helps()).isEmpty();
+  }
+
+  @DisplayName(
+      "Lena asks about creme fraiche -> the request and HelpRequested carry the ingredient name -- B2-S01 US-CA-02 INV-11 (step 3 r15)")
+  @Test
+  void theRequestCarriesTheIngredientName() {
+    HelpRequest request = lenasRequest("200 g, not available", Set.of(HelpProviderType.COMMUNITY));
+
+    assertThat(request.ingredientName()).isEqualTo("creme fraiche");
+    assertThat(request.pullEvents())
+        .singleElement()
+        .isInstanceOfSatisfying(
+            HelpRequested.class,
+            requested -> assertThat(requested.ingredientName()).isEqualTo("creme fraiche"));
+  }
+
+  @DisplayName(
+      "no ingredient name, an empty or a blank one -> rejected with IngredientNameRequired, rule INV-11, code MISSING_FIELD -- B2-S01 US-CA-02 INV-11 (step 3 r15)")
+  @ParameterizedTest
+  @NullSource
+  @ValueSource(strings = {"", "   "})
+  void anIngredientNameIsRequired(String ingredientName) {
+    assertThatThrownBy(
+            () ->
+                HelpRequest.requestHelpWithIngredient(
+                    HelpRequests.HELP_REQUEST_ID,
+                    HelpRequests.LENA,
+                    "Creme fraiche in tomato soup",
+                    "The shop has none",
+                    TOMATO_SOUP,
+                    CREME_FRAICHE,
+                    ingredientName,
+                    "200 g, not available",
+                    Set.of(HelpProviderType.GRANDMA_AVATAR),
+                    MONDAY_18_00))
+        .isInstanceOfSatisfying(
+            IngredientNameRequired.class,
+            rejected -> {
+              assertThat(rejected.rule()).isEqualTo("INV-11");
+              assertThat(rejected.code()).isEqualTo("MISSING_FIELD");
+            });
+  }
+
+  @DisplayName(
+      "a stored ingredient request -> reconstituted with its ingredient name -- B2-S01 US-CA-02 INV-11 (step 3 r15)")
+  @Test
+  void reconstitutionKeepsTheIngredientName() {
+    HelpRequest request =
+        HelpRequest.reconstitute(
+            HelpRequests.HELP_REQUEST_ID,
+            HelpRequests.LENA,
+            "Creme fraiche in tomato soup",
+            "The shop has none",
+            HelpType.INGREDIENT_SUBSTITUTE,
+            TOMATO_SOUP,
+            null,
+            CREME_FRAICHE,
+            "creme fraiche",
+            "200 g, not available",
+            List.of(new AskedProvider(HelpProviderType.COMMUNITY, MONDAY_18_00.instant())),
+            HelpRequestStatus.OPEN,
+            List.of(),
+            List.of(),
+            1L);
+
+    assertThat(request.ingredientName()).isEqualTo("creme fraiche");
   }
 }

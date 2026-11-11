@@ -70,7 +70,7 @@ final class OutboxPayloads {
     return """
         {"helpRequestId":"%s","requester":"%s","title":"No creme fraiche",\
         "type":"INGREDIENT_SUBSTITUTE","description":"The shop has none",\
-        "recipe":"%s","ingredient":"%s","substituteRequirements":"200 g, not available",\
+        "recipe":"%s","ingredient":"%s","ingredientName":"creme fraiche","substituteRequirements":"200 g, not available",\
         "askedProviders":[{"providerType":"COMMUNITY","deadline":"2026-11-10T17:00:00Z"}],\
         "status":"OPEN","occurredAt":"2026-11-09T17:00:00Z"}"""
         .formatted(

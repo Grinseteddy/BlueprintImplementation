@@ -123,13 +123,20 @@ final class HelpMapper {
             view.helpRequester().value(),
             view.answerTitle(),
             HelpVocabulary.toContract(view.provider().type()),
-            toResponse(view.answer()),
+            toContractAnswer(view.answer()),
             view.accepted())
         .helpProvider(view.provider().person().map(CookId::value).orElse(null))
         .rejectionNote(view.rejectionNote().orElse(null));
   }
 
-  private static Answer toResponse(PreparationStepExplanation answer) {
+  private static Answer toContractAnswer(HelpAnswer answer) {
+    return switch (answer) {
+      case PreparationStepExplanation explanation -> toContractExplanation(explanation);
+      case Substitutes substitutes -> toContractSubstitutes(substitutes);
+    };
+  }
+
+  private static Answer toContractExplanation(PreparationStepExplanation answer) {
     return new org.larder.cookingassistance.adapter.in.rest.generated.model
             .PreparationStepExplanation(
             org.larder.cookingassistance.adapter.in.rest.generated.model.PreparationStepExplanation
@@ -138,5 +145,31 @@ final class HelpMapper {
             answer.howToStep().value(),
             answer.description())
         .images(OptionalArrays.absentWhenEmpty(answer.images()));
+  }
+
+  private static Answer toContractSubstitutes(Substitutes answer) {
+    return new org.larder.cookingassistance.adapter.in.rest.generated.model.Substitutes(
+        org.larder.cookingassistance.adapter.in.rest.generated.model.Substitutes.AnswerTypeEnum
+            .INGREDIENT_SUBSTITUTE,
+        answer.recipe().value(),
+        answer.substitute().stream().map(HelpMapper::toContractSubstitute).toList());
+  }
+
+  private static org.larder.cookingassistance.adapter.in.rest.generated.model.Substitute
+      toContractSubstitute(Substitute substitute) {
+    return new org.larder.cookingassistance.adapter.in.rest.generated.model.Substitute(
+        substitute.ingredient().value(),
+        substitute.substituteIngredients().stream()
+            .map(HelpMapper::toContractSubstituteIngredient)
+            .toList());
+  }
+
+  private static org.larder.cookingassistance.adapter.in.rest.generated.model.SubstituteIngredient
+      toContractSubstituteIngredient(SubstituteIngredient ingredient) {
+    return new org.larder.cookingassistance.adapter.in.rest.generated.model.SubstituteIngredient(
+        ingredient.name(),
+        ingredient.value(),
+        org.larder.cookingassistance.adapter.in.rest.generated.model.Unit.valueOf(
+            ingredient.unit().name()));
   }
 }

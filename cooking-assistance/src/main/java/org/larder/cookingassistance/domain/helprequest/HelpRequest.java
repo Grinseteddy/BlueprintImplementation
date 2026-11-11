@@ -34,6 +34,7 @@ public final class HelpRequest {
   private final RecipeId recipe;
   private final HowToStepId howToStep;
   private final IngredientId ingredient;
+  private final String ingredientName;
   private final String substituteRequirements;
   private List<AskedProvider> askedProviders;
   private HelpRequestStatus status;
@@ -51,6 +52,7 @@ public final class HelpRequest {
       RecipeId recipe,
       HowToStepId howToStep,
       IngredientId ingredient,
+      String ingredientName,
       String substituteRequirements,
       List<AskedProvider> askedProviders,
       HelpRequestStatus status,
@@ -63,6 +65,7 @@ public final class HelpRequest {
     this.recipe = recipe;
     this.howToStep = howToStep;
     this.ingredient = ingredient;
+    this.ingredientName = ingredientName;
     this.substituteRequirements = substituteRequirements;
     this.askedProviders = askedProviders;
     this.status = status;
@@ -77,11 +80,12 @@ public final class HelpRequest {
       String description,
       RecipeId recipe,
       IngredientId ingredient,
+      String ingredientName,
       String substituteRequirements,
       Set<HelpProviderType> preferredProviders,
       Clock clock) {
     ensureProvidersMayBeAsked(preferredProviders);
-    ensureOneIngredientOfOneRecipe(recipe, ingredient, substituteRequirements);
+    ensureOneIngredientOfOneRecipe(recipe, ingredient, ingredientName, substituteRequirements);
     return opened(
         id,
         requester,
@@ -91,6 +95,7 @@ public final class HelpRequest {
         recipe,
         null,
         ingredient,
+        ingredientName,
         substituteRequirements,
         preferredProviders,
         clock);
@@ -118,6 +123,7 @@ public final class HelpRequest {
         howToStep,
         null,
         null,
+        null,
         preferredProviders,
         clock);
   }
@@ -132,6 +138,7 @@ public final class HelpRequest {
       RecipeId recipe,
       HowToStepId howToStep,
       IngredientId ingredient,
+      String ingredientName,
       String substituteRequirements,
       Set<HelpProviderType> preferredProviders,
       Clock clock) {
@@ -148,6 +155,7 @@ public final class HelpRequest {
             recipe,
             howToStep,
             ingredient,
+            ingredientName,
             substituteRequirements,
             asked,
             HelpRequestStatus.OPEN,
@@ -163,6 +171,7 @@ public final class HelpRequest {
             request.recipe,
             request.howToStep,
             request.ingredient,
+            request.ingredientName,
             request.substituteRequirements,
             request.askedProviders,
             request.status,
@@ -194,6 +203,7 @@ public final class HelpRequest {
         howToStep,
         null,
         null,
+        null,
         askedProviders,
         status,
         helps,
@@ -211,6 +221,7 @@ public final class HelpRequest {
       RecipeId recipe,
       HowToStepId howToStep,
       IngredientId ingredient,
+      String ingredientName,
       String substituteRequirements,
       List<AskedProvider> askedProviders,
       HelpRequestStatus status,
@@ -227,6 +238,7 @@ public final class HelpRequest {
             recipe,
             howToStep,
             ingredient,
+            ingredientName,
             substituteRequirements,
             askedProviders,
             status,
@@ -257,14 +269,21 @@ public final class HelpRequest {
     }
   }
 
-  // INV-11: an ingredient request names one ingredient of one recipe (US-CA-02 R2)
+  // INV-11: an ingredient request names one ingredient of one recipe, by id and by name
+  // (US-CA-02 R2, step 3 r15)
   private static void ensureOneIngredientOfOneRecipe(
-      RecipeId recipe, IngredientId ingredient, String substituteRequirements) {
+      RecipeId recipe,
+      IngredientId ingredient,
+      String ingredientName,
+      String substituteRequirements) {
     if (recipe == null) {
       throw new RecipeRequired();
     }
     if (ingredient == null) {
       throw new IngredientRequired();
+    }
+    if (ingredientName == null || ingredientName.isBlank()) {
+      throw new IngredientNameRequired();
     }
     if (substituteRequirements == null || substituteRequirements.isBlank()) {
       throw new SubstituteRequirementsRequired();
@@ -605,6 +624,10 @@ public final class HelpRequest {
 
   public IngredientId ingredient() {
     return ingredient;
+  }
+
+  public String ingredientName() {
+    return ingredientName;
   }
 
   public String substituteRequirements() {

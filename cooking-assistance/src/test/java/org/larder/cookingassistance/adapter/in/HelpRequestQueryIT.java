@@ -30,6 +30,7 @@ import org.larder.cookingassistance.domain.helprequest.HelpRequest;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestRepository;
 import org.larder.cookingassistance.domain.helprequest.HowToStepId;
+import org.larder.cookingassistance.domain.helprequest.IngredientId;
 import org.larder.cookingassistance.domain.helprequest.RecipeId;
 import org.larder.cookingassistance.fixtures.HelpRequests;
 import org.larder.cookingassistance.fixtures.TestSigningKeys;
@@ -711,5 +712,313 @@ class HelpRequestQueryIT {
 
     SpecSchemas.assertMatches(body, "HelpRequestPage");
     assertThat(new ObjectMapper().readTree(body).get("items")).isEmpty();
+  }
+
+  @DisplayName(
+      "Lena reads her ingredient request -> 200 with type INGREDIENT_SUBSTITUTE, recipe, ingredient, substituteRequirements, no howToStep, valid against the HelpRequest schema -- B2-S01 US-CA-02 INV-11 op getHelpRequestById")
+  @Test
+  void ingredientRequestIsReadBack() throws Exception {
+    helpRequests.save(HelpRequests.lenaAsksForASubstitute(HelpProviderType.COMMUNITY));
+
+    String body = read(HelpRequests.HELP_REQUEST_ID.value().toString(), JONAS_READING, 200);
+
+    SpecSchemas.assertMatches(body, "HelpRequest");
+    JsonNode request = new ObjectMapper().readTree(body);
+    assertThat(request.get("type").asText()).isEqualTo("INGREDIENT_SUBSTITUTE");
+    assertThat(request.get("recipe").asText())
+        .isEqualTo(HelpRequests.TOMATO_SOUP.value().toString());
+    assertThat(request.get("ingredient").asText())
+        .isEqualTo(HelpRequests.CREME_FRAICHE.value().toString());
+    assertThat(request.get("substituteRequirements").asText()).isEqualTo("200 g, not available");
+    assertThat(request.has("howToStep")).isFalse();
+  }
+
+  @DisplayName(
+      "a preparation-step request is read back without ingredient and substituteRequirements -- B3-S01 US-CA-03 INV-02 (regression) op getHelpRequestById")
+  @Test
+  void aPreparationStepRequestShowsNoIngredient() throws Exception {
+    helpRequests.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.COMMUNITY));
+
+    String body = read(HelpRequests.HELP_REQUEST_ID.value().toString(), JONAS_READING, 200);
+
+    SpecSchemas.assertMatches(body, "HelpRequest");
+    JsonNode request = new ObjectMapper().readTree(body);
+    assertThat(request.get("type").asText()).isEqualTo("PREPARATION_STEP_EXPLANATION");
+    assertThat(request.has("ingredient")).isFalse();
+    assertThat(request.has("ingredientName")).isFalse();
+    assertThat(request.has("substituteRequirements")).isFalse();
+  }
+
+  @DisplayName(
+      "listHelpRequests with type INGREDIENT_SUBSTITUTE -> only the ingredient request, with its ingredient -- B2-S01 US-CA-02 op listHelpRequests")
+  @Test
+  void theListShowsIngredientRequests() throws Exception {
+    helpRequests.save(lenasRequest("01a1b1cd-8a80-7000-8000-00000000000a"));
+    helpRequests.save(HelpRequests.lenaAsksForASubstitute(HelpProviderType.COMMUNITY));
+
+    String body = list("?type=INGREDIENT_SUBSTITUTE", JONAS_READING, 200);
+
+    SpecSchemas.assertMatches(body, "HelpRequestPage");
+    assertThat(ids(body)).containsExactly(HelpRequests.HELP_REQUEST_ID.value().toString());
+    assertThat(new ObjectMapper().readTree(body).get("items").get(0).get("ingredient").asText())
+        .isEqualTo(HelpRequests.CREME_FRAICHE.value().toString());
+  }
+
+  static final HelpRequestId MUSHROOM_SAUCE_REQUEST_ID =
+      new HelpRequestId(UUID.fromString("3b3c4d5e-0000-7000-8000-000000000016"));
+  static final RecipeId MUSHROOM_SAUCE =
+      new RecipeId(UUID.fromString("4c5d6e7f-8091-4a2b-b3c4-d5e6f7a8b9c0"));
+  static final IngredientId CREME_FRAICHE_IN_MUSHROOM_SAUCE =
+      new IngredientId(UUID.fromString("5d6e7f80-91a2-4b3c-8d4e-5f6a7b8c9d0e"));
+
+  /** A week later, Lena asks for a substitute for the given ingredient in her mushroom sauce. */
+  private static HelpRequest lenaAsksAboutMushroomSauceNextWeek(String ingredientName) {
+    return HelpRequest.requestHelpWithIngredient(
+        MUSHROOM_SAUCE_REQUEST_ID,
+        HelpRequests.LENA,
+        "Creme fraiche in mushroom sauce",
+        "Still none in the shop",
+        MUSHROOM_SAUCE,
+        CREME_FRAICHE_IN_MUSHROOM_SAUCE,
+        ingredientName,
+        "150 g",
+        Set.of(HelpProviderType.COMMUNITY),
+        Clock.fixed(Instant.parse("2026-11-16T17:00:00Z"), ZoneOffset.UTC));
+  }
+
+  @DisplayName(
+      "Lena rejected mascarpone \"too heavy\" on creme fraiche in tomato soup; next week she asks about creme fraiche in mushroom sauce -> previousNotes holds \"too heavy\" -- B3-S05 US-CA-02 INV-15 R5.E3 S4 op getHelpRequestById")
+  @Test
+  void previousNotesOfTheSameIngredientAreShown() throws Exception {
+    Clock monday2000 = Clock.fixed(Instant.parse("2026-11-09T19:00:00Z"), ZoneOffset.UTC);
+    HelpRequest earlier = HelpRequests.lenaAsksForASubstitute(HelpProviderType.GRANDMA_AVATAR);
+    HelpRequests.grandmaProposes(earlier, HelpRequests.gramsOf("mascarpone", "200"));
+    earlier.reject(HelpRequests.HELP_ID, "too heavy", monday2000);
+    helpRequests.save(earlier);
+    helpRequests.save(lenaAsksAboutMushroomSauceNextWeek("creme fraiche"));
+
+    String body = read(MUSHROOM_SAUCE_REQUEST_ID.value().toString(), JONAS_READING, 200);
+
+    SpecSchemas.assertMatches(body, "HelpRequest");
+    JsonNode previous = new ObjectMapper().readTree(body).get("previousNotes");
+    assertThat(previous).as("previousNotes").isNotNull().hasSize(1);
+    assertThat(previous.get(0).get("kind").asText()).isEqualTo("REJECTION");
+    assertThat(previous.get(0).get("text").asText()).isEqualTo("too heavy");
+    assertThat(previous.get(0).get("helpRequestLink").asText())
+        .isEqualTo("http://localhost/help-requests/" + HelpRequests.HELP_REQUEST_ID.value());
+  }
+
+  @DisplayName(
+      "an earlier note about an ingredient of another name, even with the same recipe -> not in previousNotes -- B3-S05 US-CA-02 INV-15 S4 op getHelpRequestById")
+  @Test
+  void previousNotesLeaveOutAnotherIngredientOfTheSameRecipe() throws Exception {
+    HelpRequest earlier =
+        HelpRequest.requestHelpWithIngredient(
+            new HelpRequestId(UUID.fromString("01a1b1cd-8a80-7000-8000-000000000021")),
+            HelpRequests.LENA,
+            "Butter in tomato soup",
+            "No butter left",
+            HelpRequests.TOMATO_SOUP,
+            new IngredientId(UUID.fromString("6e7f8091-a2b3-4c4d-9e5f-6a7b8c9d0e1f")),
+            "butter",
+            "30 g",
+            Set.of(HelpProviderType.COMMUNITY),
+            HelpRequests.FRIDAY_18_00);
+    earlier.cancel(Optional.of("olive oil did it"), HelpRequests.FRIDAY_18_10);
+    helpRequests.save(earlier);
+    helpRequests.save(HelpRequests.lenaAsksForASubstitute(HelpProviderType.COMMUNITY));
+
+    String body = read(HelpRequests.HELP_REQUEST_ID.value().toString(), JONAS_READING, 200);
+
+    assertThat(new ObjectMapper().readTree(body).has("previousNotes"))
+        .as("previousNotes")
+        .isFalse();
+  }
+
+  @DisplayName(
+      "Lena cancelled an earlier ingredient request without a note -> nothing in previousNotes of her later request -- B3-S03 US-CA-02 INV-16 S4 op getHelpRequestById")
+  @Test
+  void aCancellationWithoutANoteCarriesNothing() throws Exception {
+    HelpRequest earlier = HelpRequests.lenaAsksForASubstitute(HelpProviderType.COMMUNITY);
+    earlier.cancel(Optional.empty(), HelpRequests.MONDAY_18_00);
+    helpRequests.save(earlier);
+    helpRequests.save(lenaAsksAboutMushroomSauceNextWeek("creme fraiche"));
+
+    String body = read(MUSHROOM_SAUCE_REQUEST_ID.value().toString(), JONAS_READING, 200);
+
+    assertThat(new ObjectMapper().readTree(body).has("previousNotes"))
+        .as("previousNotes")
+        .isFalse();
+  }
+
+  @DisplayName(
+      "Lena cancelled an earlier ingredient request with a note -> previousNotes of her later request about that ingredient holds it -- B3-S03 US-CA-02 INV-16 S4 op getHelpRequestById")
+  @Test
+  void aCancellationNoteOfTheSameIngredientIsShown() throws Exception {
+    HelpRequest earlier = HelpRequests.lenaAsksForASubstitute(HelpProviderType.COMMUNITY);
+    earlier.cancel(Optional.of("sour cream curdled"), HelpRequests.MONDAY_18_00);
+    helpRequests.save(earlier);
+    helpRequests.save(lenaAsksAboutMushroomSauceNextWeek("creme fraiche"));
+
+    String body = read(MUSHROOM_SAUCE_REQUEST_ID.value().toString(), JONAS_READING, 200);
+
+    SpecSchemas.assertMatches(body, "HelpRequest");
+    JsonNode previous = new ObjectMapper().readTree(body).get("previousNotes");
+    assertThat(previous).as("previousNotes").isNotNull().hasSize(1);
+    assertThat(previous.get(0).get("kind").asText()).isEqualTo("CANCELLATION");
+    assertThat(previous.get(0).get("text").asText()).isEqualTo("sour cream curdled");
+  }
+
+  @DisplayName(
+      "an earlier note about another ingredient -> not in previousNotes -- B3-S05 US-CA-02 INV-15 op getHelpRequestById")
+  @Test
+  void previousNotesLeaveOutOtherIngredients() throws Exception {
+    HelpRequest earlier =
+        HelpRequest.requestHelpWithIngredient(
+            new HelpRequestId(UUID.fromString("01a1b1cd-8a80-7000-8000-000000000022")),
+            HelpRequests.LENA,
+            "Butter in Bearnaise",
+            "No butter left",
+            BEARNAISE,
+            new IngredientId(UUID.fromString("7f8091a2-b3c4-4d5e-8f6a-7b8c9d0e1f2a")),
+            "butter",
+            "200 g",
+            Set.of(HelpProviderType.COMMUNITY),
+            HelpRequests.FRIDAY_18_00);
+    earlier.cancel(Optional.of("ghee worked"), HelpRequests.FRIDAY_18_10);
+    helpRequests.save(earlier);
+    helpRequests.save(lenaAsksAboutMushroomSauceNextWeek("creme fraiche"));
+
+    String body = read(MUSHROOM_SAUCE_REQUEST_ID.value().toString(), JONAS_READING, 200);
+
+    assertThat(new ObjectMapper().readTree(body).has("previousNotes"))
+        .as("previousNotes")
+        .isFalse();
+  }
+
+  static final CookId TOM = new CookId(UUID.fromString("0e1d2c3b-4a59-4678-8a9b-0c1d2e3f4a5b"));
+
+  @DisplayName(
+      "Tom's earlier note about the same ingredient -> not in Lena's previousNotes -- B3-S05 US-CA-02 INV-15 op getHelpRequestById")
+  @Test
+  void previousNotesLeaveOutOtherCooks() throws Exception {
+    HelpRequest tomsEarlier =
+        HelpRequest.requestHelpWithIngredient(
+            new HelpRequestId(UUID.fromString("01a1b1cd-8a80-7000-8000-000000000023")),
+            TOM,
+            "Creme fraiche in tomato soup",
+            "The shop has none",
+            HelpRequests.TOMATO_SOUP,
+            HelpRequests.CREME_FRAICHE,
+            "creme fraiche",
+            "200 g",
+            Set.of(HelpProviderType.COMMUNITY),
+            HelpRequests.FRIDAY_18_00);
+    tomsEarlier.cancel(Optional.of("yogurt split"), HelpRequests.FRIDAY_18_10);
+    helpRequests.save(tomsEarlier);
+    helpRequests.save(lenaAsksAboutMushroomSauceNextWeek("creme fraiche"));
+
+    String body = read(MUSHROOM_SAUCE_REQUEST_ID.value().toString(), JONAS_READING, 200);
+
+    assertThat(new ObjectMapper().readTree(body).has("previousNotes"))
+        .as("previousNotes")
+        .isFalse();
+  }
+
+  @DisplayName(
+      "an earlier ingredient note -> not in the previousNotes of a preparation-step request -- B3-S01 US-CA-03 INV-07 (regression) op getHelpRequestById")
+  @Test
+  void aPreparationStepLeavesOutIngredientNotes() throws Exception {
+    HelpRequest earlier =
+        HelpRequest.requestHelpWithIngredient(
+            new HelpRequestId(UUID.fromString("01a1b1cd-8a80-7000-8000-000000000024")),
+            HelpRequests.LENA,
+            "Butter in Hollandaise",
+            "No butter left",
+            HelpRequests.HOLLANDAISE,
+            new IngredientId(UUID.fromString("8091a2b3-c4d5-4e6f-9a7b-8c9d0e1f2a3b")),
+            "butter",
+            "250 g",
+            Set.of(HelpProviderType.COMMUNITY),
+            HelpRequests.FRIDAY_18_00);
+    earlier.cancel(Optional.of("ghee worked"), HelpRequests.FRIDAY_18_10);
+    helpRequests.save(earlier);
+    helpRequests.save(lenaAsksAboutStep4AgainNextMonth());
+
+    String body = read(NEXT_MONTH_REQUEST_ID.value().toString(), JONAS_READING, 200);
+
+    assertThat(new ObjectMapper().readTree(body).has("previousNotes"))
+        .as("previousNotes")
+        .isFalse();
+  }
+
+  @DisplayName(
+      "Lena rejected mascarpone on an earlier request; on her later request Jonas proposes mascarpone -> 201, the note is only shown -- B2-S02 US-CA-02 INV-15 S4 op provideHelp")
+  @Test
+  void aLaterRequestDoesNotRefuseTheRejectedSubstitute() throws Exception {
+    HelpRequest earlier = HelpRequests.lenaAsksForASubstitute(HelpProviderType.GRANDMA_AVATAR);
+    HelpRequests.grandmaProposes(earlier, HelpRequests.gramsOf("mascarpone", "200"));
+    earlier.reject(
+        HelpRequests.HELP_ID,
+        "too heavy",
+        Clock.fixed(Instant.parse("2026-11-09T19:00:00Z"), ZoneOffset.UTC));
+    helpRequests.save(earlier);
+    helpRequests.save(lenaAsksAboutMushroomSauceNextWeek("creme fraiche"));
+
+    mvc.perform(
+            post("/help-requests/" + MUSHROOM_SAUCE_REQUEST_ID.value() + "/helps")
+                .header(
+                    AUTHORIZATION,
+                    TestTokens.forCook(HelpRequests.JONAS)
+                        .roles("cook", "community")
+                        .scope("help:write")
+                        .bearer())
+                .header("version", "1.0.3")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "answerTitle": "Mascarpone, thinned",
+                      "helpProviderType": "COMMUNITY",
+                      "answer": {
+                        "answerType": "INGREDIENT_SUBSTITUTE",
+                        "recipe": "%s",
+                        "substitute": [{"ingredient": "%s", "substituteIngredients": [
+                          {"name": "mascarpone", "value": 200, "unit": "GRAM"}]}]
+                      }
+                    }
+                    """
+                        .formatted(
+                            MUSHROOM_SAUCE.value(), CREME_FRAICHE_IN_MUSHROOM_SAUCE.value())))
+        .andExpect(status().isCreated());
+
+    assertThat(helpRequests.findById(MUSHROOM_SAUCE_REQUEST_ID).orElseThrow().helps()).hasSize(1);
+  }
+
+  @DisplayName(
+      "an earlier note on \" Creme Fraiche\" -> shown on a later request about \"creme fraiche\" -- B3-S05 US-CA-02 INV-15 S4 S3 op getHelpRequestById")
+  @Test
+  void previousNotesMatchNamesWithoutCaseOrOuterSpace() throws Exception {
+    HelpRequest earlier =
+        HelpRequest.requestHelpWithIngredient(
+            new HelpRequestId(UUID.fromString("01a1b1cd-8a80-7000-8000-000000000025")),
+            HelpRequests.LENA,
+            "Creme fraiche in tomato soup",
+            "The shop has none",
+            HelpRequests.TOMATO_SOUP,
+            HelpRequests.CREME_FRAICHE,
+            " Creme Fraiche",
+            "200 g",
+            Set.of(HelpProviderType.COMMUNITY),
+            HelpRequests.FRIDAY_18_00);
+    earlier.cancel(Optional.of("sour cream curdled"), HelpRequests.FRIDAY_18_10);
+    helpRequests.save(earlier);
+    helpRequests.save(lenaAsksAboutMushroomSauceNextWeek("creme fraiche"));
+
+    String body = read(MUSHROOM_SAUCE_REQUEST_ID.value().toString(), JONAS_READING, 200);
+
+    JsonNode previous = new ObjectMapper().readTree(body).get("previousNotes");
+    assertThat(previous).as("previousNotes").isNotNull().hasSize(1);
+    assertThat(previous.get(0).get("text").asText()).isEqualTo("sour cream curdled");
   }
 }

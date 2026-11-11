@@ -390,4 +390,29 @@ class HelpRequestIngredientRepositoryIT {
   private HelpRequest stored() {
     return repository.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
   }
+
+  @DisplayName(
+      "the V8 migration adds the nullable column ingredient_name (text) to help_request -- B2-S01 US-CA-02 INV-11 ADR0009")
+  @Test
+  void v8AddsTheIngredientName() {
+    List<String> columns =
+        jdbc.sql(
+                "select column_name || ' ' || data_type || ' ' || is_nullable"
+                    + " from information_schema.columns"
+                    + " where table_schema = 'cooking_assistance' and table_name = 'help_request'")
+            .query(String.class)
+            .list();
+
+    assertThat(columns).contains("ingredient_name text YES");
+  }
+
+  @DisplayName(
+      "an ingredient request is found again with its ingredient name \"creme fraiche\" -- B2-S01 US-CA-02 INV-11")
+  @Test
+  void theIngredientNameRoundTrips() {
+    repository.save(HelpRequests.lenaAsksForASubstitute(HelpProviderType.GRANDMA_AVATAR));
+
+    assertThat(repository.findById(HelpRequests.HELP_REQUEST_ID))
+        .hasValueSatisfying(found -> assertThat(found.ingredientName()).isEqualTo("creme fraiche"));
+  }
 }

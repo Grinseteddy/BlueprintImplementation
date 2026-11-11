@@ -60,6 +60,7 @@ class HelpRequestsControllerTest {
         "description": "The shop has none",
         "recipe": "%s",
         "ingredient": "%s",
+        "ingredientName": "creme fraiche",
         "substituteRequirements": "200 g, not available",
         "preferredProvider": ["COMMUNITY"]
       }
@@ -499,5 +500,67 @@ class HelpRequestsControllerTest {
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.code").value("NOT_AUTHORIZED"));
     assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID)).isEmpty();
+  }
+
+  @DisplayName(
+      "a valid ingredient request with ingredientName \"creme fraiche\" -> 201; the request is saved with the name \"creme fraiche\" -- B2-S01 US-CA-02 INV-11 op createHelpRequest")
+  @Test
+  void theIngredientNameReachesTheRequest() throws Exception {
+    mvc.perform(
+            post("/help-requests")
+                .header(AUTHORIZATION, LENA_AS_COOK)
+                .header("version", "1.0.2")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(LENAS_INGREDIENT_REQUEST))
+        .andExpect(status().isCreated());
+
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID))
+        .hasValueSatisfying(
+            stored -> assertThat(stored.ingredientName()).isEqualTo("creme fraiche"));
+  }
+
+  @DisplayName(
+      "INGREDIENT_SUBSTITUTE without ingredientName -> 400 VALIDATION_FAILED, nothing saved -- B2-S01 US-CA-02 INV-11 op createHelpRequest")
+  @Test
+  void ingredientRequestWithoutANameIsRejected() throws Exception {
+    expectValidationFailed(
+        LENAS_INGREDIENT_REQUEST.replace("\"ingredientName\": \"creme fraiche\",", ""));
+  }
+
+  @DisplayName(
+      "an empty ingredientName (minLength) -> 400 VALIDATION_FAILED, nothing saved -- B2-S01 US-CA-02 INV-11 op createHelpRequest")
+  @Test
+  void anEmptyIngredientNameIsRejected() throws Exception {
+    expectValidationFailed(
+        LENAS_INGREDIENT_REQUEST.replace(
+            "\"ingredientName\": \"creme fraiche\"", "\"ingredientName\": \"\""));
+  }
+
+  @DisplayName(
+      "an ingredientName of only spaces -> 422 MISSING_FIELD, rule INV-11, nothing saved -- B2-S01 US-CA-02 INV-11 op createHelpRequest")
+  @Test
+  void aBlankIngredientNameIsARuleViolation() throws Exception {
+    mvc.perform(
+            post("/help-requests")
+                .header(AUTHORIZATION, LENA_AS_COOK)
+                .header("version", "1.0.2")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    LENAS_INGREDIENT_REQUEST.replace(
+                        "\"ingredientName\": \"creme fraiche\"", "\"ingredientName\": \"   \"")))
+        .andExpect(status().is(422))
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.code").value("MISSING_FIELD"))
+        .andExpect(jsonPath("$.rule").value("INV-11"));
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID)).isEmpty();
+  }
+
+  @DisplayName(
+      "PREPARATION_STEP_EXPLANATION with ingredientName -> 400 VALIDATION_FAILED, nothing saved -- B3-S01 US-CA-03 INV-02 op createHelpRequest")
+  @Test
+  void aPreparationStepWithAnIngredientNameIsRejected() throws Exception {
+    expectValidationFailed(
+        LENAS_REQUEST.replace(
+            "\"preferredProvider\"", "\"ingredientName\": \"egg yolk\", \"preferredProvider\""));
   }
 }

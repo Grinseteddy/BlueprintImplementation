@@ -55,6 +55,7 @@ final class HelpRequestMapper {
         body.getDescription(),
         new RecipeId(body.getRecipe()),
         new IngredientId(body.getIngredient()),
+        body.getIngredientName(),
         body.getSubstituteRequirements(),
         preferredProviders(body));
   }
@@ -116,7 +117,10 @@ final class HelpRequestMapper {
                 asked,
                 HelpRequestStatus.fromValue(view.status().name()))
             .recipe(view.recipe().value())
-            .howToStep(view.howToStep().value())
+            .howToStep(view.howToStep() == null ? null : view.howToStep().value())
+            .ingredient(view.ingredient() == null ? null : view.ingredient().value())
+            .ingredientName(view.ingredientName())
+            .substituteRequirements(view.substituteRequirements())
             .helpsLink(
                 Links.absolute(
                     publicBaseUrl, "/help-requests/{helpRequestId}/helps", view.id().value()));
