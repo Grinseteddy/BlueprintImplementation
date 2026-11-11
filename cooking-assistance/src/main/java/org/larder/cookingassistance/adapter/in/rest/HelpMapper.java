@@ -18,11 +18,17 @@ import org.larder.cookingassistance.application.Page;
 import org.larder.cookingassistance.application.ProvideHelp;
 import org.larder.cookingassistance.application.RejectHelp;
 import org.larder.cookingassistance.domain.helprequest.CookId;
+import org.larder.cookingassistance.domain.helprequest.HelpAnswer;
 import org.larder.cookingassistance.domain.helprequest.HelpId;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HowToStepId;
+import org.larder.cookingassistance.domain.helprequest.IngredientId;
 import org.larder.cookingassistance.domain.helprequest.PreparationStepExplanation;
 import org.larder.cookingassistance.domain.helprequest.RecipeId;
+import org.larder.cookingassistance.domain.helprequest.Substitute;
+import org.larder.cookingassistance.domain.helprequest.SubstituteIngredient;
+import org.larder.cookingassistance.domain.helprequest.Substitutes;
+import org.larder.cookingassistance.domain.helprequest.Unit;
 import org.springframework.lang.Nullable;
 
 /** Maps the Helps DTOs of the OpenAPI contract to commands and results to responses. */
@@ -39,8 +45,8 @@ final class HelpMapper {
         toAnswer(body.getAnswer()));
   }
 
-  /** Only Preparation Step Explanations are built yet; the other answer kinds come later. */
-  private static PreparationStepExplanation toAnswer(Answer answer) {
+  /** Preparation Step Explanations and Substitutes are built; the other kinds come later. */
+  private static HelpAnswer toAnswer(Answer answer) {
     return switch (answer) {
       case org.larder.cookingassistance.adapter.in.rest.generated.model.PreparationStepExplanation
               explanation ->
@@ -50,8 +56,28 @@ final class HelpMapper {
               explanation.getDescription(),
               // images are optional in the spec: no images, no pictures
               Objects.requireNonNullElse(explanation.getImages(), List.of()));
+      case org.larder.cookingassistance.adapter.in.rest.generated.model.Substitutes substitutes ->
+          new Substitutes(
+              new RecipeId(substitutes.getRecipe()),
+              substitutes.getSubstitute().stream().map(HelpMapper::toSubstitute).toList());
       default -> throw new NotImplemented("provideHelp with " + answer.getClass().getSimpleName());
     };
+  }
+
+  private static Substitute toSubstitute(
+      org.larder.cookingassistance.adapter.in.rest.generated.model.Substitute substitute) {
+    return new Substitute(
+        new IngredientId(substitute.getIngredient()),
+        substitute.getSubstituteIngredients().stream()
+            .map(HelpMapper::toSubstituteIngredient)
+            .toList());
+  }
+
+  private static SubstituteIngredient toSubstituteIngredient(
+      org.larder.cookingassistance.adapter.in.rest.generated.model.SubstituteIngredient
+          ingredient) {
+    return new SubstituteIngredient(
+        ingredient.getName(), ingredient.getValue(), Unit.valueOf(ingredient.getUnit().name()));
   }
 
   static AcceptHelp.Command toAcceptance(Actor actor, HelpRequestId helpRequestId, HelpId helpId) {
@@ -97,13 +123,20 @@ final class HelpMapper {
             view.helpRequester().value(),
             view.answerTitle(),
             HelpVocabulary.toContract(view.provider().type()),
-            toResponse(view.answer()),
+            toContractAnswer(view.answer()),
             view.accepted())
         .helpProvider(view.provider().person().map(CookId::value).orElse(null))
         .rejectionNote(view.rejectionNote().orElse(null));
   }
 
-  private static Answer toResponse(PreparationStepExplanation answer) {
+  private static Answer toContractAnswer(HelpAnswer answer) {
+    return switch (answer) {
+      case PreparationStepExplanation explanation -> toContractExplanation(explanation);
+      case Substitutes substitutes -> toContractSubstitutes(substitutes);
+    };
+  }
+
+  private static Answer toContractExplanation(PreparationStepExplanation answer) {
     return new org.larder.cookingassistance.adapter.in.rest.generated.model
             .PreparationStepExplanation(
             org.larder.cookingassistance.adapter.in.rest.generated.model.PreparationStepExplanation
@@ -112,5 +145,31 @@ final class HelpMapper {
             answer.howToStep().value(),
             answer.description())
         .images(OptionalArrays.absentWhenEmpty(answer.images()));
+  }
+
+  private static Answer toContractSubstitutes(Substitutes answer) {
+    return new org.larder.cookingassistance.adapter.in.rest.generated.model.Substitutes(
+        org.larder.cookingassistance.adapter.in.rest.generated.model.Substitutes.AnswerTypeEnum
+            .INGREDIENT_SUBSTITUTE,
+        answer.recipe().value(),
+        answer.substitute().stream().map(HelpMapper::toContractSubstitute).toList());
+  }
+
+  private static org.larder.cookingassistance.adapter.in.rest.generated.model.Substitute
+      toContractSubstitute(Substitute substitute) {
+    return new org.larder.cookingassistance.adapter.in.rest.generated.model.Substitute(
+        substitute.ingredient().value(),
+        substitute.substituteIngredients().stream()
+            .map(HelpMapper::toContractSubstituteIngredient)
+            .toList());
+  }
+
+  private static org.larder.cookingassistance.adapter.in.rest.generated.model.SubstituteIngredient
+      toContractSubstituteIngredient(SubstituteIngredient ingredient) {
+    return new org.larder.cookingassistance.adapter.in.rest.generated.model.SubstituteIngredient(
+        ingredient.name(),
+        ingredient.value(),
+        org.larder.cookingassistance.adapter.in.rest.generated.model.Unit.valueOf(
+            ingredient.unit().name()));
   }
 }

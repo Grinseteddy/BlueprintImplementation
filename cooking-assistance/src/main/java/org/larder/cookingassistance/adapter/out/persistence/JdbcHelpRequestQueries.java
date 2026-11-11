@@ -23,6 +23,7 @@ import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestStatus;
 import org.larder.cookingassistance.domain.helprequest.HelpType;
 import org.larder.cookingassistance.domain.helprequest.HowToStepId;
+import org.larder.cookingassistance.domain.helprequest.IngredientId;
 import org.larder.cookingassistance.domain.helprequest.Note;
 import org.larder.cookingassistance.domain.helprequest.RecipeId;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -48,19 +49,33 @@ class JdbcHelpRequestQueries implements HelpRequestQueries {
           + " from help h join help_request r on r.id = h.help_request_id"
           + " left join help_request_note n on n.help_id = h.id and n.kind = 'REJECTION'";
 
+  /** INV-07: the earlier request is about the same step of the same recipe as the request read. */
+  private static final String ABOUT_THE_SAME_STEP_OF_THE_SAME_RECIPE =
+      "earlier.recipe = read.recipe and earlier.how_to_step = read.how_to_step";
+
   /**
-   * INV-07: the notes of the requester's earlier requests (UUIDv7: a smaller id was created
-   * earlier) on the same step of the same recipe as the request read.
+   * INV-15 (R5.E3): the earlier request is about an ingredient of the same name, in any recipe, as
+   * the request read; S3: a name matches without case or outer spaces.
    */
-  private static final String NOTES_OF_EARLIER_REQUESTS_ON_THE_STEP =
+  private static final String ABOUT_AN_INGREDIENT_OF_THE_SAME_NAME =
+      "lower(trim(earlier.ingredient_name)) = lower(trim(read.ingredient_name))";
+
+  /**
+   * The notes of the requester's earlier requests (UUIDv7: a smaller id was created earlier) about
+   * the same step or an ingredient of the same name as the request read.
+   */
+  private static final String NOTES_OF_EARLIER_REQUESTS_ABOUT_THE_SAME_STEP_OR_INGREDIENT =
       "select n.help_request_id, n.position, n.kind, n.text, n.written_at, n.help_id"
           + " from help_request_note n"
           + " join help_request earlier on earlier.id = n.help_request_id"
           + " join help_request read on read.id = :id"
           + " where earlier.id < read.id"
           + " and earlier.requester = read.requester"
-          + " and earlier.recipe = read.recipe"
-          + " and earlier.how_to_step = read.how_to_step";
+          + " and (("
+          + ABOUT_THE_SAME_STEP_OF_THE_SAME_RECIPE
+          + ") or "
+          + ABOUT_AN_INGREDIENT_OF_THE_SAME_NAME
+          + ")";
 
   private final JdbcClient jdbc;
   private final TransactionTemplate snapshot;
@@ -213,7 +228,8 @@ class JdbcHelpRequestQueries implements HelpRequestQueries {
     List<PreviousNote> previousNotes = previousNotes(id);
     Optional<HelpId> acceptedHelp = acceptedHelp(id);
     return jdbc.sql(
-            "select requester, title, type, description, recipe, how_to_step, status"
+            "select requester, title, type, description, recipe, how_to_step, ingredient,"
+                + " ingredient_name, substitute_requirements, status"
                 + " from help_request where id = :id")
         .param("id", id.value())
         .query(
@@ -225,7 +241,15 @@ class JdbcHelpRequestQueries implements HelpRequestQueries {
                     HelpType.valueOf(rs.getString("type")),
                     rs.getString("description"),
                     new RecipeId(rs.getObject("recipe", UUID.class)),
-                    new HowToStepId(rs.getObject("how_to_step", UUID.class)),
+                    // a request about an ingredient has no step and one about a step no ingredient
+                    Optional.ofNullable(rs.getObject("how_to_step", UUID.class))
+                        .map(HowToStepId::new)
+                        .orElse(null),
+                    Optional.ofNullable(rs.getObject("ingredient", UUID.class))
+                        .map(IngredientId::new)
+                        .orElse(null),
+                    rs.getString("ingredient_name"),
+                    rs.getString("substitute_requirements"),
                     asked,
                     HelpRequestStatus.valueOf(rs.getString("status")),
                     notes,
@@ -269,7 +293,7 @@ class JdbcHelpRequestQueries implements HelpRequestQueries {
   private List<PreviousNote> previousNotes(HelpRequestId id) {
     return jdbc.sql(
             "select * from ("
-                + NOTES_OF_EARLIER_REQUESTS_ON_THE_STEP
+                + NOTES_OF_EARLIER_REQUESTS_ABOUT_THE_SAME_STEP_OR_INGREDIENT
                 + " order by n.help_request_id desc, n.position desc"
                 + " limit :shown"
                 + ") recent order by help_request_id, position")

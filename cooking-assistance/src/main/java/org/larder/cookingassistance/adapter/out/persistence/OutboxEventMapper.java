@@ -1,7 +1,6 @@
 package org.larder.cookingassistance.adapter.out.persistence;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import java.net.URI;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -21,8 +20,6 @@ import org.larder.cookingassistance.adapter.messaging.generated.HelpRequestCreat
 import org.larder.cookingassistance.adapter.messaging.generated.HelpRequestTimedOutPayload;
 import org.larder.cookingassistance.adapter.messaging.generated.HelpRequestTimedOutStatus;
 import org.larder.cookingassistance.adapter.messaging.generated.HelpType;
-import org.larder.cookingassistance.adapter.messaging.generated.PreparationStepExplanation;
-import org.larder.cookingassistance.adapter.messaging.generated.PreparationStepExplanationAnswerType;
 import org.larder.cookingassistance.domain.helprequest.CookId;
 import org.larder.cookingassistance.domain.helprequest.HelpAccepted;
 import org.larder.cookingassistance.domain.helprequest.HelpProvided;
@@ -63,9 +60,10 @@ final class OutboxEventMapper {
                 HelpType.fromValue(event.type().name()),
                 event.description(),
                 event.recipe().value(),
-                event.howToStep().value(),
-                null,
-                null,
+                event.howToStep() == null ? null : event.howToStep().value(),
+                event.ingredient() == null ? null : event.ingredient().value(),
+                event.ingredientName(),
+                event.substituteRequirements(),
                 null,
                 null,
                 null,
@@ -90,13 +88,7 @@ final class OutboxEventMapper {
                 event.answerTitle(),
                 providerType(event.helpProviderType()),
                 event.helpProvider().map(CookId::value).orElse(null),
-                new PreparationStepExplanation(
-                    PreparationStepExplanationAnswerType.PREPARATION_STEP_EXPLANATION,
-                    event.answer().recipe().value(),
-                    event.answer().howToStep().value(),
-                    event.answer().description(),
-                    event.answer().images().stream().map(URI::toString).toList(),
-                    null),
+                AnswerMessageMapper.toMessage(event.answer()),
                 HelpProvidedStatus.fromValue(event.helpRequestStatus().name()),
                 utc(event.occurredAt()),
                 null)),

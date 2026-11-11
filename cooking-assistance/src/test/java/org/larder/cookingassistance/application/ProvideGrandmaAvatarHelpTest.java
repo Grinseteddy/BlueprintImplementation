@@ -3,6 +3,8 @@ package org.larder.cookingassistance.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.larder.cookingassistance.application.fakes.InMemoryHelpRequestRepository;
 import org.larder.cookingassistance.application.fakes.InMemoryProcessedMessages;
 import org.larder.cookingassistance.application.fakes.RecordingUnitOfWork;
+import org.larder.cookingassistance.domain.helprequest.Help;
 import org.larder.cookingassistance.domain.helprequest.HelpProvided;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequest;
@@ -22,6 +25,9 @@ import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestRepository;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestStatus;
 import org.larder.cookingassistance.domain.helprequest.InvalidHelpRequestState;
+import org.larder.cookingassistance.domain.helprequest.Substitute;
+import org.larder.cookingassistance.domain.helprequest.SubstituteRejectedBefore;
+import org.larder.cookingassistance.domain.helprequest.Substitutes;
 import org.larder.cookingassistance.fixtures.HelpRequests;
 
 /**
@@ -42,6 +48,17 @@ class ProvideGrandmaAvatarHelpTest {
           unitOfWork,
           () -> HelpRequests.HELP_ID.value(),
           HelpRequests.FRIDAY_18_10);
+
+  /** One hour after Lena asked about the creme fraiche. */
+  static final Clock MONDAY_19_00 = Clock.offset(HelpRequests.MONDAY_18_00, Duration.ofHours(1));
+
+  final ProvideGrandmaAvatarHelp ingredientHandler =
+      new ProvideGrandmaAvatarHelp(
+          helpRequests,
+          processedMessages,
+          unitOfWork,
+          () -> HelpRequests.OTHER_HELP_ID.value(),
+          MONDAY_19_00);
 
   @BeforeEach
   void lenasRequestToGrandmaIsStored() {
@@ -212,5 +229,52 @@ class ProvideGrandmaAvatarHelpTest {
 
     assertThatThrownBy(() -> cancelledHandler.handle(grandmasAnswer(M1)))
         .isInstanceOf(InvalidHelpRequestState.class);
+  }
+
+  @DisplayName(
+      "Grandma's substitutes (message id m1) -> her Help with the Substitutes is added to Lena's ingredient request and saved with HelpProvided -- B2-S02 US-CA-02 cmd Provide Help (GrandmaHelpProvided)")
+  @Test
+  void grandmasSubstitutesAreAddedAsHelp() {
+    helpRequests.clear();
+    helpRequests.save(HelpRequests.lenaAsksForASubstitute(HelpProviderType.GRANDMA_AVATAR));
+    Substitutes yogurt =
+        new Substitutes(HelpRequests.TOMATO_SOUP, List.of(HelpRequests.gramsOf("yogurt", "200")));
+
+    ingredientHandler.handle(grandmaProposes(M1, yogurt));
+
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID))
+        .hasValueSatisfying(
+            saved ->
+                assertThat(saved.helps())
+                    .singleElement()
+                    .extracting(Help::answer)
+                    .isEqualTo(yogurt));
+    assertThat(helpRequests.recordedEvents()).last().isInstanceOf(HelpProvided.class);
+  }
+
+  @DisplayName(
+      "Lena rejected yogurt; Grandma proposes yogurt -> SubstituteRejectedBefore propagates unchanged, no further Help saved -- B3-S05 US-CA-02 INV-15")
+  @Test
+  void rejectedSubstituteFromGrandmaPropagatesUnchanged() {
+    helpRequests.clear();
+    HelpRequest request = HelpRequests.lenaAsksForASubstitute(HelpProviderType.GRANDMA_AVATAR);
+    Substitute yogurt = HelpRequests.gramsOf("yogurt", "200");
+    HelpRequests.grandmaProposes(request, yogurt);
+    request.reject(HelpRequests.HELP_ID, "too sour", MONDAY_19_00);
+    helpRequests.save(request);
+    Substitutes yogurtAgain = new Substitutes(HelpRequests.TOMATO_SOUP, List.of(yogurt));
+
+    assertThatThrownBy(() -> ingredientHandler.handle(grandmaProposes(M1, yogurtAgain)))
+        .isInstanceOfSatisfying(
+            SubstituteRejectedBefore.class,
+            rejection -> assertThat(rejection.rule()).isEqualTo("INV-15"));
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().helps())
+        .hasSize(1);
+  }
+
+  private static ProvideGrandmaAvatarHelp.GrandmaAnswer grandmaProposes(
+      UUID messageId, Substitutes answer) {
+    return new ProvideGrandmaAvatarHelp.GrandmaAnswer(
+        messageId, HelpRequests.HELP_REQUEST_ID, "Grandma's ideas", answer);
   }
 }

@@ -420,7 +420,10 @@ class HelpRequestTest {
 
       assertThat(request.helps())
           .singleElement()
-          .satisfies(help -> assertThat(help.answer().images()).isEqualTo(threePhotos));
+          .satisfies(
+              help ->
+                  assertThat(((PreparationStepExplanation) help.answer()).images())
+                      .isEqualTo(threePhotos));
     }
 
     @DisplayName(
@@ -462,7 +465,9 @@ class HelpRequestTest {
 
       assertThat(request.helps())
           .singleElement()
-          .satisfies(help -> assertThat(help.answer().images()).hasSize(10));
+          .satisfies(
+              help ->
+                  assertThat(((PreparationStepExplanation) help.answer()).images()).hasSize(10));
     }
 
     @DisplayName(

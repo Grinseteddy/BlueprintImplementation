@@ -1,7 +1,7 @@
 asyncapi: 3.0.0
 info:
   title: Cooking Assistance
-  version: 1.0.7
+  version: 1.0.10
   description: |
     Event-driven API of the Cooking Assistance bounded context. It provides help
     for cooks in planning and preparation of meals and dinners: cooks create help
@@ -203,7 +203,8 @@ operations:
       acknowledged manually after the help request has been stored; a redelivered message
       (same messageId) is acknowledged without effect. An answer that comes too late (after a
       cancel, an acceptance, a time-out or its deadline) is acknowledged and ignored, never
-      dead-lettered; REST callers get the refusal instead.
+      dead-lettered; so is a substitute the cook rejected earlier on this request. REST callers
+      get the refusal instead.
     channel:
       $ref: '#/channels/grandmaHelpProvidedQueue'
     messages:
@@ -610,6 +611,11 @@ components:
           type: string
           format: uuid
           description: The one referenced ingredient to be substituted — only for INGREDIENT_SUBSTITUTE
+        ingredientName:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Name of the ingredient to be substituted — only for INGREDIENT_SUBSTITUTE
         substituteRequirements:
           type: string
           maxLength: 2000
@@ -875,7 +881,7 @@ components:
         occurredAt:
           type: string
           format: date-time
-          description: When the last deadline passed
+          description: When the time-out was detected, shortly after the last deadline passed
 
     GrandmaHelpProvidedPayload:
       type: object

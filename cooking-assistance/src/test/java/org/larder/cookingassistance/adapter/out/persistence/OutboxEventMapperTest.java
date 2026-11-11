@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -12,9 +13,14 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequest;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestEvent;
+import org.larder.cookingassistance.domain.helprequest.Substitute;
+import org.larder.cookingassistance.domain.helprequest.SubstituteIngredient;
+import org.larder.cookingassistance.domain.helprequest.Unit;
 import org.larder.cookingassistance.fixtures.HelpRequests;
 
 /** The wire format of the outbox payloads: exactly the AsyncAPI fields, no nulls (step 7 r2). */
@@ -254,5 +260,92 @@ class OutboxEventMapperTest {
 
     assertThat(payload.has("suggestedProviders")).isTrue();
     assertThat(payload.get("suggestedProviders").toString()).isEqualTo("[]");
+  }
+
+  @DisplayName(
+      "HelpRequested for an ingredient -> payload with exactly helpRequestId, requester, title, type, description, recipe, ingredient, ingredientName \"creme fraiche\", substituteRequirements, askedProviders, status, occurredAt, no howToStep and no null field -- B2-S01 US-CA-02 AsyncAPI HelpRequestCreated")
+  @Test
+  void helpRequestCreatedForAnIngredientCarriesExactlyTheSpecFields() throws Exception {
+    HelpRequest request = HelpRequests.lenaAsksForASubstitute(HelpProviderType.GRANDMA_AVATAR);
+
+    JsonNode payload = payloadOf(request.pullEvents().getFirst());
+
+    assertThat(fieldNames(payload))
+        .containsExactlyInAnyOrder(
+            "helpRequestId",
+            "requester",
+            "title",
+            "type",
+            "description",
+            "recipe",
+            "ingredient",
+            "ingredientName",
+            "substituteRequirements",
+            "askedProviders",
+            "status",
+            "occurredAt");
+    assertThat(payload.get("ingredient").asText())
+        .isEqualTo(HelpRequests.CREME_FRAICHE.value().toString());
+    assertThat(payload.get("ingredientName").asText()).isEqualTo("creme fraiche");
+    assertThat(payload.get("substituteRequirements").asText()).isEqualTo("200 g, not available");
+    assertNoNulls(payload);
+  }
+
+  @DisplayName(
+      "HelpProvided with substitutes -> answer with exactly answerType, recipe, substitute; each substitute with ingredient, substituteIngredients; each of those with name, value, unit; no null field -- B2-S02 US-CA-02 AsyncAPI HelpProvided")
+  @Test
+  void helpProvidedWithSubstitutesCarriesExactlyTheSpecFields() throws Exception {
+    HelpRequest request = HelpRequests.lenaAsksForASubstitute(HelpProviderType.GRANDMA_AVATAR);
+    request.pullEvents();
+    HelpRequests.grandmaProposes(request, HelpRequests.gramsOf("yogurt", "200"));
+
+    JsonNode payload = payloadOf(request.pullEvents().getFirst());
+
+    JsonNode answer = payload.get("answer");
+    assertThat(fieldNames(answer)).containsExactlyInAnyOrder("answerType", "recipe", "substitute");
+    assertThat(answer.get("answerType").asText()).isEqualTo("INGREDIENT_SUBSTITUTE");
+    assertThat(answer.get("recipe").asText())
+        .isEqualTo(HelpRequests.TOMATO_SOUP.value().toString());
+    JsonNode substitute = answer.get("substitute").get(0);
+    assertThat(fieldNames(substitute))
+        .containsExactlyInAnyOrder("ingredient", "substituteIngredients");
+    assertThat(substitute.get("ingredient").asText())
+        .isEqualTo(HelpRequests.CREME_FRAICHE.value().toString());
+    JsonNode ingredient = substitute.get("substituteIngredients").get(0);
+    assertThat(fieldNames(ingredient)).containsExactlyInAnyOrder("name", "value", "unit");
+    assertThat(ingredient.get("name").asText()).isEqualTo("yogurt");
+    assertThat(ingredient.get("value").decimalValue()).isEqualByComparingTo("200");
+    assertThat(ingredient.get("unit").asText()).isEqualTo("GRAM");
+    assertNoNulls(payload);
+  }
+
+  @DisplayName(
+      "a substitute ingredient in each of the 13 units is written with the AsyncAPI unit of the same name -- B2-S02 US-CA-02 AsyncAPI Unit")
+  @ParameterizedTest
+  @EnumSource(Unit.class)
+  void everyUnitIsAnAsyncApiUnit(Unit unit) throws Exception {
+    JsonNode ingredient = publishedIngredientOf(new BigDecimal("2"), unit);
+
+    assertThat(ingredient.get("unit").asText()).isEqualTo(unit.name());
+  }
+
+  @DisplayName(
+      "an amount of 0.125 is written as the JSON number 0.125 -- B2-S02 US-CA-02 AsyncAPI SubstituteIngredient.value")
+  @Test
+  void anAmountIsWrittenAsTheSameNumber() throws Exception {
+    JsonNode ingredient = publishedIngredientOf(new BigDecimal("0.125"), Unit.KILOGRAM);
+
+    assertThat(ingredient.get("value").decimalValue()).isEqualByComparingTo("0.125");
+  }
+
+  private static JsonNode publishedIngredientOf(BigDecimal amount, Unit unit) throws Exception {
+    HelpRequest request = HelpRequests.lenaAsksForASubstitute(HelpProviderType.GRANDMA_AVATAR);
+    request.pullEvents();
+    HelpRequests.grandmaProposes(
+        request,
+        new Substitute(
+            HelpRequests.CREME_FRAICHE, List.of(new SubstituteIngredient("quark", amount, unit))));
+    JsonNode payload = payloadOf(request.pullEvents().getFirst());
+    return payload.get("answer").get("substitute").get(0).get("substituteIngredients").get(0);
   }
 }

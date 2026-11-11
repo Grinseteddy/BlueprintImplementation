@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -27,6 +28,9 @@ import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequest;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestRepository;
+import org.larder.cookingassistance.domain.helprequest.Substitute;
+import org.larder.cookingassistance.domain.helprequest.SubstituteIngredient;
+import org.larder.cookingassistance.domain.helprequest.Unit;
 import org.larder.cookingassistance.fixtures.HelpRequests;
 import org.larder.cookingassistance.fixtures.TestSigningKeys;
 import org.larder.cookingassistance.fixtures.TestTokens;
@@ -393,5 +397,146 @@ class HelpQueryIT {
 
     SpecSchemas.assertMatches(body, "HelpPage");
     assertThat(new ObjectMapper().readTree(body).get("items")).isEmpty();
+  }
+
+  @DisplayName(
+      "the Helps of an ingredient request -> 200 with answerType INGREDIENT_SUBSTITUTE, recipe and substitute, valid against the Help schema -- B2-S02 US-CA-02 INV-12 op listHelpsOfHelpRequest")
+  @Test
+  void helpsOfAnIngredientRequestShowTheSubstitutes() throws Exception {
+    HelpRequest lenas = HelpRequests.lenaAsksForASubstitute(HelpProviderType.GRANDMA_AVATAR);
+    HelpRequests.grandmaProposes(lenas, HelpRequests.gramsOf("yogurt", "200"));
+    helpRequests.save(lenas);
+
+    String body = helpsOf(HelpRequests.HELP_REQUEST_ID.value().toString(), "", 200);
+
+    SpecSchemas.assertMatches(body, "HelpPage");
+    JsonNode help = new ObjectMapper().readTree(body).get("items").get(0);
+    SpecSchemas.assertMatches(help.toString(), "Help");
+    JsonNode answer = help.path("answer");
+    assertThat(answer.path("answerType").asText()).isEqualTo("INGREDIENT_SUBSTITUTE");
+    assertThat(answer.path("recipe").asText())
+        .isEqualTo(HelpRequests.TOMATO_SOUP.value().toString());
+    JsonNode substitute = answer.path("substitute").get(0);
+    assertThat(substitute.path("ingredient").asText())
+        .isEqualTo(HelpRequests.CREME_FRAICHE.value().toString());
+    assertThat(substitute.path("substituteIngredients").get(0).path("name").asText())
+        .isEqualTo("yogurt");
+  }
+
+  @DisplayName(
+      "one Help with substitutes -> 200 with the same answer -- B2-S02 US-CA-02 INV-12 op getHelpOfHelpRequest")
+  @Test
+  void oneHelpWithSubstitutesIsReadBack() throws Exception {
+    HelpRequest lenas = HelpRequests.lenaAsksForASubstitute(HelpProviderType.GRANDMA_AVATAR);
+    HelpRequests.grandmaProposes(lenas, HelpRequests.gramsOf("yogurt", "200"));
+    helpRequests.save(lenas);
+
+    String body =
+        help(
+            HelpRequests.HELP_REQUEST_ID.value().toString(),
+            HelpRequests.HELP_ID.value().toString(),
+            200);
+
+    SpecSchemas.assertMatches(body, "Help");
+    JsonNode answer = new ObjectMapper().readTree(body).path("answer");
+    assertThat(answer.path("answerType").asText()).isEqualTo("INGREDIENT_SUBSTITUTE");
+    assertThat(answer.path("recipe").asText())
+        .isEqualTo(HelpRequests.TOMATO_SOUP.value().toString());
+    JsonNode substitute = answer.path("substitute").get(0);
+    assertThat(substitute.path("ingredient").asText())
+        .isEqualTo(HelpRequests.CREME_FRAICHE.value().toString());
+    JsonNode yogurt = substitute.path("substituteIngredients").get(0);
+    assertThat(yogurt.path("name").asText()).isEqualTo("yogurt");
+    assertThat(yogurt.path("value").decimalValue()).isEqualByComparingTo("200");
+    assertThat(yogurt.path("unit").asText()).isEqualTo("GRAM");
+  }
+
+  @DisplayName(
+      "a Help with a mix -> both ingredients in order, with their amounts -- B2-S02 US-CA-02 INV-12 R3.E3 op getHelpOfHelpRequest")
+  @Test
+  void aMixIsReadBackInOrder() throws Exception {
+    HelpRequest lenas = HelpRequests.lenaAsksForASubstitute(HelpProviderType.GRANDMA_AVATAR);
+    HelpRequests.grandmaProposes(
+        lenas,
+        new Substitute(
+            HelpRequests.CREME_FRAICHE,
+            List.of(
+                new SubstituteIngredient("yogurt", new BigDecimal("150"), Unit.GRAM),
+                new SubstituteIngredient("butter", new BigDecimal("50"), Unit.GRAM))));
+    helpRequests.save(lenas);
+
+    String body =
+        help(
+            HelpRequests.HELP_REQUEST_ID.value().toString(),
+            HelpRequests.HELP_ID.value().toString(),
+            200);
+
+    JsonNode mix =
+        new ObjectMapper()
+            .readTree(body)
+            .path("answer")
+            .path("substitute")
+            .get(0)
+            .path("substituteIngredients");
+    assertThat(mix.findValuesAsText("name")).containsExactly("yogurt", "butter");
+    assertThat(mix.get(0).path("value").decimalValue()).isEqualByComparingTo("150");
+    assertThat(mix.get(1).path("value").decimalValue()).isEqualByComparingTo("50");
+  }
+
+  @DisplayName(
+      "an amount of 0.125 kg -> 0.125 and KILOGRAM in the response -- B2-S02 US-CA-02 INV-12 op getHelpOfHelpRequest")
+  @Test
+  void anAmountIsReadBackExactly() throws Exception {
+    HelpRequest lenas = HelpRequests.lenaAsksForASubstitute(HelpProviderType.GRANDMA_AVATAR);
+    HelpRequests.grandmaProposes(
+        lenas,
+        new Substitute(
+            HelpRequests.CREME_FRAICHE,
+            List.of(new SubstituteIngredient("quark", new BigDecimal("0.125"), Unit.KILOGRAM))));
+    helpRequests.save(lenas);
+
+    String body =
+        help(
+            HelpRequests.HELP_REQUEST_ID.value().toString(),
+            HelpRequests.HELP_ID.value().toString(),
+            200);
+
+    JsonNode quark =
+        new ObjectMapper()
+            .readTree(body)
+            .path("answer")
+            .path("substitute")
+            .get(0)
+            .path("substituteIngredients")
+            .get(0);
+    assertThat(quark.path("value").decimalValue()).isEqualByComparingTo("0.125");
+    assertThat(quark.path("unit").asText()).isEqualTo("KILOGRAM");
+  }
+
+  @DisplayName(
+      "listHelps with type INGREDIENT_SUBSTITUTE -> only the Helps of ingredient requests -- B2-S02 US-CA-02 op listHelps")
+  @Test
+  void listHelpsFiltersIngredientSubstitutes() throws Exception {
+    HelpRequest mias =
+        HelpRequest.requestHelpWithPreparationStep(
+            MIAS_REQUEST,
+            HelpRequests.MIA,
+            "Splitting sauce",
+            "It splits",
+            HelpRequests.HOLLANDAISE,
+            HelpRequests.STEP_4,
+            Set.of(HelpProviderType.COMMUNITY),
+            HelpRequests.FRIDAY_18_00);
+    HelpRequests.communityMemberExplainsStep4(mias, JONAS_HELP_FOR_MIA, HelpRequests.JONAS);
+    helpRequests.save(mias);
+    HelpRequest lenas = HelpRequests.lenaAsksForASubstitute(HelpProviderType.GRANDMA_AVATAR);
+    HelpRequests.grandmaProposes(lenas, HelpRequests.gramsOf("yogurt", "200"));
+    helpRequests.save(lenas);
+
+    String body = helps("?type=INGREDIENT_SUBSTITUTE", 200);
+
+    SpecSchemas.assertMatches(body, "HelpPage");
+    assertThat(new ObjectMapper().readTree(body).get("items").findValuesAsText("helpId"))
+        .containsExactly(HelpRequests.HELP_ID.value().toString());
   }
 }

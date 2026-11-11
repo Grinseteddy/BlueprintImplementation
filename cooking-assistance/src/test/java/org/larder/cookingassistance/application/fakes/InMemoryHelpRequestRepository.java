@@ -17,6 +17,7 @@ import org.larder.cookingassistance.domain.helprequest.HelpRequestRepository;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestStatus;
 import org.larder.cookingassistance.domain.helprequest.HelpType;
 import org.larder.cookingassistance.domain.helprequest.HowToStepId;
+import org.larder.cookingassistance.domain.helprequest.IngredientId;
 import org.larder.cookingassistance.domain.helprequest.Note;
 import org.larder.cookingassistance.domain.helprequest.RecipeId;
 
@@ -94,6 +95,9 @@ public class InMemoryHelpRequestRepository implements HelpRequestRepository {
       HelpType type,
       RecipeId recipe,
       HowToStepId howToStep,
+      IngredientId ingredient,
+      String ingredientName,
+      String substituteRequirements,
       List<AskedProvider> askedProviders,
       HelpRequestStatus status,
       List<Help> helps,
@@ -109,6 +113,9 @@ public class InMemoryHelpRequestRepository implements HelpRequestRepository {
           request.type(),
           request.recipe(),
           request.howToStep(),
+          request.ingredient(),
+          request.ingredientName(),
+          request.substituteRequirements(),
           List.copyOf(request.askedProviders()),
           request.status(),
           List.copyOf(request.helps()),
@@ -125,6 +132,9 @@ public class InMemoryHelpRequestRepository implements HelpRequestRepository {
           type,
           recipe,
           howToStep,
+          ingredient,
+          ingredientName,
+          substituteRequirements,
           askedProviders,
           status,
           helps,

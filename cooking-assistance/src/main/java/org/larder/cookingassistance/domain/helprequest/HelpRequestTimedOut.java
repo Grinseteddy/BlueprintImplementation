@@ -3,7 +3,8 @@ package org.larder.cookingassistance.domain.helprequest;
 import java.time.Instant;
 import java.util.List;
 
-// slice: B3-S06, story: US-CA-03, evt: Help request timed out (AsyncAPI HelpRequestTimedOut)
+// slice: B3-S06, story: US-CA-03/US-CA-02, evt: Help request timed out (AsyncAPI
+// HelpRequestTimedOut)
 /**
  * No asked provider answered in time; the request is cancelled and providers not yet asked are
  * suggested.

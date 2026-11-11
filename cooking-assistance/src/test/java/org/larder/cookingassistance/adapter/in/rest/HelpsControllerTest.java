@@ -9,6 +9,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -16,12 +19,20 @@ import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.larder.cookingassistance.application.fakes.InMemoryHelpRequestRepository;
 import org.larder.cookingassistance.domain.helprequest.CookId;
+import org.larder.cookingassistance.domain.helprequest.HelpAnswer;
 import org.larder.cookingassistance.domain.helprequest.HelpId;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequest;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestStatus;
+import org.larder.cookingassistance.domain.helprequest.PreparationStepExplanation;
+import org.larder.cookingassistance.domain.helprequest.Substitute;
+import org.larder.cookingassistance.domain.helprequest.SubstituteIngredient;
+import org.larder.cookingassistance.domain.helprequest.Substitutes;
+import org.larder.cookingassistance.domain.helprequest.Unit;
 import org.larder.cookingassistance.fixtures.HelpRequests;
 import org.larder.cookingassistance.fixtures.TestSigningKeys;
 import org.larder.cookingassistance.fixtures.TestTokens;
@@ -112,7 +123,8 @@ class HelpsControllerTest {
 
     assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().helps())
         .singleElement()
-        .satisfies(help -> assertThat(help.answer().images()).isEmpty());
+        .satisfies(
+            help -> assertThat(((PreparationStepExplanation) help.answer()).images()).isEmpty());
   }
 
   private void expectValidationFailed(String body) throws Exception {
@@ -333,41 +345,6 @@ class HelpsControllerTest {
   }
 
   @DisplayName(
-      "valid answer of kind Substitutes -> 501 NOT_IMPLEMENTED, nothing saved (increment 2) -- B3-S02 US-CA-03 op provideHelp")
-  @Test
-  void substitutesAnswerIsNotImplementedYet() throws Exception {
-    String substitutes =
-        """
-        {
-          "answerTitle": "Use yogurt",
-          "helpProviderType": "COMMUNITY",
-          "answer": {
-            "answerType": "INGREDIENT_SUBSTITUTE",
-            "recipe": "%s",
-            "substitute": [
-              {
-                "ingredient": "8956b2e5-8d0c-470e-ae9c-6071bd7c5b0d",
-                "substituteIngredients": [{"name": "yogurt", "value": 100, "unit": "GRAM"}]
-              }
-            ]
-          }
-        }
-        """
-            .formatted(HelpRequests.HOLLANDAISE.value());
-
-    mvc.perform(
-            post("/help-requests/" + REQUEST_ID + "/helps")
-                .header(AUTHORIZATION, JONAS_AS_COMMUNITY)
-                .header("version", "1.0.3")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(substitutes))
-        .andExpect(status().isNotImplemented())
-        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
-        .andExpect(jsonPath("$.code").value("NOT_IMPLEMENTED"));
-    assertNoHelpSaved();
-  }
-
-  @DisplayName(
       "no token -> 401 UNAUTHENTICATED; scope help:read only -> 403 INSUFFICIENT_SCOPE -- B3-S02 US-CA-03 ADR0012 ADR0013 op provideHelp")
   @Test
   void noTokenOrReadScopeCannotProvideHelp() throws Exception {
@@ -413,5 +390,227 @@ class HelpsControllerTest {
         .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
         .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
         .andExpect(content().string(not(containsString("connection refused"))));
+  }
+
+  @DisplayName(
+      "Jonas proposes 200 g yogurt on Lena's ingredient request -> 201 with the link; the Help holds the Substitutes (replaces the 501 placeholder) -- B2-S02 US-CA-02 INV-12 R3.E1 op provideHelp")
+  @Test
+  void jonasProposesSubstitutes() throws Exception {
+    lenasIngredientRequestIsStored();
+
+    MvcResult result = post201(proposing(substitute("yogurt", "200", "GRAM")));
+
+    SpecSchemas.assertMatches(result.getResponse().getContentAsString(), "HelpLink");
+    assertThat(storedAnswer())
+        .isEqualTo(
+            new Substitutes(
+                HelpRequests.TOMATO_SOUP, List.of(HelpRequests.gramsOf("yogurt", "200"))));
+  }
+
+  @DisplayName(
+      "a substitute of 100 g mascarpone and 100 g yogurt -> both reach the Help in order -- B2-S02 US-CA-02 INV-12 R3.E3 op provideHelp")
+  @Test
+  void aMixArrivesWithItsIngredientsInOrder() throws Exception {
+    lenasIngredientRequestIsStored();
+    String mascarpone = "{\"name\": \"mascarpone\", \"value\": 100, \"unit\": \"GRAM\"}";
+    String yogurt = "{\"name\": \"yogurt\", \"value\": 100, \"unit\": \"GRAM\"}";
+
+    post201(proposing(mix(mascarpone, yogurt)));
+
+    assertThat(storedAnswer())
+        .isEqualTo(
+            new Substitutes(
+                HelpRequests.TOMATO_SOUP,
+                List.of(
+                    new Substitute(
+                        HelpRequests.CREME_FRAICHE,
+                        List.of(
+                            new SubstituteIngredient(
+                                "mascarpone", new BigDecimal("100"), Unit.GRAM),
+                            new SubstituteIngredient(
+                                "yogurt", new BigDecimal("100"), Unit.GRAM))))));
+  }
+
+  @DisplayName(
+      "a substitute ingredient in each unit of the contract -> the same unit in the Help -- B2-S02 US-CA-02 INV-12 op provideHelp")
+  @ParameterizedTest
+  @EnumSource(Unit.class)
+  void everyUnitOfTheContractArrives(Unit unit) throws Exception {
+    lenasIngredientRequestIsStored();
+
+    post201(proposing(substitute("quark", "2", unit.name())));
+
+    assertThat(storedAnswer())
+        .isEqualTo(
+            new Substitutes(
+                HelpRequests.TOMATO_SOUP,
+                List.of(
+                    new Substitute(
+                        HelpRequests.CREME_FRAICHE,
+                        List.of(new SubstituteIngredient("quark", new BigDecimal("2"), unit))))));
+  }
+
+  @DisplayName(
+      "an amount of 0.125 -> exactly 0.125 in the Help -- B2-S02 US-CA-02 INV-12 op provideHelp")
+  @Test
+  void anAmountArrivesExactly() throws Exception {
+    lenasIngredientRequestIsStored();
+
+    post201(proposing(substitute("quark", "0.125", "KILOGRAM")));
+
+    assertThat(storedAnswer())
+        .isEqualTo(
+            new Substitutes(
+                HelpRequests.TOMATO_SOUP,
+                List.of(
+                    new Substitute(
+                        HelpRequests.CREME_FRAICHE,
+                        List.of(
+                            new SubstituteIngredient(
+                                "quark", new BigDecimal("0.125"), Unit.KILOGRAM))))));
+  }
+
+  @DisplayName(
+      "no substitute (minItems) -> 400 VALIDATION_FAILED, no Help -- B2-S02 US-CA-02 INV-12 op provideHelp")
+  @Test
+  void anEmptySubstituteListIsRejected() throws Exception {
+    lenasIngredientRequestIsStored();
+
+    expectValidationFailed(proposing());
+  }
+
+  @DisplayName(
+      "an empty name (minLength) -> 400 VALIDATION_FAILED, no Help -- B2-S02 US-CA-02 INV-12 op provideHelp")
+  @Test
+  void anEmptyNameIsRejected() throws Exception {
+    lenasIngredientRequestIsStored();
+
+    expectValidationFailed(proposing(substitute("", "200", "GRAM")));
+  }
+
+  @DisplayName(
+      "a name of only spaces -> 422 VALIDATION_FAILED, rule INV-12, no Help -- B2-S02 US-CA-02 INV-12 (step 3 r13) op provideHelp")
+  @Test
+  void aBlankNameIsARuleViolation() throws Exception {
+    lenasIngredientRequestIsStored();
+
+    expectRejection(
+        JONAS_AS_COMMUNITY,
+        proposing(substitute("   ", "200", "GRAM")),
+        422,
+        "VALIDATION_FAILED",
+        "INV-12");
+  }
+
+  @DisplayName(
+      "an amount of 0 (exclusiveMinimum) -> 400 VALIDATION_FAILED, no Help -- B2-S02 US-CA-02 op provideHelp")
+  @Test
+  void anAmountOfZeroIsRejected() throws Exception {
+    lenasIngredientRequestIsStored();
+
+    expectValidationFailed(proposing(substitute("yogurt", "0", "GRAM")));
+  }
+
+  @DisplayName(
+      "a unit the contract does not list -> 400 VALIDATION_FAILED, no Help -- B2-S02 US-CA-02 op provideHelp")
+  @Test
+  void anUnknownUnitIsRejected() throws Exception {
+    lenasIngredientRequestIsStored();
+
+    expectValidationFailed(proposing(substitute("yogurt", "200", "BUCKET")));
+  }
+
+  @DisplayName(
+      "substitutes for another ingredient -> 422 ANSWER_DOES_NOT_MATCH_REQUEST, rule INV-37, no Help -- B2-S02 US-CA-02 INV-37 op provideHelp")
+  @Test
+  void substitutesForAnotherIngredientAreARuleViolation() throws Exception {
+    lenasIngredientRequestIsStored();
+    String forBacon =
+        substitute("yogurt", "200", "GRAM")
+            .replace(
+                HelpRequests.CREME_FRAICHE.value().toString(),
+                "5b1f0a2e-7c3d-4e8f-9a6b-1d2c3e4f5a6b");
+
+    expectRejection(
+        JONAS_AS_COMMUNITY, proposing(forBacon), 422, "ANSWER_DOES_NOT_MATCH_REQUEST", "INV-37");
+  }
+
+  @DisplayName(
+      "Lena rejected yogurt; Jonas proposes yogurt -> 422 SUBSTITUTE_REJECTED_BEFORE, rule INV-15, no further Help -- B3-S05 US-CA-02 INV-15 op provideHelp")
+  @Test
+  void aRejectedSubstituteIsARuleViolation() throws Exception {
+    helpRequests.clear();
+    HelpRequest request =
+        HelpRequests.lenaAsksForASubstitute(
+            HelpProviderType.COMMUNITY, HelpProviderType.GRANDMA_AVATAR);
+    HelpRequests.grandmaProposes(request, HelpRequests.gramsOf("yogurt", "200"));
+    request.reject(
+        HelpRequests.HELP_ID,
+        "too sour",
+        Clock.offset(HelpRequests.MONDAY_18_00, Duration.ofHours(2)));
+    helpRequests.save(request);
+
+    mvc.perform(
+            post("/help-requests/" + REQUEST_ID + "/helps")
+                .header(AUTHORIZATION, JONAS_AS_COMMUNITY)
+                .header("version", "1.0.3")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(proposing(substitute("yogurt", "200", "GRAM"))))
+        .andExpect(status().is(422))
+        .andExpect(jsonPath("$.code").value("SUBSTITUTE_REJECTED_BEFORE"))
+        .andExpect(jsonPath("$.rule").value("INV-15"));
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().helps())
+        .hasSize(1);
+  }
+
+  private void lenasIngredientRequestIsStored() {
+    helpRequests.clear();
+    helpRequests.save(HelpRequests.lenaAsksForASubstitute(HelpProviderType.COMMUNITY));
+  }
+
+  /** One substitute of one ingredient, as the contract has it. */
+  private static String substitute(String name, String value, String unit) {
+    return mix("{\"name\": \"%s\", \"value\": %s, \"unit\": \"%s\"}".formatted(name, value, unit));
+  }
+
+  private static String mix(String... ingredients) {
+    return "{\"ingredient\": \"%s\", \"substituteIngredients\": [%s]}"
+        .formatted(HelpRequests.CREME_FRAICHE.value(), String.join(", ", ingredients));
+  }
+
+  /** Jonas's answer to the ingredient request, proposing the given substitutes. */
+  private static String proposing(String... substitutes) {
+    return """
+        {
+          "answerTitle": "Use this",
+          "helpProviderType": "COMMUNITY",
+          "answer": {
+            "answerType": "INGREDIENT_SUBSTITUTE",
+            "recipe": "%s",
+            "substitute": [%s]
+          }
+        }
+        """
+        .formatted(HelpRequests.TOMATO_SOUP.value(), String.join(", ", substitutes));
+  }
+
+  private MvcResult post201(String body) throws Exception {
+    return mvc.perform(
+            post("/help-requests/" + REQUEST_ID + "/helps")
+                .header(AUTHORIZATION, JONAS_AS_COMMUNITY)
+                .header("version", "1.0.3")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+        .andExpect(status().isCreated())
+        .andReturn();
+  }
+
+  private HelpAnswer storedAnswer() {
+    return helpRequests
+        .findById(HelpRequests.HELP_REQUEST_ID)
+        .orElseThrow()
+        .helps()
+        .getFirst()
+        .answer();
   }
 }

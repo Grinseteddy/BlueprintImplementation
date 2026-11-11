@@ -9,6 +9,7 @@ import org.larder.cookingassistance.application.ProvideGrandmaAvatarHelp;
 import org.larder.cookingassistance.domain.helprequest.AnswerTooLate;
 import org.larder.cookingassistance.domain.helprequest.DomainRejection;
 import org.larder.cookingassistance.domain.helprequest.InvalidHelpRequestState;
+import org.larder.cookingassistance.domain.helprequest.SubstituteRejectedBefore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -47,8 +48,10 @@ public class GrandmaHelpProvidedConsumer {
     } catch (InvalidHelpRequestState | AnswerTooLate late) {
       // Q-A2: an answer after a cancel, an acceptance, a time-out or its deadline is ignored,
       // never dead-lettered
-      LOG.info("Grandma Avatar answer {} ignored: {}", headers.get("messageId"), late.getMessage());
-      return Outcome.ACK;
+      return ignored(headers.get("messageId"), late.getMessage());
+    } catch (SubstituteRejectedBefore repeated) {
+      // INV-15 (step 3 r14): a repeat of a rejected substitute is ignored, not a broken message
+      return ignored(headers.get("messageId"), repeated.getClass().getSimpleName());
     } catch (InvalidMessage
         | HelpRequestNotFound
         | DomainRejection
@@ -67,6 +70,11 @@ public class GrandmaHelpProvidedConsumer {
     } finally {
       MDC.remove(HELP_REQUEST_ID);
     }
+  }
+
+  private static Outcome ignored(Object messageId, String reason) {
+    LOG.info("Grandma Avatar answer {} ignored: {}", messageId, reason);
+    return Outcome.ACK;
   }
 
   /** The message id is read before its header is valid: only a UUID may reach the log. */

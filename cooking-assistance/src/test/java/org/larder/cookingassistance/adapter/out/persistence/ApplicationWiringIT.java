@@ -16,6 +16,7 @@ import org.larder.cookingassistance.application.CancelHelpRequest;
 import org.larder.cookingassistance.application.ProvideGrandmaAvatarHelp;
 import org.larder.cookingassistance.application.ProvideHelp;
 import org.larder.cookingassistance.application.RejectHelp;
+import org.larder.cookingassistance.application.RequestHelpWithIngredient;
 import org.larder.cookingassistance.application.RequestHelpWithPreparationStep;
 import org.larder.cookingassistance.application.Role;
 import org.larder.cookingassistance.application.TimeOutDueHelpRequests;
@@ -29,6 +30,7 @@ import org.larder.cookingassistance.fixtures.HelpRequests;
 import org.larder.cookingassistance.fixtures.StoryClock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
@@ -40,6 +42,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 @Import({PostgresTestContainer.class, StoryClock.class})
 class ApplicationWiringIT {
 
+  @Autowired ApplicationContext context;
   @Autowired JdbcClient jdbc;
   @Autowired Clock clock;
   @Autowired HelpRequestRepository helpRequests;
@@ -204,5 +207,34 @@ class ApplicationWiringIT {
     assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().status())
         .isEqualTo(HelpRequestStatus.CANCELLED);
     assertThat(outboxRows("HelpRequestTimedOut")).isEqualTo(1);
+  }
+
+  @DisplayName(
+      "the wired use case Request help ingredients saves through the real adapter, with HelpRequestCreated in the outbox -- B2-S01 US-CA-02 wiring")
+  @Test
+  void requestHelpWithIngredientRunsThroughTheRealAdapter() {
+    RequestHelpWithIngredient requestHelpWithIngredient =
+        context.getBean(RequestHelpWithIngredient.class);
+
+    HelpRequestId id =
+        requestHelpWithIngredient.execute(
+            new RequestHelpWithIngredient.Command(
+                new Actor(HelpRequests.LENA, Set.of(Role.COOK), false),
+                "Creme fraiche in tomato soup",
+                "The shop has none",
+                HelpRequests.TOMATO_SOUP,
+                HelpRequests.CREME_FRAICHE,
+                "creme fraiche",
+                "200 g, not available",
+                Set.of(HelpProviderType.GRANDMA_AVATAR)));
+
+    assertThat(helpRequests.findById(id))
+        .hasValueSatisfying(
+            saved -> assertThat(saved.ingredient()).isEqualTo(HelpRequests.CREME_FRAICHE));
+    assertThat(
+            jdbc.sql("select count(*) from outbox where event_type = 'HelpRequestCreated'")
+                .query(Integer.class)
+                .single())
+        .isEqualTo(1);
   }
 }

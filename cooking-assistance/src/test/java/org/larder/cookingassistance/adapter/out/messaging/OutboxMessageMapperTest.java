@@ -245,4 +245,44 @@ class OutboxMessageMapperTest {
 
     assertThat(message.headers()).doesNotContainKey("traceparent");
   }
+
+  @DisplayName(
+      "HelpRequestCreated row for an ingredient -> channel cooking-assistance.help-request.created, valid against the spec, payload unchanged -- B2-S01 US-CA-02 INV-11 op publishHelpRequestCreated")
+  @Test
+  void helpRequestCreatedForAnIngredientBecomesItsMessage() {
+    String payload = OutboxPayloads.helpRequestCreatedForAnIngredient(REQUEST);
+
+    OutgoingMessage message =
+        mapper.toMessage(new OutboxRecord(44, REQUEST, "HelpRequestCreated", payload));
+
+    assertThat(message.channel()).isEqualTo("cooking-assistance.help-request.created");
+    assertThat(message.payload()).isEqualTo(payload);
+  }
+
+  @DisplayName(
+      "HelpProvided row with substitutes -> channel cooking-assistance.help.provided, valid against the spec, payload unchanged -- B2-S02 US-CA-02 INV-12 op publishHelpProvided")
+  @Test
+  void helpProvidedWithSubstitutesBecomesItsMessage() {
+    String payload = OutboxPayloads.helpProvidedWithSubstitutes(REQUEST);
+
+    OutgoingMessage message =
+        mapper.toMessage(new OutboxRecord(45, REQUEST, "HelpProvided", payload));
+
+    assertThat(message.channel()).isEqualTo("cooking-assistance.help.provided");
+    assertThat(message.payload()).isEqualTo(payload);
+  }
+
+  @DisplayName(
+      "HelpProvided row with an empty substitute list -> InvalidOutgoingMessage, never sent -- B2-S02 US-CA-02 INV-12 ADR0015")
+  @Test
+  void substitutesAgainstTheSpecAreRefused() {
+    String noSubstitute =
+        OutboxPayloads.helpProvidedWithSubstitutes(REQUEST)
+            .replaceAll("\"substitute\":\\[.*\\]\\},", "\"substitute\":[]},");
+
+    assertThatThrownBy(
+            () -> mapper.toMessage(new OutboxRecord(46, REQUEST, "HelpProvided", noSubstitute)))
+        .isInstanceOf(InvalidOutgoingMessage.class)
+        .hasMessageContaining("substitute");
+  }
 }

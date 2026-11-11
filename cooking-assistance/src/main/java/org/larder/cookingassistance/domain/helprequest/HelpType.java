@@ -1,6 +1,6 @@
 package org.larder.cookingassistance.domain.helprequest;
 
-/** Kind of help a cook asks for; increment 1 builds requests for preparation steps only. */
+/** Kind of help a cook asks for; requests are built for preparation steps and ingredients. */
 public enum HelpType {
   INGREDIENT_SUBSTITUTE,
   PREPARATION_STEP_EXPLANATION,

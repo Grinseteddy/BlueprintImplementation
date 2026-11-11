@@ -119,7 +119,7 @@ Each asked provider has its own deadline. A provider's side times out alone, and
 
 #### INV-11 — US-CA-02 R2: A request covers one ingredient in any recipe, with its substitute requirements
 - **Slice / command:** B2-S01 · Request help ingredients · **kind:** cardinality
-- **Guard / outcome:** exactly one ingredient of one recipe, with its substitute requirements; two ingredients → two requests
+- **Guard / outcome:** exactly one ingredient of one recipe, named (*step 3 r15, 2026-11-09: the client sends the ingredient's name, required, taken as given, decided by the user*), with its substitute requirements, which are required (S2) *(step 3 r12, 2026-11-08, test list of increment 2, decided by the user)*; two ingredients → two requests
 - **Sources:** map; contradicts glossary 'ingredients 0..*' (graph R_EM02_R2) → map wins for this type; model 'recipe mandatory', 'ingredients only for Ingredient Substitute'
   - `US-CA-02 R2.E1` **Given/When** 200 g crème fraîche in tomato soup, shop has none **Then** shows recipe, amount, "not available"
   - `US-CA-02 R2.E2` **Given/When** Bacon in carbonara for a vegetarian guest **Then** shows "vegetarian"
@@ -127,7 +127,7 @@ Each asked provider has its own deadline. A provider's side times out alone, and
 
 #### INV-12 — US-CA-02 R3: An answer can propose several substitutes, each one ingredient or a mix with amounts; accepting one closes the whole request
 - **Slice / command:** B2-S02 · Provide Help · **kind:** cardinality
-- **Guard / outcome:** an answer proposes 1..* substitutes, each one ingredient or a mix with amounts
+- **Guard / outcome:** an answer proposes 1..* substitutes, each one ingredient or a mix with amounts; every ingredient of a substitute has a name, a blank name is refused like no substitute *(step 3 r13, 2026-11-09, step 6 of increment 2, decided by the user)*
 - **Sources:** map R3 (E1–E3); glossary substitutes 1..*, substitute ingredient Name/Unit/Value
   - `US-CA-02 R3.E1` **Given/When** Grandma proposes yogurt, quark, sour cream; Lena takes yogurt **Then** closed
   - `US-CA-02 R3.E2` **Given/When** Jonas proposes yogurt, Mia mascarpone; Lena takes Jonas's **Then** closed
@@ -135,7 +135,7 @@ Each asked provider has its own deadline. A provider's side times out alone, and
 
 #### INV-13 — US-CA-02 R3: An answer can propose several substitutes, each one ingredient or a mix with amounts; accepting one closes the whole request
 - **Slice / command:** B3-S04 · Accept help · **kind:** other
-- **Guard / outcome:** accepting one substitute closes the whole request (extends INV-05); what is cooked afterwards is not tracked
+- **Guard / outcome:** accepting one substitute closes the whole request (extends INV-05); what is cooked afterwards is not tracked. The Cook accepts a whole Help; which of its substitutes was used is not recorded (S1) *(step 3 r12, 2026-11-08, test list of increment 2, decided by the user)*
 - **Sources:** map R3 (E1–E5)
   - `US-CA-02 R3.E4` **Given/When** Lena accepted the mix but cooks with mascarpone only **Then** stays closed; what she cooks is her choice
   - `US-CA-02 R3.E5` **Given/When** Both asked, Lena accepts Grandma's quark **Then** closed for Community too
@@ -150,7 +150,7 @@ Each asked provider has its own deadline. A provider's side times out alone, and
 
 #### INV-15 — US-CA-02 R5: Rejected substitutes are kept as notes and not proposed again, now or later
 - **Slice / command:** B2-S02 / B3-S05 · Provide Help · **kind:** other
-- **Guard / outcome:** rejected substitutes are kept as notes and are not proposed again in this request (guard) nor later (read model across requests)
+- **Guard / outcome:** rejected substitutes are kept as notes and are not proposed again in this request (guard) nor later (read model across requests: the notes of the cook's earlier requests about an ingredient of the same name, in any recipe; *step 3 r15*). The same substitute = the same set of ingredient names, whatever the amounts, letter case or outer spaces; *(step 3 r14, 2026-11-09, step 9 of increment 2, decided by the user: a repeat from the Grandma Avatar is acknowledged and ignored, not dead-lettered; REST callers get the refusal)* every substitute of a rejected Help counts as rejected; a mix that contains a rejected ingredient is a new substitute (S3). Later requests show the note and do not refuse the answer (S4) *(step 3 r12, 2026-11-08, test list of increment 2, decided by the user)*
 - **Sources:** map
   - `US-CA-02 R5.E1` **Given/When** Lena rejects mascarpone, too heavy **Then** note "mascarpone – too heavy"
   - `US-CA-02 R5.E2` **Given/When** Request sent again **Then** Community sees note, no mascarpone
@@ -166,7 +166,7 @@ Each asked provider has its own deadline. A provider's side times out alone, and
 #### INV-17 — US-CA-02 R7: Unanswered after 24 h: cancelled; a provider not yet asked is suggested
 - **Slice / command:** B3-S06 · Time out help request · **kind:** quantitative
 - **Guard / outcome:** no answer within 24 h → timed out; suggest a provider not yet asked
-- **Sources:** map; red card Q1 deferred → increment 2
+- **Sources:** map; red card Q1 answered at the readiness gate of increment 2 (2026-11-08): both silent → Lena is only told, nothing is offered
   - `US-CA-02 R7.E1` **Given/When** Only Community asked Mon 18:00, silent until Tue 18:00 **Then** cancelled, Grandma suggested
   - `US-CA-02 R7.E2` **Given/When** Only Grandma asked Mon 10:00, silent until Tue 10:00 **Then** cancelled, Community suggested
   - `US-CA-02 R7.E3` **Given/When** Both asked, both silent 24 h **Then** cancelled, Lena told
@@ -330,15 +330,16 @@ Each asked provider has its own deadline. A provider's side times out alone, and
 | ID | Question | Rule | Deferred to |
 |---|---|---|---|
 | US-CA-03 Q1 | Notes shown only for the same step of the same recipe, or for any request about the same technique? | INV-07 | increment 1 readiness gate |
-| US-CA-02 Q1 | If both providers stay silent, should Lena be offered anything? | INV-17 | increment 2 |
-| B2 pictures | May an ingredient request or answer carry pictures? (map silent) | INV-11/12 | increment 2 |
+| US-CA-02 Q1 | If both providers stay silent, should Lena be offered anything? | INV-17 | answered: no, she is only told; the request stays as it is *(step 3 r11, 2026-11-08, readiness gate of increment 2, decided by the user)* |
+| B2 pictures | May an ingredient request or answer carry pictures? (map silent) | INV-11/12 | answered: no, neither *(step 3 r11, 2026-11-08, readiness gate of increment 2, decided by the user)* |
 | US-CA-04 Q1 | Is the Community also notified when only Grandma was asked? | INV-21 | increment 3 |
 | US-CA-01 Q1 | Must the Chef's Menu respect the Occasion's dietary needs and budget? | INV-32 | increment 4 |
 | US-CA-01 Q2 | May a reset push the deadline past the Occasion? | INV-34, INV-35 | increment 4 |
 | Course bound | Menu course 1..10 (glossary) — upper bound unconfirmed by the map | INV-32 | increment 4 (example needed) |
 | Q_EM_OccasionInHelpRequest | Where does the Occasion live on a Menu help request? | INV-27 | increment 4 |
 | Q_EM_RejectVsCancelWords | closed / cancelled / withdrawn / times out | — | answered by step 2: Closed (accepted), Cancelled (cancel or timeout; event Help request timed out). The maps' "closed" after cancelling = status Cancelled |
-| Q_EM_PicturesPerType | Which kinds of request may carry pictures? | INV-03, 20, 38 | answered: B3 no, B4 yes (≤ 10), B1 not stated, B2 open (above) |
+| Q_EM_PicturesPerType | Which kinds of request may carry pictures? | INV-03, 20, 38 | answered: B3 no, B4 yes (≤ 10), B1 not stated, B2 no (above) |
+| Known substitute ingredient | A substitute should reference a known ingredient (user, 2026-11-09). Today it is a free-text name and references are kept as given (D6, L3); needs an ingredient reference in the contract and a way to read the Recipe Catalog | INV-12 | the increment that integrates the Recipe Catalog |
 | Graph defect | US-CA-02 R1/R4 and US-CA-04 R1 examples linked to US-CA-03 rule nodes | — | sheet uses the photo wording; fix in the graph at step 15 |
 
 ## Policies and read models (not aggregate guards)

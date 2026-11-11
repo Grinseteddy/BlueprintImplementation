@@ -25,6 +25,7 @@ import org.larder.cookingassistance.domain.helprequest.HelpType;
 import org.larder.cookingassistance.domain.helprequest.Note;
 import org.larder.cookingassistance.domain.helprequest.NoteKind;
 import org.larder.cookingassistance.domain.helprequest.ProviderState;
+import org.larder.cookingassistance.domain.helprequest.Substitutes;
 import org.larder.cookingassistance.fixtures.HelpRequests;
 
 /**
@@ -320,5 +321,23 @@ public abstract class HelpRequestRepositoryContract {
     assertThat(repository().findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().notes())
         .extracting(Note::help)
         .containsExactly(Optional.of(HelpRequests.HELP_ID));
+  }
+
+  @DisplayName(
+      "a saved ingredient request with a Help of substitutes is found again with the same ingredient, requirements and answer -- B2-S01,B2-S02 US-CA-02 INV-11 INV-12")
+  @Test
+  void anIngredientRequestRoundTrips() {
+    HelpRequest request = HelpRequests.lenaAsksForASubstitute(HelpProviderType.GRANDMA_AVATAR);
+    HelpRequests.grandmaProposes(request, HelpRequests.gramsOf("yogurt", "200"));
+
+    repository().save(request);
+
+    HelpRequest found = repository().findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    assertThat(found.ingredient()).isEqualTo(HelpRequests.CREME_FRAICHE);
+    assertThat(found.substituteRequirements()).isEqualTo("200 g, not available");
+    assertThat(found.helps().getFirst().answer())
+        .isEqualTo(
+            new Substitutes(
+                HelpRequests.TOMATO_SOUP, List.of(HelpRequests.gramsOf("yogurt", "200"))));
   }
 }

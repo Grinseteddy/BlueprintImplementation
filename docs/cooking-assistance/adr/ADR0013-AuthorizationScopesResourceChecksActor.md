@@ -32,3 +32,6 @@ AP0008 (honors)
 
 ## Quality scenarios
 QS-12, QS-13
+
+## Addition (step 8, increment 2, 2026-11-09, decided by the user)
+- **"The caller's provider type must be asked" is enforced in the aggregate** (`ProviderNotAsked`, INV-01), not in the application service: it depends on the request's state, and the aggregate holds it. The application service checks that the caller may answer as that provider type, before the request is loaded.

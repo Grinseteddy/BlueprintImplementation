@@ -1,7 +1,9 @@
 package org.larder.cookingassistance.fixtures;
 
+import java.math.BigDecimal;
 import java.net.URI;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -14,8 +16,13 @@ import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequest;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HowToStepId;
+import org.larder.cookingassistance.domain.helprequest.IngredientId;
 import org.larder.cookingassistance.domain.helprequest.PreparationStepExplanation;
 import org.larder.cookingassistance.domain.helprequest.RecipeId;
+import org.larder.cookingassistance.domain.helprequest.Substitute;
+import org.larder.cookingassistance.domain.helprequest.SubstituteIngredient;
+import org.larder.cookingassistance.domain.helprequest.Substitutes;
+import org.larder.cookingassistance.domain.helprequest.Unit;
 
 /**
  * Help Requests built through the domain's public commands, shared by contract and integration
@@ -31,6 +38,15 @@ public final class HelpRequests {
       new RecipeId(UUID.fromString("7cf09822-77a1-46bb-812f-b7852bca0913"));
   public static final HowToStepId STEP_4 =
       new HowToStepId(UUID.fromString("65610dee-fb83-4341-a730-26a4a99a621a"));
+
+  public static final RecipeId TOMATO_SOUP =
+      new RecipeId(UUID.fromString("3f0a6c1e-2b7d-4d9a-9c41-6a1f0e7b2c10"));
+  public static final IngredientId CREME_FRAICHE =
+      new IngredientId(UUID.fromString("8956b2e5-8d0c-470e-ae9c-6071bd7c5b0d"));
+
+  /** Monday 18:00 CET. */
+  public static final Clock MONDAY_18_00 =
+      Clock.fixed(Instant.parse("2026-11-09T17:00:00Z"), ZoneOffset.UTC);
 
   /** Friday 18:00 CET. */
   public static final Clock FRIDAY_18_00 =
@@ -98,5 +114,36 @@ public final class HelpRequests {
         STEP_4,
         Set.of(providers),
         FRIDAY_18_00);
+  }
+
+  /** Lena asks for a substitute for creme fraiche in tomato soup, Monday 18:00 CET. */
+  public static HelpRequest lenaAsksForASubstitute(HelpProviderType... providers) {
+    return HelpRequest.requestHelpWithIngredient(
+        HELP_REQUEST_ID,
+        LENA,
+        "Creme fraiche in tomato soup",
+        "The shop has none",
+        TOMATO_SOUP,
+        CREME_FRAICHE,
+        "creme fraiche",
+        "200 g, not available",
+        Set.of(providers),
+        MONDAY_18_00);
+  }
+
+  /** Grandma Avatar proposes the given substitutes for the creme fraiche, Monday 19:00 CET. */
+  public static void grandmaProposes(HelpRequest request, Substitute... substitutes) {
+    request.provideHelp(
+        HELP_ID,
+        HelpProvider.grandmaAvatar(),
+        "Grandma's ideas",
+        new Substitutes(TOMATO_SOUP, List.of(substitutes)),
+        Clock.offset(MONDAY_18_00, Duration.ofHours(1)));
+  }
+
+  /** The given amount in grams of one ingredient, in place of the creme fraiche. */
+  public static Substitute gramsOf(String name, String grams) {
+    return new Substitute(
+        CREME_FRAICHE, List.of(new SubstituteIngredient(name, new BigDecimal(grams), Unit.GRAM)));
   }
 }

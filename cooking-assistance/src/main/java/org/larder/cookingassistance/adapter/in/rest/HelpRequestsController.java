@@ -14,6 +14,7 @@ import org.larder.cookingassistance.application.HelpRequestNotFound;
 import org.larder.cookingassistance.application.HelpRequestQueries;
 import org.larder.cookingassistance.application.HelpRequestView;
 import org.larder.cookingassistance.application.Page;
+import org.larder.cookingassistance.application.RequestHelpWithIngredient;
 import org.larder.cookingassistance.application.RequestHelpWithPreparationStep;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.springframework.http.HttpStatus;
@@ -25,22 +26,26 @@ import org.springframework.web.bind.annotation.RestController;
 class HelpRequestsController implements HelpRequestsApi {
 
   private final RequestHelpWithPreparationStep requestHelpWithPreparationStep;
+  private final RequestHelpWithIngredient requestHelpWithIngredient;
   private final CancelHelpRequest cancelHelpRequest;
   private final HelpRequestQueries queries;
   private final String publicBaseUrl;
 
   HelpRequestsController(
       RequestHelpWithPreparationStep requestHelpWithPreparationStep,
+      RequestHelpWithIngredient requestHelpWithIngredient,
       CancelHelpRequest cancelHelpRequest,
       HelpRequestQueries queries,
       @PublicBaseUrl String publicBaseUrl) {
     this.requestHelpWithPreparationStep = requestHelpWithPreparationStep;
+    this.requestHelpWithIngredient = requestHelpWithIngredient;
     this.cancelHelpRequest = cancelHelpRequest;
     this.queries = queries;
     this.publicBaseUrl = publicBaseUrl;
   }
 
-  // op: createHelpRequest (cooking-assistance.openapi.yaml) · cmd: Request help Preparation step
+  // op: createHelpRequest (cooking-assistance.openapi.yaml) · cmd: Request help Preparation step,
+  // Request help ingredients
   @Override
   public ResponseEntity<HelpRequestLink> createHelpRequest(
       String version, HelpRequestCreate helpRequestCreate) {
@@ -48,7 +53,11 @@ class HelpRequestsController implements HelpRequestsApi {
         switch (helpRequestCreate.getType()) {
           case PREPARATION_STEP_EXPLANATION ->
               requestHelpWithPreparationStep.execute(
-                  HelpRequestMapper.toCommand(CurrentActor.get(), helpRequestCreate));
+                  HelpRequestMapper.toPreparationStepCommand(
+                      CurrentActor.get(), helpRequestCreate));
+          case INGREDIENT_SUBSTITUTE ->
+              requestHelpWithIngredient.execute(
+                  HelpRequestMapper.toIngredientCommand(CurrentActor.get(), helpRequestCreate));
           default -> throw new NotImplemented("createHelpRequest " + helpRequestCreate.getType());
         };
     return ResponseEntity.status(HttpStatus.CREATED)

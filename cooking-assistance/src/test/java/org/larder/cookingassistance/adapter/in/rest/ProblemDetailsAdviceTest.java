@@ -24,14 +24,18 @@ import org.larder.cookingassistance.domain.helprequest.DomainRejection;
 import org.larder.cookingassistance.domain.helprequest.HelpAlreadyRejected;
 import org.larder.cookingassistance.domain.helprequest.HelpNotInRequest;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestStatus;
+import org.larder.cookingassistance.domain.helprequest.IngredientRequired;
 import org.larder.cookingassistance.domain.helprequest.InvalidHelpRequestState;
 import org.larder.cookingassistance.domain.helprequest.NoHelpProviderChosen;
+import org.larder.cookingassistance.domain.helprequest.NoSubstituteProposed;
 import org.larder.cookingassistance.domain.helprequest.OwnRequest;
 import org.larder.cookingassistance.domain.helprequest.PictureLinkNotSecure;
 import org.larder.cookingassistance.domain.helprequest.PreparationStepRequired;
 import org.larder.cookingassistance.domain.helprequest.ProviderNotAsked;
 import org.larder.cookingassistance.domain.helprequest.RecipeRequired;
 import org.larder.cookingassistance.domain.helprequest.RejectionNoteRequired;
+import org.larder.cookingassistance.domain.helprequest.SubstituteRejectedBefore;
+import org.larder.cookingassistance.domain.helprequest.SubstituteRequirementsRequired;
 import org.larder.cookingassistance.domain.helprequest.TooManyPictures;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.ConversionNotSupportedException;
@@ -46,7 +50,7 @@ import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.method.annotation.ExceptionHandlerMethodResolver;
 
 /**
- * The error map (OpenAPI 1.0.12 Problem codes, P11): each domain rejection -> status, code and
+ * The error map (OpenAPI 1.0.14 Problem codes, P11): each domain rejection -> status, code and
  * rule.
  */
 class ProblemDetailsAdviceTest {
@@ -247,5 +251,25 @@ class ProblemDetailsAdviceTest {
 
     assertThat(problem.getStatus()).isEqualTo(400);
     assertThat(problem.getProperties()).containsEntry("code", "VALIDATION_FAILED");
+  }
+
+  @DisplayName(
+      "IngredientRequired and SubstituteRequirementsRequired -> 422 MISSING_FIELD, rule INV-11; NoSubstituteProposed -> 422 VALIDATION_FAILED, rule INV-12; SubstituteRejectedBefore -> 422 SUBSTITUTE_REJECTED_BEFORE, rule INV-15 -- B2-S01,B2-S02 US-CA-02 error map")
+  @Test
+  void theRejectionsOfIncrementTwoAreMapped() {
+    assertMapped(new IngredientRequired(), 422, "MISSING_FIELD", "INV-11");
+    assertMapped(new SubstituteRequirementsRequired(), 422, "MISSING_FIELD", "INV-11");
+    assertMapped(new NoSubstituteProposed(), 422, "VALIDATION_FAILED", "INV-12");
+    assertMapped(new SubstituteRejectedBefore(), 422, "SUBSTITUTE_REJECTED_BEFORE", "INV-15");
+  }
+
+  private static void assertMapped(
+      DomainRejection rejection, int status, String code, String rule) {
+    ResponseEntity<Object> response = new ProblemDetailsAdvice().handleDomainRejection(rejection);
+
+    assertThat(response.getStatusCode().value()).isEqualTo(status);
+    assertThat(((ProblemDetail) response.getBody()).getProperties())
+        .containsEntry("code", code)
+        .containsEntry("rule", rule);
   }
 }
