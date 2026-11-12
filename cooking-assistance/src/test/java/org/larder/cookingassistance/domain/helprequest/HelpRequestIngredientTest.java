@@ -509,6 +509,71 @@ class HelpRequestIngredientTest {
   }
 
   @DisplayName(
+      "a substitute ingredient above 10,000 -> rejected with NoSubstituteProposed, rule INV-12, no Help -- B2-S02 US-CA-02 INV-12 SEC-20 SEC-21 (step 3 r19)")
+  @ParameterizedTest
+  @ValueSource(strings = {"10000.001", "1e1500"})
+  void aSubstituteIngredientHasAtMostTenThousand(String amount) {
+    HelpRequest request = lenasRequest("200 g, not available", Set.of(HelpProviderType.COMMUNITY));
+
+    assertThatThrownBy(() -> jonasProposesYogurtOf(request, new BigDecimal(amount)))
+        .isInstanceOfSatisfying(
+            NoSubstituteProposed.class,
+            rejected -> assertThat(rejected.rule()).isEqualTo("INV-12"));
+    assertThat(request.helps()).isEmpty();
+  }
+
+  @DisplayName(
+      "a substitute ingredient with more than 3 decimal places -> rejected with NoSubstituteProposed, rule INV-12, no Help -- B2-S02 US-CA-02 INV-12 SEC-20 (step 3 r19)")
+  @ParameterizedTest
+  @ValueSource(strings = {"0.0001", "1e-1500"})
+  void aSubstituteIngredientHasAtMostThreeDecimals(String amount) {
+    HelpRequest request = lenasRequest("200 g, not available", Set.of(HelpProviderType.COMMUNITY));
+
+    assertThatThrownBy(() -> jonasProposesYogurtOf(request, new BigDecimal(amount)))
+        .isInstanceOfSatisfying(
+            NoSubstituteProposed.class,
+            rejected -> assertThat(rejected.rule()).isEqualTo("INV-12"));
+    assertThat(request.helps()).isEmpty();
+  }
+
+  @DisplayName(
+      "a substitute ingredient of exactly 10,000 or 0.001 -> Help provided with that amount -- B2-S02 US-CA-02 INV-12 SEC-20 (step 3 r19)")
+  @ParameterizedTest
+  @ValueSource(strings = {"10000", "10000.000", "0.001"})
+  void anAmountAtTheBoundsIsProposed(String amount) {
+    HelpRequest request = lenasRequest("200 g, not available", Set.of(HelpProviderType.COMMUNITY));
+
+    jonasProposesYogurtOf(request, new BigDecimal(amount));
+
+    assertThat(request.helps())
+        .singleElement()
+        .satisfies(
+            help ->
+                assertThat(
+                        ((Substitutes) help.answer())
+                            .substitute()
+                            .get(0)
+                            .substituteIngredients()
+                            .get(0)
+                            .value())
+                    .isEqualByComparingTo(amount));
+  }
+
+  private static void jonasProposesYogurtOf(HelpRequest request, BigDecimal amount) {
+    request.provideHelp(
+        HelpRequests.HELP_ID,
+        HelpProvider.community(HelpRequests.JONAS),
+        "Yogurt",
+        new Substitutes(
+            TOMATO_SOUP,
+            List.of(
+                new Substitute(
+                    CREME_FRAICHE,
+                    List.of(new SubstituteIngredient("yogurt", amount, Unit.GRAM))))),
+        MONDAY_19_00);
+  }
+
+  @DisplayName(
       "a substitute ingredient without a unit -> rejected with NoSubstituteProposed, rule INV-12, no Help -- B2-S02 US-CA-02 INV-12 (step 13 D-3)")
   @Test
   void aSubstituteIngredientHasAUnit() {

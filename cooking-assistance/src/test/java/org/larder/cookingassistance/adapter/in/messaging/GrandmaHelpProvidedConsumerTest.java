@@ -437,6 +437,16 @@ class GrandmaHelpProvidedConsumerTest {
   }
 
   @DisplayName(
+      "an amount above 10,000 in Grandma's message (schema maximum) -> DEAD_LETTER at once, not RETRY, nothing changed -- B2-S02 US-CA-02 INV-12 SEC-22 OWASP-API10 op consumeGrandmaHelpProvided")
+  @ParameterizedTest
+  @ValueSource(strings = {"10000.001", "1e400"})
+  void anAmountAboveTheMaximumIsDeadLetteredAtOnce(String amount) {
+    lenasIngredientRequestToGrandmaIsStored();
+
+    expectDeadLetteredWithoutEffect(HEADERS, bytes(grandmaProposes("yogurt", amount, "GRAM")));
+  }
+
+  @DisplayName(
       "an answer with an empty substitute list (schema) -> DEAD_LETTER, nothing changed -- B2-S02 US-CA-02 op consumeGrandmaHelpProvided")
   @Test
   @ExtendWith(OutputCaptureExtension.class)
