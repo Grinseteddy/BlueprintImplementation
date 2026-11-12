@@ -1,0 +1,2 @@
+POST /help-requests/{helpRequestId}/helps the `answer/oneOf[#/components/schemas/Substitutes]/substitute/items/substituteIngredients/items/value` request property's max was set to `10000.00`
+POST /consumeGrandmaHelpProvided the `answer/oneOf[#/components/schemas/Substitutes]/substitute/items/substituteIngredients/items/value` request property's max was set to `10000.00`
