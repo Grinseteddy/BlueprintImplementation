@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -56,6 +57,12 @@ class EdgeTest {
 
   @Autowired MockMvc mvc;
   @Autowired InMemoryHelpRequestRepository helpRequests;
+
+  /** The fake is shared by the cached context: "nothing saved" holds whatever ran before. */
+  @BeforeEach
+  void noHelpRequestIsStored() {
+    helpRequests.clear();
+  }
 
   @DisplayName("GET /recipes -> 404 NOT_FOUND Problem -- B3-S01 US-CA-03 edge")
   @Test

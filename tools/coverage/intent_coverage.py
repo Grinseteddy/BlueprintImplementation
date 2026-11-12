@@ -52,13 +52,19 @@ def passing_tests(root):
     return tests
 
 
+def traces(kind, tokens, traced):
+    """Example ids repeat across stories (R1.E1): a test traces an example with its story and its id,
+    any other item with one of its tokens."""
+    return tokens <= traced if kind == "example" else bool(tokens & traced)
+
+
 def main(inventory_path, root):
     inventory = yaml.safe_load(open(inventory_path))
     tests = passing_tests(root)
     items = []
     for story, spec in inventory["user_stories"].items():
         items.append(("user story", story, {story}))
-        items += [("example", f"{story} {ex}", {ex}) for ex in spec["examples"]]
+        items +=[("example", f"{story} {ex}", {story, ex}) for ex in spec["examples"]]
     items += [("rule", rule, {rule}) for rule in inventory["rules"]]
     items += [("HTTP operation", op, {op}) for op in inventory["http_operations"]]
     items += [("send operation", op, {op}) for op in inventory["send_operations"]]
@@ -68,7 +74,7 @@ def main(inventory_path, root):
 
     gaps, rows = [], []
     for kind, item, tokens in items:
-        hits = [(level, title) for level, title, traced in tests if tokens & traced]
+        hits = [(level, title) for level, title, traced in tests if traces(kind, tokens, traced)]
         levels = sorted({level for level, _ in hits})
         rows.append((kind, item, len(hits), ", ".join(levels) or "—"))
         if not hits:
@@ -78,7 +84,8 @@ def main(inventory_path, root):
     for kind, item, count, levels in rows:
         print(f"| {kind} | {item} | {count} | {levels} |")
     for story, spec in inventory["user_stories"].items():
-        missing = [ex for ex in spec["examples"] if not any(ex in traced for _, _, traced in tests)]
+        missing = [ex for ex in spec["examples"]
+                   if not any(traces("example", {story, ex}, traced) for _, _, traced in tests)]
         planned = ", ".join(f"{ex} (inc {inc})" for ex, inc in spec.get("planned_examples", {}).items())
         state = "done for the increment's slices" if not missing else f"partial: {', '.join(missing)} missing"
         print(f"\n{story}: {state}; planned: {planned}")

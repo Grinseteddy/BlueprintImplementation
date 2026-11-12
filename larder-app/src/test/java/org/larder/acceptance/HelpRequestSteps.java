@@ -94,12 +94,7 @@ public class HelpRequestSteps {
     driver =
         new AcceptanceDriver(
             admin, rabbit, Integer.parseInt(environment.getRequiredProperty("local.server.port")));
-    // one statement: it waits for a poller's transaction and empties all tables at once
-    jdbc.sql(
-            "truncate cooking_assistance.help_request_note, cooking_assistance.help,"
-                + " cooking_assistance.asked_provider, cooking_assistance.help_request,"
-                + " cooking_assistance.outbox, cooking_assistance.processed_message")
-        .update();
+    DatabaseReset.emptyAllTables(jdbc);
     createdQueue = driver.listenTo(AcceptanceDriver.CREATED);
     providedQueue = driver.listenTo(AcceptanceDriver.PROVIDED);
     acceptedQueue = driver.listenTo(AcceptanceDriver.ACCEPTED);
