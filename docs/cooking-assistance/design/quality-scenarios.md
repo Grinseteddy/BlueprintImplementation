@@ -33,4 +33,6 @@ Ties between decision options go to the higher-ranked goal.
 | QS-15 | Compatibility / co-existence | consumer team | receives a new API or event version | evolution | OpenAPI, AsyncAPI | change is additive | breaking diff fails CI (oasdiff, AsyncAPI diff); breaking change only as a new major with 6 months' deprecation | H/L | test (12) — CI gate |
 | QS-16 | Maintainability / build | developer | pushes | CI | `verify` job | build, lint, all tests | < 10 min | M/L | test (12) — CI timing |
 
+**Exceptions:** QS-15 — a security fix may narrow a request bound in a non-major version while the API has no external client; the gate then carries a named exception (ADR0014 addition, step 14 of increment 2, SEC-20).
+
 **Deferred or not measurable:** none.
