@@ -522,9 +522,9 @@ public class IngredientSubstitutionSteps {
     assertThat(lastResponse.getStatusCode().value()).isEqualTo(201);
   }
 
-  @When("Jonas answers that there is no good substitute for saffron")
+  @When("Jonas answers that there is no good substitute for saffron and proposes 1 g turmeric")
   public void jonasFindsNoGoodSubstitute() {
-    // the contract needs at least one substitute: Jonas names a poor one and says so
+    // an answer always proposes a substitute (INV-12, step 3 r17): Jonas names the closest he knows
     ResponseEntity<String> jonas =
         driver.post(
             "/help-requests/" + lenasRequest() + "/helps",
@@ -655,6 +655,24 @@ public class IngredientSubstitutionSteps {
         .endsWith("/help-requests/" + earlier);
   }
 
+  /** The earlier rejection is only shown: a later request does not refuse it (INV-15 S4). */
+  @Then("Jonas's mascarpone for it is not refused")
+  public void jonasMascarponeForTheNewRequestIsNotRefused() {
+    ResponseEntity<String> jonas =
+        driver.post(
+            "/help-requests/" + lenasRequest() + "/helps",
+            HelpRequests.JONAS,
+            "cook,community",
+            "{\"answerTitle\":\"Try this\",\"helpProviderType\":\"COMMUNITY\",\"answer\":%s}"
+                .formatted(
+                    substitutesAnswerFor(
+                        MUSHROOM_SAUCE,
+                        substituteFor(CREME_FRAICHE_IN_MUSHROOM_SAUCE, "150 g mascarpone"))));
+    assertThat(jonas.getStatusCode().value()).isEqualTo(201);
+    assertThat(driver.nextMessage(providedQueue, "HelpProvided").get("helpProvider").asText())
+        .isEqualTo(HelpRequests.JONAS.value().toString());
+  }
+
   // R6 — the cook can cancel an open request at any time, with an optional note
 
   private void lenaCancels(String cancellation) {
@@ -771,7 +789,5 @@ public class IngredientSubstitutionSteps {
     assertThat(provided.get("helpProvider").asText())
         .isEqualTo(HelpRequests.JONAS.value().toString());
     assertThat(readRequest(lenasRequest()).get("status").asText()).isEqualTo("ANSWERED");
-    clock.moveTo(tuesday("18:00:05"));
-    driver.noMessage(timedOutQueue);
   }
 }

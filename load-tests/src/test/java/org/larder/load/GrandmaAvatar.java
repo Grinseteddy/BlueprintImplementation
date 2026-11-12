@@ -12,6 +12,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * The Grandma Avatar, another context, on the broker: it answers one request every 100 ms (10
@@ -23,6 +24,7 @@ final class GrandmaAvatar {
   private final String ingredient;
   private final ConcurrentLinkedQueue<String> toAnswer = new ConcurrentLinkedQueue<>();
   private final ScheduledExecutorService answering = Executors.newSingleThreadScheduledExecutor();
+  private final AtomicInteger failedAnswers = new AtomicInteger();
   private Connection broker;
 
   GrandmaAvatar(String recipe, String ingredient) {
@@ -51,6 +53,7 @@ final class GrandmaAvatar {
 
   void stop() {
     answering.shutdownNow();
+    System.err.println("Grandma's answers not published: " + failedAnswers.get());
     try {
       broker.close();
     } catch (Exception e) {
@@ -82,7 +85,9 @@ final class GrandmaAvatar {
       channel.basicPublish(
           "grandma-avatar", "grandma-avatar.help.provided", properties, answer.getBytes(UTF_8));
     } catch (Exception e) {
-      throw new IllegalStateException("publishing Grandma's answer to " + id, e);
+      // a task that throws is never scheduled again: count the failure and answer the next one
+      failedAnswers.incrementAndGet();
+      System.err.println("Grandma's answer to " + id + " was not published: " + e);
     }
   }
 }

@@ -1,6 +1,7 @@
 package org.larder.load;
 
 import static io.gatling.javaapi.core.CoreDsl.StringBody;
+import static io.gatling.javaapi.core.CoreDsl.atOnceUsers;
 import static io.gatling.javaapi.core.CoreDsl.constantUsersPerSec;
 import static io.gatling.javaapi.core.CoreDsl.details;
 import static io.gatling.javaapi.core.CoreDsl.doIfOrElse;
@@ -15,6 +16,7 @@ import io.gatling.javaapi.core.ScenarioBuilder;
 import io.gatling.javaapi.core.Simulation;
 import io.gatling.javaapi.http.HttpProtocolBuilder;
 import io.gatling.javaapi.http.HttpRequestActionBuilder;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadLocalRandom;
@@ -22,8 +24,9 @@ import java.util.concurrent.ThreadLocalRandom;
 /**
  * QS-03 (and QS-11 on a database seeded with 150,000 requests): 20 HTTP requests a second — 10
  * commands, 10 queries — and 10 Grandma Avatar answers a second on the broker, against the running
- * service. Commands p95 at most 300 ms, queries p95 at most 200 ms, no failed request. Results are
- * indicative: one CI runner, not production.
+ * service. Commands p95 at most 300 ms, queries p95 at most 200 ms, no failed request, and no
+ * request left OPEN after the load (each of Grandma's answers was published and consumed). Results
+ * are indicative: one CI runner, not production.
  */
 public class HelpRequestLoadSimulation extends Simulation {
 
@@ -33,6 +36,7 @@ public class HelpRequestLoadSimulation extends Simulation {
   static final String READ = "query: read a request";
   static final String LIST = "query: list requests";
   static final String LIST_RECENT = "query: list recent requests";
+  static final String GRANDMA_ANSWERED = "check: Grandma answered every request";
 
   final int seconds = Integer.getInteger("durationSeconds", 120);
   final int commandsP95 = Integer.getInteger("commandsP95Ms", 300);
@@ -95,12 +99,26 @@ public class HelpRequestLoadSimulation extends Simulation {
                               .get("/help-requests?status=ANSWERED&limit=20")
                               .check(status().is(200)))));
 
+  /**
+   * QS-03's 10 messages a second are served: after the load, no request is left OPEN, so each of
+   * Grandma's answers was published and consumed. A failed request here fails the run (no failed
+   * requests).
+   */
+  final ScenarioBuilder grandmasAnswers =
+      scenario("Grandma's answers")
+          .pause(Duration.ofSeconds(seconds + 5L))
+          .exec(
+              http(GRANDMA_ANSWERED)
+                  .get("/help-requests?status=OPEN&limit=1")
+                  .check(status().is(200), jsonPath("$.items[0]").notExists()));
+
   {
     // queries: 10/3 users a second, each reads one created request and lists twice: 10 queries a
     // second
     setUp(
             commands.injectOpen(constantUsersPerSec(10).during(seconds)),
-            queries.injectOpen(constantUsersPerSec(10.0 / 3).during(seconds)))
+            queries.injectOpen(constantUsersPerSec(10.0 / 3).during(seconds)),
+            grandmasAnswers.injectOpen(atOnceUsers(1)))
         .protocols(service)
         .assertions(
             global().failedRequests().count().is(0L),

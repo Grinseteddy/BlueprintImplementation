@@ -56,7 +56,7 @@ class OutboxTimelinessIT {
   @Autowired JdbcClient jdbc;
 
   @DisplayName(
-      "E7 20 ingredient requests, one every 100 ms -> each HelpRequestCreated is on the broker within 5 s of its 201 (p95) -- B2-S01 US-CA-02 QS-08 op publishHelpRequestCreated")
+      "E7 20 ingredient requests, one every 100 ms -> each HelpRequestCreated is on the broker within 5 s of its commit, measured from before the POST (p95) -- B2-S01 US-CA-02 QS-08 op publishHelpRequestCreated")
   @Test
   void eventsReachTheBrokerWithinFiveSeconds() throws Exception {
     DatabaseReset.emptyAllTables(jdbc);
@@ -67,8 +67,9 @@ class OutboxTimelinessIT {
     Future<?> receiving = receiver.submit(() -> receiveAll(arrivedAt));
     Map<String, Instant> committedAt = new HashMap<>();
     for (int i = 0; i < REQUESTS; i++) {
-      String id = lenaAsksForASubstitute();
-      committedAt.put(id, Instant.now());
+      // before the POST: the commit happens later, so the measured latency is an upper bound
+      Instant beforeTheCommit = Instant.now();
+      committedAt.put(lenaAsksForASubstitute(), beforeTheCommit);
       Thread.sleep(100);
     }
     receiving.get(30, TimeUnit.SECONDS);

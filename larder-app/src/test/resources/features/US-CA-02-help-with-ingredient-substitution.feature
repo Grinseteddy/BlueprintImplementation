@@ -91,7 +91,7 @@ Feature: As a Cook, I want to ask a help provider for Help with Ingredients, so 
     @B3-S05 @INV-14 @R4.E2
     Scenario: Jonas finds no good substitute for saffron
       Given Lena asked the Community for a substitute for the saffron in her risotto
-      When Jonas answers that there is no good substitute for saffron
+      When Jonas answers that there is no good substitute for saffron and proposes 1 g turmeric
       And Lena rejects Jonas's answer
       Then her ingredient request stays open
 
@@ -119,11 +119,12 @@ Feature: As a Cook, I want to ask a help provider for Help with Ingredients, so 
       Then the Community sees the note "mascarpone – too heavy"
       And Jonas is refused when he proposes mascarpone
 
-    @B3-S05 @INV-15 @R5.E3
+    @B2-S02 @B3-S05 @INV-15 @R5.E3
     Scenario: Next week, crème fraîche in mushroom sauce
       Given Lena rejected Grandma's mascarpone for the crème fraîche in her tomato soup: "mascarpone – too heavy"
       When next week she asks for a substitute for the crème fraîche in her mushroom sauce
       Then her new ingredient request shows the earlier note "mascarpone – too heavy"
+      And Jonas's mascarpone for it is not refused
 
   Rule: R6 — The Cook can cancel an open request at any time, with an optional note
 
