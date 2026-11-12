@@ -1,5 +1,18 @@
 # Cook Assistance API — changelog
 
+## AsyncAPI 1.0.11 — 2026-11-11 (step 4 r22, from step 12 of increment 2)
+
+| Change | Why |
+|---|---|
+| `grandmaHelpProvided` gets a second example, `grandmaProposesSubstitutes` (yogurt, quark or sour cream for the crème fraîche) | the receive operation's contract test accepts every example; until now no example carried substitutes. Additive |
+
+## OpenAPI 1.0.15 — 2026-11-11 (step 4 r22, from step 12 of increment 2)
+
+| Change | Why |
+|---|---|
+| `HelpRequestCreateRequest` gets the example `ingredientSubstitute` (Lena asks the Community and Grandma); `HelpCreateRequest` gets `substitutes` (Jonas proposes 200 g quark, or a mix of mascarpone and yogurt) — the two fit: Jonas answers that request | the example-based contract check replays request examples; none was an ingredient request or a substitutes answer. Additive |
+| `version` header accepts 1.0.15 | |
+
 ## AsyncAPI 1.0.10 — 2026-11-09 (step 4 r21, from step 11 of increment 2)
 
 | Change | Why |

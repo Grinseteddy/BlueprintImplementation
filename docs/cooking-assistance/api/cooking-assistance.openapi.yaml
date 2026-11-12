@@ -9,7 +9,7 @@ info:
 
     Clients must be tolerant readers: ignore unknown fields and handle unknown enum values
     (status, type and error codes can grow in later minor versions).
-  version: 1.0.14
+  version: 1.0.15
   contact:
     name: Annegret Junker
     email: annegret.junker@larder.org
@@ -499,8 +499,8 @@ components:
       description: Version of the API the client was built against.
       schema:
         type: string
-        default: "1.0.14"
-        enum: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6", "1.0.7", "1.0.8", "1.0.9", "1.0.10", "1.0.11", "1.0.12", "1.0.13", "1.0.14"]
+        default: "1.0.15"
+        enum: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6", "1.0.7", "1.0.8", "1.0.9", "1.0.10", "1.0.11", "1.0.12", "1.0.13", "1.0.14", "1.0.15"]
 
   schemas:
     HelpType:
@@ -1575,6 +1575,19 @@ components:
                 preferredProvider:
                   - COMMUNITY
                   - GRANDMA_AVATAR
+            ingredientSubstitute:
+              summary: Lena asks the Community and Grandma for a substitute for the crème fraîche in her tomato soup
+              value:
+                title: Crème fraîche in tomato soup
+                type: INGREDIENT_SUBSTITUTE
+                description: The shop has none
+                recipe: 3f0a6c1e-2b7d-4d9a-9c41-6a1f0e7b2c10
+                ingredient: 8956b2e5-8d0c-470e-ae9c-6071bd7c5b0d
+                ingredientName: crème fraîche
+                substituteRequirements: 200 g, not available
+                preferredProvider:
+                  - COMMUNITY
+                  - GRANDMA_AVATAR
 
     CancellationRequest:
       description: Cancellation with an optional note
@@ -1620,6 +1633,28 @@ components:
                   recipe: 7cf09822-77a1-46bb-812f-b7852bca0913
                   howToStep: 65610dee-fb83-4341-a730-26a4a99a621a
                   description: Add the butter in a thin stream and keep whisking
+            substitutes:
+              summary: Jonas from the Community proposes 200 g quark, or a mix of mascarpone and yogurt
+              value:
+                answerTitle: Quark, or a mix
+                helpProviderType: COMMUNITY
+                answer:
+                  answerType: INGREDIENT_SUBSTITUTE
+                  recipe: 3f0a6c1e-2b7d-4d9a-9c41-6a1f0e7b2c10
+                  substitute:
+                    - ingredient: 8956b2e5-8d0c-470e-ae9c-6071bd7c5b0d
+                      substituteIngredients:
+                        - name: quark
+                          value: 200
+                          unit: GRAM
+                    - ingredient: 8956b2e5-8d0c-470e-ae9c-6071bd7c5b0d
+                      substituteIngredients:
+                        - name: mascarpone
+                          value: 100
+                          unit: GRAM
+                        - name: yogurt
+                          value: 100
+                          unit: GRAM
 
   securitySchemes:
     oAuth2:
