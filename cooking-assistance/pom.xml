@@ -133,6 +133,7 @@
   <properties>
     <cooking-assistance.api>${project.basedir}/../docs/cooking-assistance/api</cooking-assistance.api>
     <codegen.dir>${project.basedir}/../tools/codegen</codegen.dir>
+    <domain-line-coverage.skip>false</domain-line-coverage.skip>
   </properties>
 
   <build>
@@ -287,6 +288,50 @@
           </execution>
         </executions>
       </plugin>
+      <!-- QS-01: the fast suite covers at least 90 % of the domain's lines (step 12, increment 2) -->
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>0.8.13</version>
+        <executions>
+          <execution>
+            <id>agent-for-the-fast-suite</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+            <configuration>
+              <!-- each run measures itself: appending kept the coverage of earlier runs -->
+              <append>false</append>
+            </configuration>
+          </execution>
+          <execution>
+            <id>domain-line-coverage</id>
+            <phase>test</phase>
+            <goals>
+              <goal>report</goal>
+              <goal>check</goal>
+            </goals>
+            <configuration>
+              <skip>${domain-line-coverage.skip}</skip>
+              <rules>
+                <rule>
+                  <element>PACKAGE</element>
+                  <includes>
+                    <include>org.larder.cookingassistance.domain*</include>
+                  </includes>
+                  <limits>
+                    <limit>
+                      <counter>LINE</counter>
+                      <value>COVEREDRATIO</value>
+                      <minimum>0.90</minimum>
+                    </limit>
+                  </limits>
+                </rule>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <!-- slow suite: *IT classes on real infrastructure, run by ./mvnw verify (ADR0017) -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -302,4 +347,19 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <!-- QS-01 judges the whole fast suite: a run filtered with -Dtest measures only part of it -->
+    <profile>
+      <id>filtered-tests</id>
+      <activation>
+        <property>
+          <name>test</name>
+        </property>
+      </activation>
+      <properties>
+        <domain-line-coverage.skip>true</domain-line-coverage.skip>
+      </properties>
+    </profile>
+  </profiles>
 </project>
