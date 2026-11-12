@@ -380,7 +380,8 @@ public final class HelpRequest {
     }
   }
 
-  // INV-12: an answer proposes at least one substitute, each naming at least one ingredient
+  // INV-12: an answer proposes at least one substitute, each naming at least one ingredient with
+  // its amount
   private static void ensureSomethingProposed(Substitutes answer) {
     if (!answer.proposesSomething()) {
       throw new NoSubstituteProposed();

@@ -479,6 +479,83 @@ class HelpRequestIngredientTest {
   }
 
   @DisplayName(
+      "a substitute ingredient without a positive amount -> rejected with NoSubstituteProposed, rule INV-12, no Help, no event -- B2-S02 US-CA-02 INV-12 (step 13 D-3)")
+  @ParameterizedTest
+  @NullSource
+  @ValueSource(strings = {"0", "-1"})
+  void aSubstituteIngredientHasAPositiveAmount(String amount) {
+    HelpRequest request = lenasRequest("200 g, not available", Set.of(HelpProviderType.COMMUNITY));
+    request.pullEvents();
+    BigDecimal value = amount == null ? null : new BigDecimal(amount);
+
+    assertThatThrownBy(
+            () ->
+                request.provideHelp(
+                    HelpRequests.HELP_ID,
+                    HelpProvider.community(HelpRequests.JONAS),
+                    "Yogurt",
+                    new Substitutes(
+                        TOMATO_SOUP,
+                        List.of(
+                            new Substitute(
+                                CREME_FRAICHE,
+                                List.of(new SubstituteIngredient("yogurt", value, Unit.GRAM))))),
+                    MONDAY_19_00))
+        .isInstanceOfSatisfying(
+            NoSubstituteProposed.class,
+            rejected -> assertThat(rejected.rule()).isEqualTo("INV-12"));
+    assertThat(request.helps()).isEmpty();
+    assertThat(request.pullEvents()).isEmpty();
+  }
+
+  @DisplayName(
+      "a substitute ingredient without a unit -> rejected with NoSubstituteProposed, rule INV-12, no Help -- B2-S02 US-CA-02 INV-12 (step 13 D-3)")
+  @Test
+  void aSubstituteIngredientHasAUnit() {
+    HelpRequest request = lenasRequest("200 g, not available", Set.of(HelpProviderType.COMMUNITY));
+
+    assertThatThrownBy(
+            () ->
+                request.provideHelp(
+                    HelpRequests.HELP_ID,
+                    HelpProvider.community(HelpRequests.JONAS),
+                    "Yogurt",
+                    new Substitutes(
+                        TOMATO_SOUP,
+                        List.of(
+                            new Substitute(
+                                CREME_FRAICHE,
+                                List.of(
+                                    new SubstituteIngredient(
+                                        "yogurt", new BigDecimal("200"), null))))),
+                    MONDAY_19_00))
+        .isInstanceOfSatisfying(
+            NoSubstituteProposed.class,
+            rejected -> assertThat(rejected.rule()).isEqualTo("INV-12"));
+    assertThat(request.helps()).isEmpty();
+  }
+
+  @DisplayName(
+      "substitutes naming no recipe -> rejected with AnswerDoesNotMatchRequest, rule INV-37, no Help -- B2-S02 US-CA-02 INV-37 (step 13 D-3)")
+  @Test
+  void substitutesNameTheirRecipe() {
+    HelpRequest request = lenasRequest("200 g, not available", Set.of(HelpProviderType.COMMUNITY));
+
+    assertThatThrownBy(
+            () ->
+                request.provideHelp(
+                    HelpRequests.HELP_ID,
+                    HelpProvider.community(HelpRequests.JONAS),
+                    "Yogurt",
+                    new Substitutes(null, List.of(YOGURT)),
+                    MONDAY_19_00))
+        .isInstanceOfSatisfying(
+            AnswerDoesNotMatchRequest.class,
+            rejected -> assertThat(rejected.rule()).isEqualTo("INV-37"));
+    assertThat(request.helps()).isEmpty();
+  }
+
+  @DisplayName(
       "a preparation step explanation on an ingredient request -> rejected with AnswerDoesNotMatchRequest, rule INV-37 -- B2-S02 US-CA-02 INV-37")
   @Test
   void anExplanationDoesNotAnswerAnIngredientRequest() {
