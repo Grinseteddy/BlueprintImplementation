@@ -2,9 +2,11 @@
 
 Larder is a modular monolith. This repository holds its first module, **Cook Assistance**
 (`cooking-assistance`), and the thin host application that runs it (`larder-app`). A cook asks
-for help with a preparation step, and the community or the Grandma Avatar answers.
+for help with a preparation step or with an ingredient to substitute, and the community or the
+Grandma Avatar answers.
 
-Status: increment 0, the walking skeleton (user story US-CA-03, slices B3-S01 and B3-S02).
+Status: increment 2 (Board B2, user story US-CA-02) on top of increments 0 and 1 (Board B3,
+US-CA-03).
 The design documents are in [`docs/cooking-assistance/`](docs/cooking-assistance/).
 
 ## Build and test
@@ -16,12 +18,19 @@ build installs its own pinned Node.js for the generators and Spectral.
 |---|---|
 | `./mvnw test` | the fast suite, without containers |
 | `./mvnw verify` | everything: code generation from both specs, Spotless and Error Prone, the fast and slow suites (Testcontainers), Spectral lint of both specs (ADR0017, ADR0018) |
-| `python3 tools/coverage/intent_coverage.py docs/cooking-assistance/coverage/inventory-inc0.yaml .` | intent coverage after `verify`; exits 1 on a gap |
+| `python3 tools/coverage/intent_coverage.py docs/cooking-assistance/coverage/inventory-inc2.yaml .` | intent coverage after `verify`; exits 1 on a gap |
 | `./mvnw -Psecurity -DskipTests verify` | SpotBugs with FindSecBugs (the security CI job, ADR0019) |
+| `tools/contract/spec-compatibility.sh origin/main` | QS-15: a breaking change in either spec fails (oasdiff 1.34.1 on `PATH` or `OASDIFF=<binary>`, Node 24 for `@asyncapi/cli`, PyYAML); decided exceptions in `tools/contract/oasdiff-err-ignore.txt` (ADR0014) |
+| `./mvnw -Pload -pl load-tests gatling:test -DbaseUrl=… -Dtoken=… -DbrokerUser=… -DbrokerPassword=…` | QS-03 and QS-11: Gatling against a running service; for QS-11 seed the database first with `tools/load/seed-help-requests.sql` (see [`load.yml`](.github/workflows/load.yml)) |
 
-CI: [`verify.yml`](.github/workflows/verify.yml) on every push and pull request,
-[`security.yml`](.github/workflows/security.yml) weekly and on pull requests (SpotBugs +
-FindSecBugs, OWASP Dependency-Check; needs the repository secret `NVD_API_KEY`).
+CI: [`verify.yml`](.github/workflows/verify.yml) on every push and pull request (with the
+intent-coverage gate); [`security.yml`](.github/workflows/security.yml) weekly and on pull requests
+(SpotBugs + FindSecBugs, OWASP Dependency-Check; needs the repository secret `NVD_API_KEY`);
+[`contract.yml`](.github/workflows/contract.yml) (Schemathesis) and
+[`compatibility.yml`](.github/workflows/compatibility.yml) (QS-15) on pull requests;
+[`quality.yml`](.github/workflows/quality.yml) (fault injection, QS-04, QS-05) weekly and on demand;
+[`load.yml`](.github/workflows/load.yml) (QS-03, QS-11) weekly, on demand and on pull requests that
+change the load test.
 
 ## Run the host
 

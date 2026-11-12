@@ -26,7 +26,7 @@
 | example | US-CA-03 S3.E2 | 2 | acceptance, domain |
 | example | US-CA-03 S3.E3 | 2 | acceptance, domain |
 | example | US-CA-03 S3.E4 | 2 | acceptance, domain |
-| user story | US-CA-02 | 285 | acceptance, adapter, application, contract, domain, other, quality |
+| user story | US-CA-02 | 298 | acceptance, adapter, application, contract, domain, other, quality |
 | example | US-CA-02 R1.E1 | 2 | acceptance, domain |
 | example | US-CA-02 R1.E2 | 2 | acceptance, domain |
 | example | US-CA-02 R1.E3 | 3 | acceptance, application, domain |
@@ -62,7 +62,7 @@
 | rule | INV-09 | 34 | acceptance, adapter, application, domain, other |
 | rule | INV-10 | 15 | acceptance, adapter, application, domain, other |
 | rule | INV-11 | 43 | acceptance, adapter, application, contract, domain |
-| rule | INV-12 | 80 | acceptance, adapter, application, contract, domain, other |
+| rule | INV-12 | 93 | acceptance, adapter, application, contract, domain, other |
 | rule | INV-13 | 9 | acceptance, adapter, domain |
 | rule | INV-14 | 9 | acceptance, adapter, domain, other |
 | rule | INV-15 | 30 | acceptance, adapter, application, domain |
@@ -73,7 +73,7 @@
 | rule | INV-38 | 11 | acceptance, adapter, application, domain, other |
 | rule | INV-39 | 15 | acceptance, adapter, application, domain |
 | HTTP operation | createHelpRequest | 56 | adapter, contract |
-| HTTP operation | provideHelp | 49 | adapter, contract, domain |
+| HTTP operation | provideHelp | 50 | adapter, contract, domain |
 | HTTP operation | getHelpRequestById | 56 | adapter, contract, domain |
 | HTTP operation | listHelpRequests | 19 | adapter, contract |
 | HTTP operation | cancelHelpRequest | 27 | adapter, contract |

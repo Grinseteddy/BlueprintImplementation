@@ -3,7 +3,7 @@
 ## How this repository is built
 - Implemented with the `blueprint-service-implementation` pipeline, one increment at a time
   (increment 0 = walking skeleton US-CA-03; increment 1 = Board: Help with a preparation step;
-  next: increment 2 — Board: Help with ingredient substitution). The ledger is `docs/cooking-assistance/implementation-log.md`, with the journals in
+  increment 2 = Board: Help with ingredient substitution; next: increment 3 — Board: Help with a catastrophe). The ledger is `docs/cooking-assistance/implementation-log.md`, with the journals in
   `docs/cooking-assistance/ledger/`; the planned list is in the ledger.
 - Method: EXACT Coding (Predictive TDD), vendored in `.claude/skills/` at 88fb3f9, autonomy
   **full-hitl**: stop after the test list, after each Red, after each refactor (keep or undo)
@@ -16,7 +16,12 @@
 ## Commands
 - `./mvnw test` fast suite; `./mvnw verify` everything (generation, Spotless, Error Prone, fast
   and slow suites on Testcontainers, Spectral); work offline with `mvn -o`.
-- Intent coverage: `python3 tools/coverage/intent_coverage.py docs/cooking-assistance/coverage/inventory-inc1.yaml .`
+- Intent coverage: `python3 tools/coverage/intent_coverage.py docs/cooking-assistance/coverage/inventory-inc2.yaml .`
+- Spec compatibility (QS-15): `tools/contract/spec-compatibility.sh origin/main`; decided exceptions in
+  `tools/contract/oasdiff-err-ignore.txt` (ADR0014), removed with the next spec change.
+- Load (QS-03, QS-11): module `load-tests` under profile `load`, `./mvnw -Pload -pl load-tests gatling:test`
+  against a running service (see `.github/workflows/load.yml`); never while the slow suite runs.
+- The domain coverage gate (QS-01) is skipped on runs filtered with `-Dtest`.
 
 ## Layout
 - `cooking-assistance/`: hexagonal module (`domain`, `application`, `adapter.in.rest`,
