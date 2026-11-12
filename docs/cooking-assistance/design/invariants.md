@@ -127,7 +127,7 @@ Each asked provider has its own deadline. A provider's side times out alone, and
 
 #### INV-12 — US-CA-02 R3: An answer can propose several substitutes, each one ingredient or a mix with amounts; accepting one closes the whole request
 - **Slice / command:** B2-S02 · Provide Help · **kind:** cardinality
-- **Guard / outcome:** an answer proposes 1..* substitutes, each one ingredient or a mix with amounts; every ingredient of a substitute has a name, a blank name is refused like no substitute *(step 3 r13, 2026-11-09, step 6 of increment 2, decided by the user)*
+- **Guard / outcome:** an answer proposes 1..* substitutes, each one ingredient or a mix with amounts; every ingredient of a substitute has a name, a blank name is refused like no substitute *(step 3 r13, 2026-11-09, step 6 of increment 2, decided by the user)*; every substitute ingredient has a name and a positive amount in a unit *(step 3 r18, 2026-11-12, step 13 of increment 2; as both specs require)*; the amount is at most 10,000, with at most 3 decimal places *(step 3 r19, 2026-11-12, step 14 of increment 2, SEC-20, decided by the user)*
 - **Sources:** map R3 (E1–E3); glossary substitutes 1..*, substitute ingredient Name/Unit/Value
   - `US-CA-02 R3.E1` **Given/When** Grandma proposes yogurt, quark, sour cream; Lena takes yogurt **Then** closed
   - `US-CA-02 R3.E2` **Given/When** Jonas proposes yogurt, Mia mascarpone; Lena takes Jonas's **Then** closed
@@ -145,7 +145,7 @@ Each asked provider has its own deadline. A provider's side times out alone, and
 - **Guard / outcome:** not accepted: stays open, same providers, new deadline = + 24 h
 - **Sources:** map (photo; graph mislinks to US-CA-03 R5)
   - `US-CA-02 R4.E1` **Given/When** Lena doesn't accept Grandma's sour cream, Mon 11:00 **Then** sent again, deadline Tue 11:00
-  - `US-CA-02 R4.E2` **Given/When** Jonas: "no good substitute for saffron" **Then** not accepted, stays open
+  - `US-CA-02 R4.E2` **Given/When** Jonas: "no good substitute for saffron", and proposes the closest he knows (1 g turmeric) **Then** not accepted, stays open *(step 3 r17, 2026-11-12, step 13 of increment 2: an answer always proposes a substitute, INV-12)*
   - `US-CA-02 R4.E3` **Given/When** Both asked, nothing accepted **Then** sent again to both
 
 #### INV-15 — US-CA-02 R5: Rejected substitutes are kept as notes and not proposed again, now or later

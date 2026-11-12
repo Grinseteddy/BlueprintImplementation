@@ -1,6 +1,6 @@
 # Contract run of the running service against the approved OpenAPI spec with Schemathesis
 # (step 12, increment 1): on pull requests and on demand, capped in time, never in `verify`.
-# Every operation of OpenAPI 1.0.15 is built; when the spec gains an unbuilt one, limit the run
+# Every operation of OpenAPI 1.0.16 is built; when the spec gains an unbuilt one, limit the run
 # with --include-operation-id. Exclusions are in tools/contract/schemathesis.toml, each commented.
 name: contract
 

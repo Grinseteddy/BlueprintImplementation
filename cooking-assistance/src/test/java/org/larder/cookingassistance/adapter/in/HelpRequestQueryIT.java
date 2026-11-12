@@ -953,7 +953,7 @@ class HelpRequestQueryIT {
   }
 
   @DisplayName(
-      "Lena rejected mascarpone on an earlier request; on her later request Jonas proposes mascarpone -> 201, the note is only shown -- B2-S02 US-CA-02 INV-15 S4 op provideHelp")
+      "Lena rejected mascarpone on an earlier request; on her later request Jonas proposes mascarpone -> 201, the note is only shown -- B2-S02 US-CA-02 INV-15 R5.E3 S4 op provideHelp")
   @Test
   void aLaterRequestDoesNotRefuseTheRejectedSubstitute() throws Exception {
     HelpRequest earlier = HelpRequests.lenaAsksForASubstitute(HelpProviderType.GRANDMA_AVATAR);

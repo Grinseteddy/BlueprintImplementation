@@ -15,6 +15,11 @@ public record Substitute(
         && substituteIngredients.stream().allMatch(SubstituteIngredient::hasName);
   }
 
+  /** Every ingredient with its amount (INV-12). */
+  boolean givesAmounts() {
+    return substituteIngredients.stream().allMatch(SubstituteIngredient::hasAmount);
+  }
+
   /**
    * The same substitute: the same ingredient names, whatever the amounts, case or outer space
    * (INV-15, S3).

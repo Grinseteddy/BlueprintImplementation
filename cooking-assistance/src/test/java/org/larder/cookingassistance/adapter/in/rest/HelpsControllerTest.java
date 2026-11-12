@@ -21,6 +21,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.larder.cookingassistance.application.fakes.InMemoryHelpRequestRepository;
 import org.larder.cookingassistance.domain.helprequest.CookId;
 import org.larder.cookingassistance.domain.helprequest.HelpAnswer;
@@ -509,6 +510,30 @@ class HelpsControllerTest {
     lenasIngredientRequestIsStored();
 
     expectValidationFailed(proposing(substitute("yogurt", "0", "GRAM")));
+  }
+
+  @DisplayName(
+      "an amount above 10,000 (maximum) -> 400 VALIDATION_FAILED, no Help: 1e1500 would break every later read of the request, 1e400 its published event -- B2-S02 US-CA-02 INV-12 SEC-20 SEC-21 OWASP-API4 OWASP-A08 op provideHelp")
+  @ParameterizedTest
+  @ValueSource(strings = {"10000.001", "1e400", "1e1500"})
+  void anAmountAboveTheMaximumIsRejected(String amount) throws Exception {
+    lenasIngredientRequestIsStored();
+
+    expectValidationFailed(proposing(substitute("yogurt", amount, "GRAM")));
+  }
+
+  @DisplayName(
+      "an amount with 4 decimal places (the schema allows it) -> 422 VALIDATION_FAILED, rule INV-12, no Help -- B2-S02 US-CA-02 INV-12 SEC-20 (step 3 r19) op provideHelp")
+  @Test
+  void anAmountWithMoreThanThreeDecimalPlacesIsARuleViolation() throws Exception {
+    lenasIngredientRequestIsStored();
+
+    expectRejection(
+        JONAS_AS_COMMUNITY,
+        proposing(substitute("yogurt", "0.0001", "KILOGRAM")),
+        422,
+        "VALIDATION_FAILED",
+        "INV-12");
   }
 
   @DisplayName(

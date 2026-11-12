@@ -1,5 +1,12 @@
 # Cook Assistance API — changelog
 
+## OpenAPI 1.0.16 and AsyncAPI 1.0.12 — 2026-11-12 (step 4 r23, from step 14 of increment 2)
+
+| Change | Why |
+|---|---|
+| `SubstituteIngredient.value` gets `maximum: 10000`; its description adds "at most 10,000, with at most 3 decimal places" | SEC-20, SEC-21, SEC-22: an unbounded amount (`1e1500`) broke every later read of its request; amounts above `Double.MAX` broke the published event. Narrower — breaking for a client that sent larger amounts; no external client yet (ADR0014 addition) |
+| `version` header accepts 1.0.16 (OpenAPI) | |
+
 ## AsyncAPI 1.0.11 — 2026-11-11 (step 4 r22, from step 12 of increment 2)
 
 | Change | Why |
