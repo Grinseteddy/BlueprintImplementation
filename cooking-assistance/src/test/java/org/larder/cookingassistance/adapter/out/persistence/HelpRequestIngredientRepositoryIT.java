@@ -407,6 +407,20 @@ class HelpRequestIngredientRepositoryIT {
   }
 
   @DisplayName(
+      "the V9 migration indexes help_request by (requester, id): the earlier-notes query reads one cook's history, not every older request -- B3-S05 US-CA-02 INV-15 QS-11 (step 7, sent back from step 12)")
+  @Test
+  void v9IndexesRequestsByRequester() {
+    List<String> indexes =
+        jdbc.sql(
+                "select indexdef from pg_indexes"
+                    + " where schemaname = 'cooking_assistance' and tablename = 'help_request'")
+            .query(String.class)
+            .list();
+
+    assertThat(indexes).anyMatch(index -> index.contains("(requester, id)"));
+  }
+
+  @DisplayName(
       "an ingredient request is found again with its ingredient name \"creme fraiche\" -- B2-S01 US-CA-02 INV-11")
   @Test
   void theIngredientNameRoundTrips() {
