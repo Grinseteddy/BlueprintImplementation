@@ -1,7 +1,7 @@
 asyncapi: 3.0.0
 info:
   title: Cooking Assistance
-  version: 1.0.10
+  version: 1.0.11
   description: |
     Event-driven API of the Cooking Assistance bounded context. It provides help
     for cooks in planning and preparation of meals and dinners: cooks create help
@@ -443,6 +443,34 @@ components:
               recipe: 7cf09822-77a1-46bb-812f-b7852bca0913
               howToStep: 65610dee-fb83-4341-a730-26a4a99a621a
               description: Add the butter in a thin stream
+        - name: grandmaProposesSubstitutes
+          summary: Grandma proposes yogurt, quark or sour cream for the crème fraîche
+          headers:
+            correlationId: 4c2e9b17-6a3d-4f8e-b1c5-2d7a9e0f3b21
+            messageId: 9e0f1a2b-3c4d-4e5f-9a6b-7c8d9e0f1a88
+            source: grandma-avatar
+          payload:
+            helpRequest: 23a8eeed-35f6-460b-892e-7bb458a8fded
+            answerTitle: Grandma's ideas
+            answer:
+              answerType: INGREDIENT_SUBSTITUTE
+              recipe: 3f0a6c1e-2b7d-4d9a-9c41-6a1f0e7b2c10
+              substitute:
+                - ingredient: 8956b2e5-8d0c-470e-ae9c-6071bd7c5b0d
+                  substituteIngredients:
+                    - name: yogurt
+                      value: 200
+                      unit: GRAM
+                - ingredient: 8956b2e5-8d0c-470e-ae9c-6071bd7c5b0d
+                  substituteIngredients:
+                    - name: quark
+                      value: 200
+                      unit: GRAM
+                - ingredient: 8956b2e5-8d0c-470e-ae9c-6071bd7c5b0d
+                  substituteIngredients:
+                    - name: sour cream
+                      value: 200
+                      unit: GRAM
 
   schemas:
     # Headers of the Grandma Avatar's answers: only the Grandma Avatar sends them.

@@ -1,0 +1,114 @@
+# Load run of the running service with Gatling (step 12, increment 2): QS-03 on an empty database,
+# then QS-11 on three years of seeded requests. On demand, weekly, and on pull requests that change
+# the load test itself; capped in time, never in `verify`. One runner, not production: the results
+# are indicative.
+name: load
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 1"
+  pull_request:
+    paths:
+      - load-tests/**
+      - tools/load/**
+      - .github/workflows/load.yml
+
+permissions:
+  contents: read
+
+jobs:
+  gatling:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: contract
+          POSTGRES_DB: larder
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 20
+      rabbitmq:
+        image: rabbitmq:3.13-management-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: contract
+          RABBITMQ_DEFAULT_PASS: contract
+        ports:
+          - 5672:5672
+          - 15672:15672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q check_port_connectivity" --health-interval 5s
+          --health-retries 30
+    env:
+      LARDER_DB_URL: jdbc:postgresql://localhost:5432/larder
+      LARDER_DB_USERNAME: postgres
+      LARDER_DB_PASSWORD: contract
+      LARDER_BROKER_HOST: localhost
+      LARDER_BROKER_PORT: "5672"
+      LARDER_BROKER_USERNAME: contract
+      LARDER_BROKER_PASSWORD: contract
+      LARDER_BROKER_SSL: "false"
+      LARDER_JWKS_URI: http://localhost:8090/jwks.json
+      LARDER_PUBLIC_BASE_URL: http://localhost:8080
+      GATLING: >-
+        ./mvnw -B -Pload -pl load-tests gatling:test
+        -DbaseUrl=http://localhost:8080 -DbrokerHost=localhost
+        -DbrokerUser=contract -DbrokerPassword=contract
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Build the service
+        run: ./mvnw -B -DskipTests package
+      - name: The Grandma Avatar's exchange, owned by another context
+        run: >-
+          curl -sf -u "$LARDER_BROKER_USERNAME:$LARDER_BROKER_PASSWORD" -X PUT -H 'content-type: application/json'
+          -d '{"type":"topic","durable":true}'
+          http://localhost:15672/api/exchanges/%2F/grandma-avatar
+      - name: A throw-away test identity (never used by a deployed service, ADR0012)
+        run: |
+          pip install --quiet pyjwt==2.10.1 cryptography==45.0.7
+          python3 tools/contract/test_identity.py identity > token.txt
+          (cd identity && nohup python3 -m http.server 8090 > /dev/null 2>&1 &)
+      - name: Start the service
+        run: |
+          nohup java -jar larder-app/target/larder-app-0.1.0-SNAPSHOT.jar --server.port=8080 > service.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:8081/actuator/health/readiness > /dev/null && exit 0
+            sleep 2
+          done
+          cat service.log
+          exit 1
+      # consumers bind queues in production; without one per send channel every event is returned
+      # (mandatory) and the outbox never drains
+      - name: One queue per send channel, standing in for the consumers
+        run: |
+          for key in help-request.created help.provided help.accepted help.rejected help-request.cancelled help-request.timed-out; do
+            curl -sf -u "$LARDER_BROKER_USERNAME:$LARDER_BROKER_PASSWORD" -X PUT -H 'content-type: application/json' \
+              -d '{"durable":false}' http://localhost:15672/api/queues/%2F/load.$key
+            curl -sf -u "$LARDER_BROKER_USERNAME:$LARDER_BROKER_PASSWORD" -X POST -H 'content-type: application/json' \
+              -d "{\"routing_key\":\"cooking-assistance.$key\"}" \
+              http://localhost:15672/api/bindings/%2F/e/cooking-assistance/q/load.$key
+          done
+      - name: QS-03 on an empty database
+        run: $GATLING -Dtoken="$(cat token.txt)"
+      - name: Three years of help requests (QS-11)
+        run: >-
+          PGPASSWORD=contract psql -h localhost -U postgres -d larder -v ON_ERROR_STOP=1 -q
+          -f tools/load/seed-help-requests.sql
+      - name: QS-11 on the seeded database
+        run: $GATLING -Dtoken="$(cat token.txt)"
+      - name: Gatling reports and service log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: load-report
+          path: |
+            load-tests/target/gatling/
+            service.log

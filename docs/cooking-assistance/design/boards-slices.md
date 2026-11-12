@@ -145,6 +145,12 @@ Shared slices (B3-S03 to S06) are built in increment 1. Each later board adds it
 - providers
 - multiple substitutes
 
+### User stories (as written, from the domain knowledge graph; step 1 r1, 2026-11-12)
+
+The feature files' `Feature:` lines quote these word for word.
+- **US-CA-03:** As a Cook, I want to ask a help provider for Help with a Meal Preparation Step, so that I can complete a preparation step I'm unsure about.
+- **US-CA-02:** As a Cook, I want to ask a help provider for Help with Ingredients, so that I can still cook when an ingredient is missing or doesn't suit my guests.
+
 ### User stories (split of US-CA-01, accepted 2026-10-31)
 
 US-CA-01 is split along its Example Map rules. The parent's "so that" is kept verbatim.

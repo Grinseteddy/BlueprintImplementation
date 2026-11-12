@@ -1,0 +1,32 @@
+# Intent inventory of increment 2 (Board B2, US-CA-02, slices B2-S01 and B2-S02, with B3-S03 to B3-S06
+# reused), cumulative with increment 1 (Board B3, US-CA-03).
+# Every active item needs at least one passing, active test tracing it; planned items name their increment.
+# Quality scenarios verified outside `verify`'s tests are not listed here: QS-04 and QS-05 by the quality
+# job (BrokerOutageIT, DatabaseOutageIT); QS-01 by this gate (examples) and the JaCoCo gate of
+# cooking-assistance's `test` phase (domain lines), its fast-suite time observed, not gated; QS-03 and
+# QS-11 by the load job (load.yml, Gatling); QS-15 by the compatibility job (compatibility.yml); QS-16
+# observed from the verify job's duration, not gated. QS-12 and QS-13 have no slice yet: they are on the
+# planned list (step 1), without an increment.
+user_stories:
+  US-CA-03:
+    examples: [R1.E1, R1.E2, R1.E3, R1.E4, R2.E1, R2.E2, R2.E3, R3.E1, R4.E1, R4.E2, R4.E3, R4.E4,
+      R5.E1, R5.E2, R6.E1, R7.E1, R7.E2, R8.E1, R8.E2, R8.E3, R8.E4, S3.E1, S3.E2, S3.E3, S3.E4]
+  US-CA-02:
+    examples: [R1.E1, R1.E2, R1.E3, R1.E4, R2.E1, R2.E2, R2.E3, R3.E1, R3.E2, R3.E3, R3.E4, R3.E5,
+      R4.E1, R4.E2, R4.E3, R5.E1, R5.E2, R5.E3, R6.E1, R6.E2, R7.E1, R7.E2, R7.E3, R7.E4]
+rules: [INV-01, INV-02, INV-03, INV-04, INV-05, INV-06, INV-07, INV-08, INV-09, INV-10, INV-11, INV-12,
+  INV-13, INV-14, INV-15, INV-16, INV-17, INV-36, INV-37, INV-38, INV-39]
+http_operations: [createHelpRequest, provideHelp, getHelpRequestById, listHelpRequests, cancelHelpRequest,
+  listHelpsOfHelpRequest, getHelpOfHelpRequest, acceptHelp, rejectHelp, listHelps]
+send_operations: [publishHelpRequestCreated, publishHelpProvided, publishHelpAccepted, publishHelpRejected,
+  publishHelpRequestCancelled, publishHelpRequestTimedOut]
+receive_operations: [consumeGrandmaHelpProvided]
+domain_events:
+  # domain event: the tokens that trace it (its AsyncAPI message is named differently or the same)
+  HelpRequested: [HelpRequested, HelpRequestCreated, publishHelpRequestCreated]
+  HelpProvided: [HelpProvided, publishHelpProvided]
+  HelpAccepted: [HelpAccepted, publishHelpAccepted]
+  HelpRejected: [HelpRejected, publishHelpRejected]
+  HelpRequestCancelled: [HelpRequestCancelled, publishHelpRequestCancelled]
+  HelpRequestTimedOut: [HelpRequestTimedOut, publishHelpRequestTimedOut]
+quality_scenarios: [QS-02, QS-07, QS-08, QS-09, QS-10, QS-14]

@@ -141,8 +141,15 @@
     </plugins>
   </build>
 
-  <!-- ADR0019 review tools, run by the security CI job (.github/workflows/security.yml), not by verify -->
   <profiles>
+    <!-- QS-03, QS-11: the load run against a running service, CI job load.yml (step 12, increment 2) -->
+    <profile>
+      <id>load</id>
+      <modules>
+        <module>load-tests</module>
+      </modules>
+    </profile>
+    <!-- ADR0019 review tools, run by the security CI job (.github/workflows/security.yml), not by verify -->
     <profile>
       <id>security</id>
       <build>

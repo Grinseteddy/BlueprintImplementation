@@ -14,7 +14,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.larder.LarderApplication;
 import org.larder.acceptance.AcceptanceInfrastructure;
+import org.larder.acceptance.DatabaseReset;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
+import org.larder.cookingassistance.domain.helprequest.HelpRequest;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestRepository;
 import org.larder.cookingassistance.fixtures.Eventually;
 import org.larder.cookingassistance.fixtures.HelpRequests;
@@ -78,14 +80,52 @@ class AsyncApiContractIT {
         Duration.ofSeconds(10), () -> assertThat(messageCount(DEAD_LETTERS)).isEqualTo(1));
   }
 
+  @DisplayName(
+      "D2b the GrandmaHelpProvided example with substitutes is acked (nothing pending, nothing dead-lettered); without its first required field it is dead-lettered -- B2-S02 US-CA-02 INV-12 op consumeGrandmaHelpProvided (step 4 r22)")
+  @Test
+  void substitutesExampleIsAcceptedAndBrokenOneDeadLettered() throws Exception {
+    JsonNode spec = asyncApi();
+    JsonNode example = null;
+    for (JsonNode candidate : spec.at("/components/messages/grandmaHelpProvided/examples")) {
+      if ("grandmaProposesSubstitutes".equals(candidate.path("name").asText())) {
+        example = candidate;
+      }
+    }
+    assertThat(example).as("example grandmaProposesSubstitutes").isNotNull();
+    String firstRequired =
+        spec.at("/components/schemas/GrandmaHelpProvidedPayload/required").get(0).asText();
+    theRequestTheExampleAnswersIsStored(
+        HelpRequests.lenaAsksForASubstitute(HelpProviderType.GRANDMA_AVATAR));
+    admin.purgeQueue(DEAD_LETTERS, false);
+
+    publish(example.get("headers"), example.get("payload"));
+
+    Eventually.within(
+        Duration.ofSeconds(10),
+        () ->
+            assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().helps())
+                .hasSize(1));
+    assertThat(messageCount(QUEUE)).isZero();
+    assertThat(messageCount(DEAD_LETTERS)).isZero();
+
+    ObjectNode broken = example.get("payload").deepCopy();
+    broken.remove(firstRequired);
+    ObjectNode otherMessage = example.get("headers").deepCopy();
+    otherMessage.put("messageId", "8293b4c5-c6d7-4e8f-9012-7d8e9fa0b1c3");
+    publish(otherMessage, broken);
+
+    Eventually.within(
+        Duration.ofSeconds(10), () -> assertThat(messageCount(DEAD_LETTERS)).isEqualTo(1));
+  }
+
   private void theRequestTheExampleAnswersIsStored() {
-    jdbc.sql("delete from cooking_assistance.processed_message").update();
-    jdbc.sql("delete from cooking_assistance.outbox").update();
-    jdbc.sql("delete from cooking_assistance.help_request_note").update();
-    jdbc.sql("delete from cooking_assistance.help").update();
-    jdbc.sql("delete from cooking_assistance.asked_provider").update();
-    jdbc.sql("delete from cooking_assistance.help_request").update();
-    helpRequests.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR));
+    theRequestTheExampleAnswersIsStored(
+        HelpRequests.lenaAsksAboutStep4(HelpProviderType.GRANDMA_AVATAR));
+  }
+
+  private void theRequestTheExampleAnswersIsStored(HelpRequest request) {
+    DatabaseReset.emptyAllTables(jdbc);
+    helpRequests.save(request);
   }
 
   /** The test plays the Grandma Avatar context: it owns the grandma-avatar exchange. */

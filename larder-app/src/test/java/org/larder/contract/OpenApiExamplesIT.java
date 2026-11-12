@@ -3,14 +3,17 @@ package org.larder.contract;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.larder.LarderApplication;
 import org.larder.acceptance.AcceptanceInfrastructure;
+import org.larder.acceptance.DatabaseReset;
 import org.larder.cookingassistance.domain.helprequest.CookId;
 import org.larder.cookingassistance.fixtures.HelpRequests;
 import org.larder.cookingassistance.fixtures.TestSigningKeys;
 import org.larder.cookingassistance.fixtures.TestTokens;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -18,6 +21,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.web.client.RestClient;
 
 /**
@@ -33,7 +37,15 @@ class OpenApiExamplesIT {
   @Value("${local.server.port}")
   int port;
 
+  @Autowired JdbcClient jdbc;
+
   final OpenApiDocument spec = new OpenApiDocument();
+
+  /** Each check sees only what it creates, whatever order the methods run in. */
+  @BeforeEach
+  void emptyTables() {
+    DatabaseReset.emptyAllTables(jdbc);
+  }
 
   private ResponseEntity<String> send(
       HttpMethod method, String path, CookId cook, String roles, String body) {
@@ -185,5 +197,43 @@ class OpenApiExamplesIT {
         send(HttpMethod.GET, "/helps", HelpRequests.JONAS, "cook,community", null),
         200,
         "HelpPage");
+  }
+
+  @DisplayName(
+      "D6 createHelpRequest example ingredientSubstitute -> 201 HelpRequestLink; provideHelp example substitutes on that request -> 201 HelpLink; getHelpRequestById -> 200 HelpRequest, getHelpOfHelpRequest -> 200 Help; each body valid against the spec -- B2-S01,B2-S02 US-CA-02 INV-11 INV-12 op createHelpRequest,provideHelp,getHelpRequestById,getHelpOfHelpRequest (step 4 r22)")
+  @Test
+  void ingredientExamplesAreAnsweredAsSpecified() throws Exception {
+    ResponseEntity<String> created =
+        send(
+            HttpMethod.POST,
+            "/help-requests",
+            HelpRequests.LENA,
+            "cook",
+            spec.requestBodyExample("HelpRequestCreateRequest", "ingredientSubstitute"));
+    answeredAsSpecified(created, 201, "HelpRequestLink");
+    String id = new ObjectMapper().readTree(created.getBody()).get("helpRequestId").asText();
+    ResponseEntity<String> provided =
+        send(
+            HttpMethod.POST,
+            "/help-requests/" + id + "/helps",
+            HelpRequests.JONAS,
+            "cook,community",
+            spec.requestBodyExample("HelpCreateRequest", "substitutes"));
+    answeredAsSpecified(provided, 201, "HelpLink");
+    String link = new ObjectMapper().readTree(provided.getBody()).get("helpLink").asText();
+
+    answeredAsSpecified(
+        send(HttpMethod.GET, "/help-requests/" + id, HelpRequests.JONAS, "cook,community", null),
+        200,
+        "HelpRequest");
+    answeredAsSpecified(
+        send(
+            HttpMethod.GET,
+            "/help-requests/" + id + "/helps/" + link.substring(link.lastIndexOf('/') + 1),
+            HelpRequests.LENA,
+            "cook",
+            null),
+        200,
+        "Help");
   }
 }

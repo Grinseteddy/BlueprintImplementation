@@ -1,0 +1,35 @@
+# QS-15 (step 12, increment 2): on every pull request, a breaking change in the OpenAPI or AsyncAPI
+# spec against the base branch fails; additive changes pass. Breaking changes only as a new major
+# version with six months' deprecation (quality scenario QS-15).
+name: compatibility
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  spec-diff:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+      # @asyncapi/cli 6.2.2 needs Node 24
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+      - name: oasdiff 1.34.1 (checksum of the release)
+        run: |
+          curl -sSLo oasdiff.tar.gz https://github.com/oasdiff/oasdiff/releases/download/v1.34.1/oasdiff_1.34.1_linux_amd64.tar.gz
+          echo "75775f65b0adebd26a8e013af51a799342dfdc6262d89efa9e3b7bdf89657d90  oasdiff.tar.gz" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/oasdiff" && tar -xzf oasdiff.tar.gz -C "$RUNNER_TEMP/oasdiff"
+          pip install --quiet pyyaml==6.0.2
+      - name: No breaking change against the base branch
+        env:
+          OASDIFF: ${{ runner.temp }}/oasdiff/oasdiff
+          BASE_REF: origin/${{ github.base_ref || 'main' }}
+        run: tools/contract/spec-compatibility.sh "$BASE_REF"

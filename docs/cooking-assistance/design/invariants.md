@@ -115,7 +115,7 @@ Each asked provider has its own deadline. A provider's side times out alone, and
   - `US-CA-02 R1.E1` **Given/When** Lena asks Grandma for a crème fraîche substitute **Then** Grandma receives it
   - `US-CA-02 R1.E2` **Given/When** Lena asks the Community and Grandma together **Then** both get the same request
   - `US-CA-02 R1.E3` **Given/When** Tom (free plan) asks the Community **Then** request sent
-  - `US-CA-02 R1.E4` **Given/When** Lena looks for help providers **Then** Chef Marco not offered
+  - `US-CA-02 R1.E4` **Given/When** Lena asks chef Marco for a substitute **Then** the request is refused (a chef never helps with ingredients); nobody receives it *(reworded in step 3 r16, 2026-11-12, step 12 of increment 2: offering providers is the client's part, as in US-CA-03 R1.E4, r2)*
 
 #### INV-11 — US-CA-02 R2: A request covers one ingredient in any recipe, with its substitute requirements
 - **Slice / command:** B2-S01 · Request help ingredients · **kind:** cardinality
@@ -154,7 +154,7 @@ Each asked provider has its own deadline. A provider's side times out alone, and
 - **Sources:** map
   - `US-CA-02 R5.E1` **Given/When** Lena rejects mascarpone, too heavy **Then** note "mascarpone – too heavy"
   - `US-CA-02 R5.E2` **Given/When** Request sent again **Then** Community sees note, no mascarpone
-  - `US-CA-02 R5.E3` **Given/When** Next week: crème fraîche in mushroom sauce **Then** note carried over, no mascarpone
+  - `US-CA-02 R5.E3` **Given/When** Next week: crème fraîche in mushroom sauce **Then** note carried over; a proposed mascarpone is not refused (S4) *(step 3 r16, 2026-11-12: "no mascarpone" contradicted S4, step 3 r12)*
 
 #### INV-16 — US-CA-02 R6: The Cook can cancel an open request at any time, with an optional note
 - **Slice / command:** B3-S03 · Cancel help request · **kind:** other
