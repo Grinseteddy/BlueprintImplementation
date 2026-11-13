@@ -97,7 +97,7 @@ Kinds: *quantitative* and *cardinality* rules get a property test in step 6.
 
 #### INV-39 — added in step 3 r5: A rejected answer is never accepted later
 - **Slice / command:** B3-S04 · Accept help (and B3-S05 · Reject help, which marks the answer) · **kind:** other
-- **Guard / outcome:** rejecting an answer marks it rejected; accepting or rejecting it again → HelpAlreadyRejected
+- **Guard / outcome:** rejecting an answer marks it rejected; accepting or rejecting it again → HelpAlreadyRejected; after a rejection the request is Open again: the other answers are set aside and cannot be accepted until a new answer arrives (Answered); then any answer not rejected can be accepted *(step 3 r20, 2026-11-12, readiness gate of increment 3, O-7 from step 14 of increment 2, decided by the user)*
 - **Sources:** decision by the user at the increment 1 test list (2026-11-03), from INV-06 (a rejected answer "didn't work")
   - `US-CA-03 S3.E4` **Given/When** Lena rejected Grandma's answer ("warm water didn't help"); Grandma answers again; Lena tries to accept the first answer **Then** refused, that answer was rejected
 
@@ -183,7 +183,7 @@ Each asked provider has its own deadline. A provider's side times out alone, and
   - `US-CA-04 R1.E1` **Given/When** Sat 18:40, Lena asks Grandma about her burnt roast chicken **Then** Grandma receives it
   - `US-CA-04 R1.E2` **Given/When** Lena asks the Community and Grandma together **Then** both get the same request
   - `US-CA-04 R1.E3` **Given/When** Tom (free plan) asks about his collapsed soufflé **Then** request sent
-  - `US-CA-04 R1.E4` **Given/When** Lena looks for help providers **Then** Chef Marco not offered
+  - `US-CA-04 R1.E4` **Given/When** Lena asks chef Marco about her burnt roast chicken **Then** the request is refused (a chef never helps with a catastrophe); nobody receives it *(reworded in step 3 r20, 2026-11-12, readiness gate of increment 3: offering providers is the client's part, as US-CA-03 r2 and US-CA-02 r16)*
 
 #### INV-19 — US-CA-04 R2: A request describes one catastrophe with one dish; a recipe can be given
 - **Slice / command:** B4-S01 · Request help Catastrophe · **kind:** cardinality
@@ -202,7 +202,7 @@ Each asked provider has its own deadline. A provider's side times out alone, and
 
 #### INV-21 — US-CA-04 R4: Community members are notified of every request sent to the Community
 - **Slice / command:** policy → Notification · (Help requested published) · **kind:** other
-- **Guard / outcome:** every request sent to the Community notifies Community members — cross-context policy, staleness: seconds; compensation: none (notification only)
+- **Guard / outcome:** every request sent to the Community notifies Community members — cross-context policy, staleness: seconds; compensation: none (notification only); a request that asks only the Grandma Avatar notifies nobody in the Community (Q1, step 3 r20); this context's part: HelpRequestCreated names the asked providers; the notification itself is the Notification context's (planned list, other owner)
 - **Sources:** map; board 'Cook notified'; red card Q1 deferred → increment 3
   - `US-CA-04 R4.E1` **Given/When** Lena asks the Community at 18:40 **Then** Jonas and Mia notified at 18:40
 
@@ -222,9 +222,9 @@ Each asked provider has its own deadline. A provider's side times out alone, and
 
 #### INV-24 — US-CA-04 R7: Notes are kept and shown on future requests
 - **Slice / command:** read model · (notes) · **kind:** other
-- **Guard / outcome:** notes are shown on future catastrophe requests — as INV-07
+- **Guard / outcome:** notes are shown on future catastrophe requests — as INV-07: the notes of the cook's earlier catastrophe requests with the same recipe; without a recipe nothing carries over *(step 3 r21, 2026-11-12, step 6 of increment 3, decided by the user: a catastrophe request has no dish of its own)*
 - **Sources:** map
-  - `US-CA-04 R7.E1` **Given/When** Next month: burnt roast chicken again **Then** note "still tastes smoky" shown
+  - `US-CA-04 R7.E1` **Given/When** Next month: burnt roast chicken again, with the recipe "Roast chicken" **Then** note "still tastes smoky" shown *(step 3 r21: the recipe names the dish)*
 
 #### INV-25 — US-CA-04 R8: The Cook can cancel an open request at any time, with an optional note
 - **Slice / command:** B3-S03 · Cancel help request · **kind:** other
@@ -234,7 +234,7 @@ Each asked provider has its own deadline. A provider's side times out alone, and
 
 #### INV-26 — US-CA-04 R9: Unanswered: cancelled after 15 min (Community) or 5 min (Grandma); a provider not yet asked is suggested
 - **Slice / command:** B3-S06 · Time out help request · **kind:** quantitative
-- **Guard / outcome:** deadline per provider (Community 15 min, Grandma 5 min); a provider's side times out alone; the request times out when every asked provider has; suggest a provider not yet asked
+- **Guard / outcome:** deadline per provider (Community 15 min, Grandma 5 min); a provider's side times out alone — a time-out pass marks every side whose deadline has passed as timed out, with no event of its own *(step 3 r21, 2026-11-12, step 6 of increment 3, decided by the user)*; the request times out when every asked provider has; suggest a provider not yet asked
 - **Sources:** map (E3 shows per-provider state)
   - `US-CA-04 R9.E1` **Given/When** Only Community asked 18:40, silent until 18:55 **Then** cancelled, Grandma suggested
   - `US-CA-04 R9.E2` **Given/When** Only Grandma asked 18:40, silent until 18:45 **Then** cancelled, Community suggested
@@ -332,7 +332,7 @@ Each asked provider has its own deadline. A provider's side times out alone, and
 | US-CA-03 Q1 | Notes shown only for the same step of the same recipe, or for any request about the same technique? | INV-07 | increment 1 readiness gate |
 | US-CA-02 Q1 | If both providers stay silent, should Lena be offered anything? | INV-17 | answered: no, she is only told; the request stays as it is *(step 3 r11, 2026-11-08, readiness gate of increment 2, decided by the user)* |
 | B2 pictures | May an ingredient request or answer carry pictures? (map silent) | INV-11/12 | answered: no, neither *(step 3 r11, 2026-11-08, readiness gate of increment 2, decided by the user)* |
-| US-CA-04 Q1 | Is the Community also notified when only Grandma was asked? | INV-21 | increment 3 |
+| US-CA-04 Q1 | Is the Community also notified when only Grandma was asked? | INV-21 | answered: no — only a request that asks the Community notifies its members *(step 3 r20, 2026-11-12, readiness gate of increment 3, decided by the user)* |
 | US-CA-01 Q1 | Must the Chef's Menu respect the Occasion's dietary needs and budget? | INV-32 | increment 4 |
 | US-CA-01 Q2 | May a reset push the deadline past the Occasion? | INV-34, INV-35 | increment 4 |
 | Course bound | Menu course 1..10 (glossary) — upper bound unconfirmed by the map | INV-32 | increment 4 (example needed) |
