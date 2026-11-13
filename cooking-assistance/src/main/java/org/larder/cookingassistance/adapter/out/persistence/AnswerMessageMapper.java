@@ -33,6 +33,9 @@ final class AnswerMessageMapper {
               substitutes.recipe().value(),
               substitutes.substitute().stream().map(AnswerMessageMapper::substitute).toList(),
               null);
+      // placeholder: catastrophe answers are published test-first in step 7/10 of increment 3
+      case org.larder.cookingassistance.domain.helprequest.CatastropheMitigation mitigation ->
+          throw new IllegalStateException("catastrophe answers are not published yet");
     };
   }
 

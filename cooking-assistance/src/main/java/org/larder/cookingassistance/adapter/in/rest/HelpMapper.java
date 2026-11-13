@@ -17,6 +17,7 @@ import org.larder.cookingassistance.application.HelpView;
 import org.larder.cookingassistance.application.Page;
 import org.larder.cookingassistance.application.ProvideHelp;
 import org.larder.cookingassistance.application.RejectHelp;
+import org.larder.cookingassistance.domain.helprequest.CatastropheMitigation;
 import org.larder.cookingassistance.domain.helprequest.CookId;
 import org.larder.cookingassistance.domain.helprequest.HelpAnswer;
 import org.larder.cookingassistance.domain.helprequest.HelpId;
@@ -133,6 +134,9 @@ final class HelpMapper {
     return switch (answer) {
       case PreparationStepExplanation explanation -> toContractExplanation(explanation);
       case Substitutes substitutes -> toContractSubstitutes(substitutes);
+      // placeholder: catastrophe answers are read back test-first in step 11 of increment 3
+      case CatastropheMitigation mitigation ->
+          throw new IllegalStateException("catastrophe answers are not read yet");
     };
   }
 

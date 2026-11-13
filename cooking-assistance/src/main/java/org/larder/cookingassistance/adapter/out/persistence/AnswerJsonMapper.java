@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
+import org.larder.cookingassistance.domain.helprequest.CatastropheMitigation;
 import org.larder.cookingassistance.domain.helprequest.HelpAnswer;
 import org.larder.cookingassistance.domain.helprequest.HowToStepId;
 import org.larder.cookingassistance.domain.helprequest.IngredientId;
@@ -27,6 +28,9 @@ final class AnswerJsonMapper {
         switch (answer) {
           case PreparationStepExplanation explanation -> toPayload(explanation);
           case Substitutes substitutes -> toPayload(substitutes);
+          // placeholder: stored catastrophe answers are built test-first in step 7 of increment 3
+          case CatastropheMitigation mitigation ->
+              throw new IllegalStateException("catastrophe answers are not stored yet");
         };
     try {
       return new AnswerJson(AsyncApiJson.MAPPER.writeValueAsString(payload));

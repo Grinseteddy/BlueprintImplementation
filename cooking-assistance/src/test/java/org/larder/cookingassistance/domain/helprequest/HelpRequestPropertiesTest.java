@@ -162,6 +162,114 @@ class HelpRequestPropertiesTest {
   }
 
   @Label(
+      "for every non-empty choice of providers a catastrophe request asks exactly those providers; every choice containing a Chef is rejected with ChefNotAllowed -- B4-S01 US-CA-04 INV-18 property")
+  @Property(tries = 1000, seed = SEED)
+  void catastropheRequestAsksExactlyTheChosenNonChefProviders(
+      @ForAll @Size(min = 1) Set<HelpProviderType> providers) {
+    if (providers.contains(HelpProviderType.CHEF)) {
+      assertThatThrownBy(() -> lenaAsksAboutACatastrophe(providers))
+          .isInstanceOf(ChefNotAllowed.class);
+    } else {
+      assertThat(lenaAsksAboutACatastrophe(providers).askedProviderTypes())
+          .containsExactlyInAnyOrderElementsOf(providers);
+    }
+  }
+
+  @Label(
+      "for 0..15 https photos a catastrophe request keeps them when there are at most 10, and is rejected with TooManyPictures from 11 on -- B4-S01 US-CA-04 INV-20 INV-38 property")
+  @Property(tries = 200, seed = SEED)
+  void aCatastropheRequestCarriesAtMostTenPhotos(@ForAll @IntRange(min = 0, max = 15) int count) {
+    List<java.net.URI> photos =
+        java.util.stream.IntStream.rangeClosed(1, count)
+            .mapToObj(n -> java.net.URI.create("https://photos.example/lena/" + n + ".jpg"))
+            .toList();
+    if (count > 10) {
+      assertThatThrownBy(
+              () -> lenaAsksAboutACatastrophe(Set.of(HelpProviderType.COMMUNITY), photos))
+          .isInstanceOf(TooManyPictures.class);
+    } else {
+      assertThat(lenaAsksAboutACatastrophe(Set.of(HelpProviderType.COMMUNITY), photos).pictures())
+          .containsExactlyElementsOf(photos);
+    }
+  }
+
+  @Label(
+      "for any request time a catastrophe request gives the Community request time + 15 min and the Grandma Avatar request time + 5 min -- B4-S01 US-CA-04 INV-26 property")
+  @Property(tries = 1000, seed = SEED)
+  void aCatastropheGivesTheCommunityFifteenMinutesAndGrandmaFive(
+      @ForAll @LongRange(min = 1_577_836_800_000L, max = 2_208_988_800_000L) long epochMillis) {
+    Instant requestedAt = Instant.ofEpochMilli(epochMillis);
+
+    HelpRequest request =
+        HelpRequest.requestHelpWithCatastrophe(
+            HelpRequests.HELP_REQUEST_ID,
+            HelpRequests.LENA,
+            "Roast chicken burnt",
+            "Roast chicken burnt on the bottom",
+            java.util.Optional.empty(),
+            List.of(),
+            Set.of(HelpProviderType.COMMUNITY, HelpProviderType.GRANDMA_AVATAR),
+            fixedAt(requestedAt));
+
+    assertThat(request.askedProviders())
+        .containsExactlyInAnyOrder(
+            new AskedProvider(HelpProviderType.COMMUNITY, requestedAt.plus(Duration.ofMinutes(15))),
+            new AskedProvider(
+                HelpProviderType.GRANDMA_AVATAR, requestedAt.plus(Duration.ofMinutes(5))));
+  }
+
+  @Label(
+      "for any request time and any rejection within Grandma's 5 min, the catastrophe request is asked again with rejection time + 15 min for the Community and + 5 min for the Grandma Avatar -- B3-S05 US-CA-04 INV-23 property")
+  @Property(tries = 1000, seed = SEED)
+  void aRejectedCatastropheAnswerGivesFifteenAndFiveMinutesAgain(
+      @ForAll @LongRange(min = 1_577_836_800_000L, max = 2_208_988_800_000L) long epochMillis,
+      @ForAll @LongRange(min = 0, max = 300_000L) long rejectedAfterMillis) {
+    Instant requestedAt = Instant.ofEpochMilli(epochMillis);
+    Instant rejectedAt = requestedAt.plusMillis(rejectedAfterMillis);
+    HelpRequest request =
+        HelpRequest.requestHelpWithCatastrophe(
+            HelpRequests.HELP_REQUEST_ID,
+            HelpRequests.LENA,
+            "Roast chicken burnt",
+            "Roast chicken burnt on the bottom",
+            java.util.Optional.empty(),
+            List.of(),
+            Set.of(HelpProviderType.COMMUNITY, HelpProviderType.GRANDMA_AVATAR),
+            fixedAt(requestedAt));
+    request.provideHelp(
+        HelpRequests.HELP_ID,
+        HelpProvider.grandmaAvatar(),
+        "Grandma's rescue",
+        new CatastropheMitigation(null, "Cut off the burnt part", List.of()),
+        fixedAt(requestedAt));
+
+    request.reject(HelpRequests.HELP_ID, "still tastes smoky", fixedAt(rejectedAt));
+
+    assertThat(request.askedProviders())
+        .containsExactlyInAnyOrder(
+            new AskedProvider(HelpProviderType.COMMUNITY, rejectedAt.plus(Duration.ofMinutes(15))),
+            new AskedProvider(
+                HelpProviderType.GRANDMA_AVATAR, rejectedAt.plus(Duration.ofMinutes(5))));
+  }
+
+  private static HelpRequest lenaAsksAboutACatastrophe(Set<HelpProviderType> providers) {
+    return lenaAsksAboutACatastrophe(providers, List.of());
+  }
+
+  private static HelpRequest lenaAsksAboutACatastrophe(
+      Set<HelpProviderType> providers, List<java.net.URI> photos) {
+    return HelpRequest.requestHelpWithCatastrophe(
+        HelpRequests.HELP_REQUEST_ID,
+        HelpRequests.LENA,
+        "Roast chicken burnt",
+        "Roast chicken burnt on the bottom",
+        java.util.Optional.empty(),
+        photos,
+        providers,
+        HelpRequestCatastropheTest.SATURDAY_18_40);
+  }
+
+  @Label(
       "for any 1..5 substitutes of 1..5 ingredients the answer counts when every name says something, and is rejected with NoSubstituteProposed when any name is blank -- B2-S02 US-CA-02 INV-12 property (step 3 r13)")
   @Property(tries = 1000, seed = SEED)
   void anAnswerCountsExactlyWhenEveryIngredientHasAName(
