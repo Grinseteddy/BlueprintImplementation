@@ -51,7 +51,8 @@ class JdbcHelpRequestRepository implements HelpRequestRepository {
    * skipped. The aggregate stays authoritative (INV-09).
    */
   private List<UUID> claimDueIds(Instant now, int limit) {
-    // step 3 r21: some side still ASKED past its deadline; INV-09: the deadline itself still counts
+    // INV-26 (step 3 r21): some side is due as in AskedProvider.isDueAt — still ASKED and past its
+    // deadline; INV-09: the deadline itself still counts
     return jdbc.sql(
             """
             select h.id from help_request h

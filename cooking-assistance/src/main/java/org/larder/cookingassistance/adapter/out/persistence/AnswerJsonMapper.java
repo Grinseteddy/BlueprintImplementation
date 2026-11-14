@@ -19,6 +19,7 @@ import org.larder.cookingassistance.domain.helprequest.Unit;
 /** Writes and reads a Help's answer as JSON under the AsyncAPI field names. */
 final class AnswerJsonMapper {
 
+  private static final String PREPARATION_STEP_EXPLANATION = "PREPARATION_STEP_EXPLANATION";
   private static final String INGREDIENT_SUBSTITUTE = "INGREDIENT_SUBSTITUTE";
   private static final String STEPS_TO_MITIGATE_CATASTROPHE = "STEPS_TO_MITIGATE_CATASTROPHE";
 
@@ -41,7 +42,7 @@ final class AnswerJsonMapper {
   /** The answer in its AsyncAPI shape. */
   private static PreparationStepExplanationJson toPayload(PreparationStepExplanation answer) {
     return new PreparationStepExplanationJson(
-        "PREPARATION_STEP_EXPLANATION",
+        PREPARATION_STEP_EXPLANATION,
         answer.recipe().value(),
         answer.howToStep().value(),
         answer.description(),
@@ -84,6 +85,7 @@ final class AnswerJsonMapper {
         case STEPS_TO_MITIGATE_CATASTROPHE ->
             toMitigation(
                 AsyncApiJson.MAPPER.readValue(json.value(), CatastropheMitigationJson.class));
+        // PREPARATION_STEP_EXPLANATION, the first kind of answer
         default ->
             toExplanation(
                 AsyncApiJson.MAPPER.readValue(json.value(), PreparationStepExplanationJson.class));
