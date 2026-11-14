@@ -2,6 +2,8 @@ package org.larder.cookingassistance.adapter.out.persistence;
 
 import java.net.URI;
 import org.larder.cookingassistance.adapter.messaging.generated.Answer;
+import org.larder.cookingassistance.adapter.messaging.generated.CatastropheMitigation;
+import org.larder.cookingassistance.adapter.messaging.generated.CatastropheMitigationAnswerType;
 import org.larder.cookingassistance.adapter.messaging.generated.PreparationStepExplanation;
 import org.larder.cookingassistance.adapter.messaging.generated.PreparationStepExplanationAnswerType;
 import org.larder.cookingassistance.adapter.messaging.generated.Substitute;
@@ -33,9 +35,14 @@ final class AnswerMessageMapper {
               substitutes.recipe().value(),
               substitutes.substitute().stream().map(AnswerMessageMapper::substitute).toList(),
               null);
-      // placeholder: catastrophe answers are published test-first in step 7/10 of increment 3
       case org.larder.cookingassistance.domain.helprequest.CatastropheMitigation mitigation ->
-          throw new IllegalStateException("catastrophe answers are not published yet");
+          new CatastropheMitigation(
+              CatastropheMitigationAnswerType.STEPS_TO_MITIGATE_CATASTROPHE,
+              // INV-37: a mitigation may name no recipe
+              mitigation.recipe() == null ? null : mitigation.recipe().value(),
+              mitigation.explanation(),
+              mitigation.images().stream().map(URI::toString).toList(),
+              null);
     };
   }
 

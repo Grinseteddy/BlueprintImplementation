@@ -1,6 +1,7 @@
 package org.larder.cookingassistance.adapter.out.persistence;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import java.net.URI;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -59,12 +60,13 @@ final class OutboxEventMapper {
                 event.title(),
                 HelpType.fromValue(event.type().name()),
                 event.description(),
-                event.recipe().value(),
+                // INV-19: a catastrophe request may name no recipe
+                event.recipe() == null ? null : event.recipe().value(),
                 event.howToStep() == null ? null : event.howToStep().value(),
                 event.ingredient() == null ? null : event.ingredient().value(),
                 event.ingredientName(),
                 event.substituteRequirements(),
-                null,
+                pictures(event.pictures()),
                 null,
                 null,
                 null,
@@ -174,6 +176,11 @@ final class OutboxEventMapper {
   private static HelpProviderType providerType(
       org.larder.cookingassistance.domain.helprequest.HelpProviderType type) {
     return HelpProviderType.fromValue(type.name());
+  }
+
+  // INV-20: a catastrophe request's pictures, in order; absent when there are none
+  private static List<String> pictures(List<URI> pictures) {
+    return pictures.isEmpty() ? null : pictures.stream().map(URI::toString).toList();
   }
 
   private static OffsetDateTime utc(Instant instant) {

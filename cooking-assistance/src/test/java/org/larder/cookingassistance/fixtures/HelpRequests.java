@@ -7,8 +7,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.larder.cookingassistance.domain.helprequest.CatastropheMitigation;
 import org.larder.cookingassistance.domain.helprequest.CookId;
 import org.larder.cookingassistance.domain.helprequest.HelpId;
 import org.larder.cookingassistance.domain.helprequest.HelpProvider;
@@ -145,5 +147,48 @@ public final class HelpRequests {
   public static Substitute gramsOf(String name, String grams) {
     return new Substitute(
         CREME_FRAICHE, List.of(new SubstituteIngredient(name, new BigDecimal(grams), Unit.GRAM)));
+  }
+
+  /** Lena's roast chicken (US-CA-04). */
+  public static final RecipeId ROAST_CHICKEN =
+      new RecipeId(UUID.fromString("5b6c7d8e-9f0a-4b1c-8d2e-3f4a5b6c7d8e"));
+
+  /** Saturday 18:40 CET (US-CA-04 R1.E1). */
+  public static final Clock SATURDAY_18_40 =
+      Clock.fixed(Instant.parse("2026-11-14T17:40:00Z"), ZoneOffset.UTC);
+
+  /** Two photos of the burnt roast chicken. */
+  public static final List<URI> BURNT_CHICKEN_PHOTOS =
+      List.of(
+          URI.create("https://img.larder.example/burnt-chicken-1.jpg"),
+          URI.create("https://img.larder.example/burnt-chicken-2.jpg"));
+
+  /** Lena asks the given providers about her burnt roast chicken, Saturday 18:40 CET. */
+  public static HelpRequest lenaAsksAboutBurntChicken(
+      Optional<RecipeId> recipe, List<URI> pictures, HelpProviderType... providers) {
+    return HelpRequest.requestHelpWithCatastrophe(
+        HELP_REQUEST_ID,
+        LENA,
+        "My roast chicken is burnt",
+        "The skin is black on one side",
+        recipe,
+        pictures,
+        Set.of(providers),
+        SATURDAY_18_40);
+  }
+
+  /** Grandma Avatar's mitigation for the burnt chicken, Saturday 18:44 CET; recipe may be null. */
+  public static void grandmaMitigates(HelpRequest request, RecipeId recipe) {
+    request.provideHelp(
+        HELP_ID,
+        HelpProvider.grandmaAvatar(),
+        "Save the chicken",
+        new CatastropheMitigation(
+            recipe,
+            "Cut off the black skin and serve it with a sauce",
+            List.of(
+                URI.create("https://img.larder.example/cut-skin.jpg"),
+                URI.create("https://img.larder.example/sauce.jpg"))),
+        Clock.offset(SATURDAY_18_40, Duration.ofMinutes(4)));
   }
 }

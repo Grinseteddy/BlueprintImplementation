@@ -51,13 +51,14 @@ class JdbcHelpRequestRepository implements HelpRequestRepository {
    * skipped. The aggregate stays authoritative (INV-09).
    */
   private List<UUID> claimDueIds(Instant now, int limit) {
-    // INV-09: the deadline itself still counts — a provider at its deadline is still waiting
+    // step 3 r21: some side still ASKED past its deadline; INV-09: the deadline itself still counts
     return jdbc.sql(
             """
             select h.id from help_request h
             where h.status = 'OPEN'
-              and not exists (select 1 from asked_provider a
-                              where a.help_request_id = h.id and a.deadline >= :now)
+              and exists (select 1 from asked_provider a
+                          where a.help_request_id = h.id and a.state = 'ASKED'
+                            and a.deadline < :now)
             order by h.id
             limit :limit
             for update of h skip locked""")

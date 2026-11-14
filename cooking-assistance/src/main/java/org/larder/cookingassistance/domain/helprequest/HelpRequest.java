@@ -240,7 +240,7 @@ public final class HelpRequest {
         version);
   }
 
-  /** Rebuilds a stored Help Request of any kind: no guards, no events. */
+  /** Rebuilds a stored Help Request without pictures: no guards, no events. */
   public static HelpRequest reconstitute(
       HelpRequestId id,
       CookId requester,
@@ -252,6 +252,45 @@ public final class HelpRequest {
       IngredientId ingredient,
       String ingredientName,
       String substituteRequirements,
+      List<AskedProvider> askedProviders,
+      HelpRequestStatus status,
+      List<Help> helps,
+      List<Note> notes,
+      long version) {
+    return reconstitute(
+        id,
+        requester,
+        title,
+        description,
+        type,
+        recipe,
+        howToStep,
+        ingredient,
+        ingredientName,
+        substituteRequirements,
+        List.of(),
+        askedProviders,
+        status,
+        helps,
+        notes,
+        version);
+  }
+
+  /**
+   * Rebuilds a stored Help Request of any kind, with its pictures (INV-20): no guards, no events.
+   */
+  public static HelpRequest reconstitute(
+      HelpRequestId id,
+      CookId requester,
+      String title,
+      String description,
+      HelpType type,
+      RecipeId recipe,
+      HowToStepId howToStep,
+      IngredientId ingredient,
+      String ingredientName,
+      String substituteRequirements,
+      List<URI> pictures,
       List<AskedProvider> askedProviders,
       HelpRequestStatus status,
       List<Help> helps,
@@ -269,8 +308,7 @@ public final class HelpRequest {
             ingredient,
             ingredientName,
             substituteRequirements,
-            // step 7 stores a catastrophe request's pictures; until then none are rebuilt
-            List.of(),
+            pictures,
             askedProviders,
             status,
             version);
