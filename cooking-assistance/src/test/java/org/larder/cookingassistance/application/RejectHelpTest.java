@@ -5,8 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -170,5 +172,34 @@ class RejectHelpTest {
         HelpRequests.BUTTER_WITH_THREE_PHOTOS,
         HelpRequests.FRIDAY_18_10);
     helpRequests.save(meanwhile);
+  }
+
+  @DisplayName(
+      "Lena rejects Grandma's mitigation at 18:47 with note 'still tastes smoky' -> the saved request is OPEN, the Help rejected, Grandma asked again until 18:52 -- B3-S05 US-CA-04 R6.E1 INV-23")
+  @Test
+  void rejectingAMitigationAsksGrandmaAgainForFiveMinutes() {
+    helpRequests.clear();
+    HelpRequest request =
+        HelpRequests.lenaAsksAboutBurntChicken(
+            Optional.of(HelpRequests.ROAST_CHICKEN),
+            HelpRequests.BURNT_CHICKEN_PHOTOS,
+            HelpProviderType.GRANDMA_AVATAR);
+    HelpRequests.grandmaMitigates(request, HelpRequests.ROAST_CHICKEN);
+    helpRequests.save(request);
+    RejectHelp at1847 =
+        new RejectHelp(
+            helpRequests, Clock.offset(HelpRequests.SATURDAY_18_40, Duration.ofMinutes(7)));
+
+    at1847.execute(rejectionBy(LENA, "still tastes smoky"));
+
+    HelpRequest stored = helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    assertThat(stored.status()).isEqualTo(HelpRequestStatus.OPEN);
+    assertThat(stored.helps()).singleElement().extracting(Help::isRejected).isEqualTo(true);
+    assertThat(stored.askedProviders())
+        .containsExactly(
+            new AskedProvider(
+                HelpProviderType.GRANDMA_AVATAR,
+                Instant.parse("2026-11-14T17:52:00Z"),
+                ProviderState.ASKED));
   }
 }

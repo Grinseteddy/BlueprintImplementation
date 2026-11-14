@@ -27,6 +27,7 @@ import org.larder.cookingassistance.domain.helprequest.AskedProvider;
 import org.larder.cookingassistance.domain.helprequest.CookId;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequest;
+import org.larder.cookingassistance.domain.helprequest.HelpRequestEvent;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestRepository;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestStatus;
@@ -45,6 +46,28 @@ class TimeOutDueHelpRequestsTest {
   @BeforeEach
   void lenasRequestToTheCommunityIsStored() {
     helpRequests.save(HelpRequests.lenaAsksAboutStep4(HelpProviderType.COMMUNITY));
+  }
+
+  /** Lena asks the Community (until 18:55) and Grandma (until 18:45) at Sat 18:40 (17:40Z). */
+  void lenasCatastropheRequestToBothIsStored() {
+    helpRequests.clear();
+    helpRequests.save(
+        HelpRequests.lenaAsksAboutBurntChicken(
+            Optional.of(HelpRequests.ROAST_CHICKEN),
+            HelpRequests.BURNT_CHICKEN_PHOTOS,
+            HelpProviderType.COMMUNITY,
+            HelpProviderType.GRANDMA_AVATAR));
+  }
+
+  private void assertBothSidesTimedOutWithOneEvent() {
+    HelpRequest stored = helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    assertThat(stored.status()).isEqualTo(HelpRequestStatus.CANCELLED);
+    assertThat(stored.askedProviders())
+        .extracting(AskedProvider::state)
+        .containsExactly(ProviderState.TIMED_OUT, ProviderState.TIMED_OUT);
+    assertThat(helpRequests.recordedEvents())
+        .filteredOn(HelpRequestTimedOut.class::isInstance)
+        .hasSize(1);
   }
 
   TimeOutDueHelpRequests useCaseAt(String instant) {
@@ -251,5 +274,53 @@ class TimeOutDueHelpRequestsTest {
       useCaseLog.removeHandler(recorder);
     }
     return lines;
+  }
+
+  @DisplayName(
+      "Lena asked the Community and Grandma at Sat 18:40; run at 18:46 -> the saved request is OPEN with Grandma TIMED_OUT and the Community ASKED until 18:55, no event saved, 1 returned -- B3-S06 US-CA-04 R9.E3 INV-26 step 3 r21")
+  @Test
+  void onlyGrandmasSideTimesOut() {
+    lenasCatastropheRequestToBothIsStored();
+    List<HelpRequestEvent> eventsBefore = List.copyOf(helpRequests.recordedEvents());
+
+    int timedOut = useCaseAt("2026-11-14T17:46:00Z").execute();
+
+    assertThat(timedOut).isEqualTo(1);
+    HelpRequest stored = helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    assertThat(stored.status()).isEqualTo(HelpRequestStatus.OPEN);
+    assertThat(stored.askedProviders())
+        .containsExactlyInAnyOrder(
+            new AskedProvider(
+                HelpProviderType.COMMUNITY,
+                Instant.parse("2026-11-14T17:55:00Z"),
+                ProviderState.ASKED),
+            new AskedProvider(
+                HelpProviderType.GRANDMA_AVATAR,
+                Instant.parse("2026-11-14T17:45:00Z"),
+                ProviderState.TIMED_OUT));
+    assertThat(helpRequests.recordedEvents()).isEqualTo(eventsBefore);
+  }
+
+  @DisplayName(
+      "Grandma's side timed out at 18:46; run at 18:56 -> the saved request is CANCELLED with both sides TIMED_OUT and one HelpRequestTimedOut saved -- B3-S06 US-CA-04 R9.E4 INV-26 step 3 r21")
+  @Test
+  void theLastSideTimesOutTheRequest() {
+    lenasCatastropheRequestToBothIsStored();
+    useCaseAt("2026-11-14T17:46:00Z").execute();
+
+    useCaseAt("2026-11-14T17:56:00Z").execute();
+
+    assertBothSidesTimedOutWithOneEvent();
+  }
+
+  @DisplayName(
+      "Lena asked the Community and Grandma at 18:40, nobody ran in between; run at 18:56 -> CANCELLED with both sides TIMED_OUT and exactly one HelpRequestTimedOut -- B3-S06 US-CA-04 R9.E4 INV-26 step 3 r21")
+  @Test
+  void bothSidesDueInOnePass() {
+    lenasCatastropheRequestToBothIsStored();
+
+    useCaseAt("2026-11-14T17:56:00Z").execute();
+
+    assertBothSidesTimedOutWithOneEvent();
   }
 }

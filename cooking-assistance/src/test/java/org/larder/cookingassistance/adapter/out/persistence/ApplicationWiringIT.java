@@ -16,6 +16,7 @@ import org.larder.cookingassistance.application.CancelHelpRequest;
 import org.larder.cookingassistance.application.ProvideGrandmaAvatarHelp;
 import org.larder.cookingassistance.application.ProvideHelp;
 import org.larder.cookingassistance.application.RejectHelp;
+import org.larder.cookingassistance.application.RequestHelpWithCatastrophe;
 import org.larder.cookingassistance.application.RequestHelpWithIngredient;
 import org.larder.cookingassistance.application.RequestHelpWithPreparationStep;
 import org.larder.cookingassistance.application.Role;
@@ -231,6 +232,36 @@ class ApplicationWiringIT {
     assertThat(helpRequests.findById(id))
         .hasValueSatisfying(
             saved -> assertThat(saved.ingredient()).isEqualTo(HelpRequests.CREME_FRAICHE));
+    assertThat(
+            jdbc.sql("select count(*) from outbox where event_type = 'HelpRequestCreated'")
+                .query(Integer.class)
+                .single())
+        .isEqualTo(1);
+  }
+
+  @DisplayName(
+      "the wired use case Request help Catastrophe saves through the real adapter, with recipe and photos, and HelpRequestCreated in the outbox -- B4-S01 US-CA-04 wiring")
+  @Test
+  void requestHelpWithCatastropheRunsThroughTheRealAdapter() {
+    RequestHelpWithCatastrophe requestHelpWithCatastrophe =
+        context.getBean(RequestHelpWithCatastrophe.class);
+
+    HelpRequestId id =
+        requestHelpWithCatastrophe.execute(
+            new RequestHelpWithCatastrophe.Command(
+                new Actor(HelpRequests.LENA, Set.of(Role.COOK), false),
+                "My roast chicken is burnt",
+                "The skin is black on one side",
+                Optional.of(HelpRequests.ROAST_CHICKEN),
+                HelpRequests.BURNT_CHICKEN_PHOTOS,
+                Set.of(HelpProviderType.COMMUNITY, HelpProviderType.GRANDMA_AVATAR)));
+
+    assertThat(helpRequests.findById(id))
+        .hasValueSatisfying(
+            saved -> {
+              assertThat(saved.recipe()).isEqualTo(HelpRequests.ROAST_CHICKEN);
+              assertThat(saved.pictures()).isEqualTo(HelpRequests.BURNT_CHICKEN_PHOTOS);
+            });
     assertThat(
             jdbc.sql("select count(*) from outbox where event_type = 'HelpRequestCreated'")
                 .query(Integer.class)

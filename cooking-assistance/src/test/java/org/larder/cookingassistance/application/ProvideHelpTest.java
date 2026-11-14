@@ -7,6 +7,7 @@ import java.net.URI;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.IntStream;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.larder.cookingassistance.application.fakes.InMemoryHelpRequestRepository;
 import org.larder.cookingassistance.domain.helprequest.AnswerDoesNotMatchRequest;
+import org.larder.cookingassistance.domain.helprequest.CatastropheMitigation;
 import org.larder.cookingassistance.domain.helprequest.ConcurrencyConflict;
 import org.larder.cookingassistance.domain.helprequest.CookId;
 import org.larder.cookingassistance.domain.helprequest.Help;
@@ -55,6 +57,13 @@ class ProvideHelpTest {
 
   final ProvideHelp ingredientUseCase =
       new ProvideHelp(helpRequests, () -> HelpRequests.OTHER_HELP_ID.value(), MONDAY_19_00);
+
+  /** Ten minutes after Lena asked about her burnt roast chicken (Community until 18:55). */
+  final ProvideHelp catastropheUseCase =
+      new ProvideHelp(
+          helpRequests,
+          () -> HelpRequests.OTHER_HELP_ID.value(),
+          Clock.offset(HelpRequests.SATURDAY_18_40, Duration.ofMinutes(10)));
 
   @BeforeEach
   void lenasRequestToTheCommunityIsStored() {
@@ -415,6 +424,22 @@ class ProvideHelpTest {
         .hasSize(1);
   }
 
+  private static HelpRequest lenaAsksTheCommunityAboutBurntChicken() {
+    return HelpRequests.lenaAsksAboutBurntChicken(
+        Optional.of(HelpRequests.ROAST_CHICKEN),
+        HelpRequests.BURNT_CHICKEN_PHOTOS,
+        HelpProviderType.COMMUNITY);
+  }
+
+  private static ProvideHelp.Command jonasMitigates(CatastropheMitigation answer) {
+    return new ProvideHelp.Command(
+        JONAS_AS_COMMUNITY,
+        HelpProviderType.COMMUNITY,
+        HelpRequests.HELP_REQUEST_ID,
+        "Save the chicken",
+        answer);
+  }
+
   private static ProvideHelp.Command jonasProposes(Substitutes answer) {
     return new ProvideHelp.Command(
         JONAS_AS_COMMUNITY,
@@ -422,5 +447,48 @@ class ProvideHelpTest {
         HelpRequests.HELP_REQUEST_ID,
         "Yogurt",
         answer);
+  }
+
+  @DisplayName(
+      "Jonas (role community) answers Lena's catastrophe request at 18:50 with a mitigation for Roast chicken (explanation, images [cut-skin, sauce]) -> the help id is returned; the saved Help holds the CatastropheMitigation; HelpProvided is saved with it -- B4-S02 US-CA-04 cmd Provide Help R5.E2 INV-22")
+  @Test
+  void communityMitigatesACatastrophe() {
+    helpRequests.clear();
+    helpRequests.save(lenaAsksTheCommunityAboutBurntChicken());
+    CatastropheMitigation mitigation =
+        new CatastropheMitigation(
+            HelpRequests.ROAST_CHICKEN,
+            "Cut off the black skin and serve it with a sauce",
+            List.of(
+                URI.create("https://img.larder.example/cut-skin.jpg"),
+                URI.create("https://img.larder.example/sauce.jpg")));
+
+    HelpId id = catastropheUseCase.execute(jonasMitigates(mitigation));
+
+    assertThat(id).isEqualTo(HelpRequests.OTHER_HELP_ID);
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID))
+        .hasValueSatisfying(
+            saved ->
+                assertThat(saved.helps())
+                    .singleElement()
+                    .extracting(Help::answer)
+                    .isEqualTo(mitigation));
+    assertThat(helpRequests.recordedEvents()).last().isInstanceOf(HelpProvided.class);
+  }
+
+  @DisplayName(
+      "a mitigation naming another recipe (Tomato soup) -> AnswerDoesNotMatchRequest passes through unchanged (rule INV-37), no Help saved -- B4-S02 US-CA-04 INV-37")
+  @Test
+  void aMitigationForAnotherRecipeIsRefused() {
+    helpRequests.clear();
+    helpRequests.save(lenaAsksTheCommunityAboutBurntChicken());
+    CatastropheMitigation aboutTomatoSoup =
+        new CatastropheMitigation(HelpRequests.TOMATO_SOUP, "Add more cream", List.of());
+
+    assertThatThrownBy(() -> catastropheUseCase.execute(jonasMitigates(aboutTomatoSoup)))
+        .isInstanceOfSatisfying(
+            AnswerDoesNotMatchRequest.class,
+            rejection -> assertThat(rejection.rule()).isEqualTo("INV-37"));
+    assertNoHelpSaved();
   }
 }
