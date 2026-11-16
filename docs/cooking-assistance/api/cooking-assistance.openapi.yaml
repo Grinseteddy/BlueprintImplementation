@@ -9,7 +9,7 @@ info:
 
     Clients must be tolerant readers: ignore unknown fields and handle unknown enum values
     (status, type and error codes can grow in later minor versions).
-  version: 1.0.16
+  version: 1.0.17
   contact:
     name: Annegret Junker
     email: annegret.junker@larder.org
@@ -499,8 +499,8 @@ components:
       description: Version of the API the client was built against.
       schema:
         type: string
-        default: "1.0.16"
-        enum: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6", "1.0.7", "1.0.8", "1.0.9", "1.0.10", "1.0.11", "1.0.12", "1.0.13", "1.0.14", "1.0.15", "1.0.16"]
+        default: "1.0.17"
+        enum: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6", "1.0.7", "1.0.8", "1.0.9", "1.0.10", "1.0.11", "1.0.12", "1.0.13", "1.0.14", "1.0.15", "1.0.16", "1.0.17"]
 
   schemas:
     HelpType:
@@ -885,7 +885,7 @@ components:
           items:
             $ref: '#/components/schemas/Note'
         previousNotes:
-          description: Notes of the requester's earlier requests about the same step of the same recipe (INV-07) or an ingredient of the same name in any recipe (INV-15), shown so providers don't repeat what didn't work; notes about the same dish come with catastrophe help (planned). The 10 most recent notes, oldest first.
+          description: Notes of the requester's earlier requests about the same step of the same recipe (INV-07), an ingredient of the same name in any recipe (INV-15), or - for a catastrophe - earlier catastrophe requests about the same recipe, none without a recipe (INV-24), shown so providers don't repeat what didn't work. The 10 most recent notes, oldest first.
           type: array
           maxItems: 10
           items:

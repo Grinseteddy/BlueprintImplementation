@@ -1,5 +1,12 @@
 # Cook Assistance API — changelog
 
+## OpenAPI 1.0.17 — 2026-11-16 (step 4 r25, from step 11 of increment 3)
+
+| Change | Why |
+|---|---|
+| `HelpRequest.previousNotes` description names INV-24: earlier catastrophe requests about the same recipe, none without a recipe | step 3 r21 decided the rule; the description still called it planned. Description only |
+| `version` header accepts 1.0.17 | |
+
 ## AsyncAPI 1.0.13 — 2026-11-16 (step 4 r24, from step 10 of increment 3)
 
 | Change | Why |

@@ -199,6 +199,7 @@ Step 7 decisions (inc 3, 2026-11-13, user): pictures in help_request.pictures te
 Planned list (additions, inc 3 step 7): unknown stored answerType rejected explicitly (test-first); retire the 15-arg HelpRequest.reconstitute (test edits)
 Planned list (additions, inc 3 step 9, user 2026-11-16): a mitigation's absent recipe as Optional<RecipeId> in CatastropheMitigation (step 6, domain owner; persistence and read-back follow)
 Step 4 r24 (inc 3, from step 10, 2026-11-16, approved by the user): AsyncAPI 1.0.13 — HelpRequestCreatedPayload.pictures items pattern '^https://' (INV-38, SEC-07; producer output narrows); SEC-20 exceptions removed from oasdiff-err-ignore.txt; Spectral clean, QS-15 gate vs origin/main exit 0 (oasdiff 1.34.1 darwin_all, checksum from the release)
+Step 4 r25 (inc 3, from step 11, 2026-11-16, approved by the user): OpenAPI 1.0.17 — previousNotes description names INV-24 (earlier catastrophe requests about the same recipe, none without a recipe); version header accepts 1.0.17 (default); Spectral clean, QS-15 gate exit 0
 Plan estimate (step 0): steps 1–5 ≈ 1–1.5 days; inc 0 1–1.5 d; inc 1 (meal plan) 1.5–2 d; inc 2–4 ≈ 1 d each; step 15 2–3 h; total ≈ 7–9 working days
 
 | Step | Increment | Name | Input source | Artifact | Route | Accepted | Done | Approved | Open questions |
