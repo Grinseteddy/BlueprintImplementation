@@ -48,5 +48,5 @@ Board B4 "Help with a catastrophe", US-CA-04, slices B4-S01, B4-S02, plus B3-S05
 - Commands → use cases: Request help Catastrophe → `RequestHelpWithCatastrophe` (new); Provide Help (mitigation) → `ProvideHelp`, `ProvideGrandmaAvatarHelp` (unchanged); Time out help request per side → `TimeOutDueHelpRequests` (unchanged); Reject help → `RejectHelp` (unchanged). Access ADR0013 (cook; no plan check, INV-18); idempotency ADR0015 and retry ADR0010 unchanged.
 
 ## Handed on
-- Step 9: REST `createHelpRequest` for STEPS_TO_MITIGATE_CATASTROPHE → `RequestHelpWithCatastrophe.Command` (optional recipe, pictures); `provideHelp` body and Grandma message with a CatastropheMitigation → `HelpAnswer`; AnswerTooLate from Grandma → dead-letter with its rule.
+- Step 9: REST `createHelpRequest` for STEPS_TO_MITIGATE_CATASTROPHE → `RequestHelpWithCatastrophe.Command` (optional recipe, pictures); `provideHelp` body and Grandma message with a CatastropheMitigation → `HelpAnswer`; AnswerTooLate from Grandma → ignored with ACK (Q-A2) *(corrected 2026-11-14 in step 9, user: was "dead-letter with its rule")*.
 - Step 11: `HelpMapper` placeholder for catastrophe answers; pictures on the read side; INV-24 notes by recipe.
