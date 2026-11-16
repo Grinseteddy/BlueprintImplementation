@@ -1,5 +1,12 @@
 # Cook Assistance API — changelog
 
+## AsyncAPI 1.0.13 — 2026-11-16 (step 4 r24, from step 10 of increment 3)
+
+| Change | Why |
+|---|---|
+| `HelpRequestCreatedPayload.pictures` items get `pattern: '^https://'`; the description says "https links only" | INV-38, SEC-07: the OpenAPI `Pictures` and the AsyncAPI `CatastropheMitigation.images` already allow https links only; the published event did not promise it. The producer's output only narrows (the domain refuses other links) — not breaking for consumers |
+| The decided exceptions in `tools/contract/oasdiff-err-ignore.txt` (SEC-20, AsyncAPI 1.0.12) are removed | ADR0014 addition: removed with the next spec change; main carries the bound since PR #9 |
+
 ## OpenAPI 1.0.16 and AsyncAPI 1.0.12 — 2026-11-12 (step 4 r23, from step 14 of increment 2)
 
 | Change | Why |
