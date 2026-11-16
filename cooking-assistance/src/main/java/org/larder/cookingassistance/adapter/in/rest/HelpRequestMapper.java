@@ -136,6 +136,7 @@ final class HelpRequestMapper {
             .ingredient(view.ingredient() == null ? null : view.ingredient().value())
             .ingredientName(view.ingredientName())
             .substituteRequirements(view.substituteRequirements())
+            .pictures(OptionalArrays.absentWhenEmpty(view.pictures()))
             .helpsLink(
                 Links.absolute(
                     publicBaseUrl, "/help-requests/{helpRequestId}/helps", view.id().value()));

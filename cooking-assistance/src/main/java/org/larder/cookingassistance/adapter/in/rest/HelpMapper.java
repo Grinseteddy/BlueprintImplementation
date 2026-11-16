@@ -149,10 +149,17 @@ final class HelpMapper {
     return switch (answer) {
       case PreparationStepExplanation explanation -> toContractExplanation(explanation);
       case Substitutes substitutes -> toContractSubstitutes(substitutes);
-      // placeholder: catastrophe answers are read back test-first in step 11 of increment 3
-      case CatastropheMitigation mitigation ->
-          throw new IllegalStateException("catastrophe answers are not read yet");
+      case CatastropheMitigation mitigation -> toContractMitigation(mitigation);
     };
+  }
+
+  private static Answer toContractMitigation(CatastropheMitigation answer) {
+    return new org.larder.cookingassistance.adapter.in.rest.generated.model.CatastropheMitigation(
+            org.larder.cookingassistance.adapter.in.rest.generated.model.CatastropheMitigation
+                .AnswerTypeEnum.STEPS_TO_MITIGATE_CATASTROPHE,
+            answer.explanation())
+        .recipe(Optional.ofNullable(answer.recipe()).map(RecipeId::value).orElse(null))
+        .images(OptionalArrays.absentWhenEmpty(answer.images()));
   }
 
   private static Answer toContractExplanation(PreparationStepExplanation answer) {

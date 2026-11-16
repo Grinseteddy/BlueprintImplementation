@@ -14,6 +14,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.larder.cookingassistance.adapter.in.rest.SpecSchemas;
 import org.larder.cookingassistance.adapter.out.persistence.PersistenceTestApplication;
 import org.larder.cookingassistance.adapter.out.persistence.PostgresTestContainer;
+import org.larder.cookingassistance.domain.helprequest.CatastropheMitigation;
 import org.larder.cookingassistance.domain.helprequest.HelpId;
 import org.larder.cookingassistance.domain.helprequest.HelpProvider;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
@@ -534,6 +536,100 @@ class HelpQueryIT {
     helpRequests.save(lenas);
 
     String body = helps("?type=INGREDIENT_SUBSTITUTE", 200);
+
+    SpecSchemas.assertMatches(body, "HelpPage");
+    assertThat(new ObjectMapper().readTree(body).get("items").findValuesAsText("helpId"))
+        .containsExactly(HelpRequests.HELP_ID.value().toString());
+  }
+
+  @DisplayName(
+      "Grandma's Help on Lena's catastrophe request -> getHelpOfHelpRequest 200 matching Help; answer STEPS_TO_MITIGATE_CATASTROPHE with recipe Roast chicken, explanation and images [cut-skin, sauce] (replaces the read-back placeholder) -- B4-S02 US-CA-04 R5.E1 op getHelpOfHelpRequest")
+  @Test
+  void helpOfACatastropheShowsTheMitigation() throws Exception {
+    HelpRequest lenas =
+        HelpRequests.lenaAsksAboutBurntChicken(
+            Optional.of(HelpRequests.ROAST_CHICKEN),
+            HelpRequests.BURNT_CHICKEN_PHOTOS,
+            HelpProviderType.GRANDMA_AVATAR);
+    HelpRequests.grandmaMitigates(lenas, HelpRequests.ROAST_CHICKEN);
+    helpRequests.save(lenas);
+
+    String body =
+        help(
+            HelpRequests.HELP_REQUEST_ID.value().toString(),
+            HelpRequests.HELP_ID.value().toString(),
+            200);
+
+    SpecSchemas.assertMatches(body, "Help");
+    JsonNode answer = new ObjectMapper().readTree(body).path("answer");
+    assertThat(answer.path("answerType").asText()).isEqualTo("STEPS_TO_MITIGATE_CATASTROPHE");
+    assertThat(answer.path("recipe").asText())
+        .isEqualTo(HelpRequests.ROAST_CHICKEN.value().toString());
+    assertThat(answer.path("explanation").asText())
+        .isEqualTo("Cut off the black skin and serve it with a sauce");
+    assertThat(answer.path("images"))
+        .extracting(JsonNode::asText)
+        .containsExactly(
+            "https://img.larder.example/cut-skin.jpg", "https://img.larder.example/sauce.jpg");
+  }
+
+  @DisplayName(
+      "a mitigation without recipe and without images -> recipe and images absent from the answer (not null) -- B4-S02 US-CA-04 INV-37 op getHelpOfHelpRequest")
+  @Test
+  void mitigationWithoutRecipeOrImagesLeavesThemOut() throws Exception {
+    HelpRequest lenas =
+        HelpRequests.lenaAsksAboutBurntChicken(
+            Optional.of(HelpRequests.ROAST_CHICKEN),
+            HelpRequests.BURNT_CHICKEN_PHOTOS,
+            HelpProviderType.GRANDMA_AVATAR);
+    lenas.provideHelp(
+        HelpRequests.HELP_ID,
+        HelpProvider.grandmaAvatar(),
+        "Save the chicken",
+        new CatastropheMitigation(
+            null, "Cut off the black skin and serve it with a sauce", List.of()),
+        Clock.fixed(Instant.parse("2026-11-14T17:44:00Z"), ZoneOffset.UTC));
+    helpRequests.save(lenas);
+
+    String body =
+        help(
+            HelpRequests.HELP_REQUEST_ID.value().toString(),
+            HelpRequests.HELP_ID.value().toString(),
+            200);
+
+    SpecSchemas.assertMatches(body, "Help");
+    JsonNode answer = new ObjectMapper().readTree(body).path("answer");
+    assertThat(answer.path("answerType").asText()).isEqualTo("STEPS_TO_MITIGATE_CATASTROPHE");
+    List<String> fields = new java.util.ArrayList<>();
+    answer.fieldNames().forEachRemaining(fields::add);
+    assertThat(fields).doesNotContain("recipe", "images");
+  }
+
+  @DisplayName(
+      "listHelps with type STEPS_TO_MITIGATE_CATASTROPHE -> only the Helps of catastrophe requests -- B4-S02 US-CA-04 op listHelps")
+  @Test
+  void listHelpsFiltersCatastropheMitigations() throws Exception {
+    HelpRequest mias =
+        HelpRequest.requestHelpWithPreparationStep(
+            MIAS_REQUEST,
+            HelpRequests.MIA,
+            "Splitting sauce",
+            "It splits",
+            HelpRequests.HOLLANDAISE,
+            HelpRequests.STEP_4,
+            Set.of(HelpProviderType.COMMUNITY),
+            HelpRequests.FRIDAY_18_00);
+    HelpRequests.communityMemberExplainsStep4(mias, JONAS_HELP_FOR_MIA, HelpRequests.JONAS);
+    helpRequests.save(mias);
+    HelpRequest lenas =
+        HelpRequests.lenaAsksAboutBurntChicken(
+            Optional.of(HelpRequests.ROAST_CHICKEN),
+            HelpRequests.BURNT_CHICKEN_PHOTOS,
+            HelpProviderType.GRANDMA_AVATAR);
+    HelpRequests.grandmaMitigates(lenas, HelpRequests.ROAST_CHICKEN);
+    helpRequests.save(lenas);
+
+    String body = helps("?type=STEPS_TO_MITIGATE_CATASTROPHE", 200);
 
     SpecSchemas.assertMatches(body, "HelpPage");
     assertThat(new ObjectMapper().readTree(body).get("items").findValuesAsText("helpId"))

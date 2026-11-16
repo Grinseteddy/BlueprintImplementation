@@ -1,8 +1,10 @@
 package org.larder.cookingassistance.adapter.out.persistence;
 
+import java.net.URI;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -61,10 +63,19 @@ class JdbcHelpRequestQueries implements HelpRequestQueries {
       "lower(trim(earlier.ingredient_name)) = lower(trim(read.ingredient_name))";
 
   /**
-   * The notes of the requester's earlier requests (UUIDv7: a smaller id was created earlier) about
-   * the same step or an ingredient of the same name as the request read.
+   * INV-24 (step 3 r21): the earlier request is a catastrophe about the same recipe as the
+   * catastrophe request read; a catastrophe without a recipe matches none.
    */
-  private static final String NOTES_OF_EARLIER_REQUESTS_ABOUT_THE_SAME_STEP_OR_INGREDIENT =
+  private static final String ABOUT_A_CATASTROPHE_OF_THE_SAME_RECIPE =
+      "earlier.type = 'STEPS_TO_MITIGATE_CATASTROPHE' and read.type = 'STEPS_TO_MITIGATE_CATASTROPHE'"
+          + " and earlier.recipe = read.recipe";
+
+  /**
+   * The notes of the requester's earlier requests (UUIDv7: a smaller id was created earlier) about
+   * the same step, an ingredient of the same name or a catastrophe of the same recipe as the
+   * request read.
+   */
+  private static final String NOTES_OF_EARLIER_REQUESTS_ABOUT_THE_SAME_STEP_INGREDIENT_OR_RECIPE =
       "select n.help_request_id, n.position, n.kind, n.text, n.written_at, n.help_id"
           + " from help_request_note n"
           + " join help_request earlier on earlier.id = n.help_request_id"
@@ -75,7 +86,9 @@ class JdbcHelpRequestQueries implements HelpRequestQueries {
           + ABOUT_THE_SAME_STEP_OF_THE_SAME_RECIPE
           + ") or "
           + ABOUT_AN_INGREDIENT_OF_THE_SAME_NAME
-          + ")";
+          + " or ("
+          + ABOUT_A_CATASTROPHE_OF_THE_SAME_RECIPE
+          + "))";
 
   private final JdbcClient jdbc;
   private final TransactionTemplate snapshot;
@@ -229,7 +242,7 @@ class JdbcHelpRequestQueries implements HelpRequestQueries {
     Optional<HelpId> acceptedHelp = acceptedHelp(id);
     return jdbc.sql(
             "select requester, title, type, description, recipe, how_to_step, ingredient,"
-                + " ingredient_name, substitute_requirements, status"
+                + " ingredient_name, substitute_requirements, pictures, status"
                 + " from help_request where id = :id")
         .param("id", id.value())
         .query(
@@ -250,12 +263,18 @@ class JdbcHelpRequestQueries implements HelpRequestQueries {
                         .orElse(null),
                     rs.getString("ingredient_name"),
                     rs.getString("substitute_requirements"),
+                    pictures(rs),
                     asked,
                     HelpRequestStatus.valueOf(rs.getString("status")),
                     notes,
                     previousNotes,
                     acceptedHelp))
         .optional();
+  }
+
+  // INV-20: a catastrophe request's pictures, in order; none for the other kinds
+  private static List<URI> pictures(ResultSet rs) throws SQLException {
+    return Arrays.stream((String[]) rs.getArray("pictures").getArray()).map(URI::create).toList();
   }
 
   private List<AskedProvider> askedProviders(HelpRequestId id) {
@@ -293,7 +312,7 @@ class JdbcHelpRequestQueries implements HelpRequestQueries {
   private List<PreviousNote> previousNotes(HelpRequestId id) {
     return jdbc.sql(
             "select * from ("
-                + NOTES_OF_EARLIER_REQUESTS_ABOUT_THE_SAME_STEP_OR_INGREDIENT
+                + NOTES_OF_EARLIER_REQUESTS_ABOUT_THE_SAME_STEP_INGREDIENT_OR_RECIPE
                 + " order by n.help_request_id desc, n.position desc"
                 + " limit :shown"
                 + ") recent order by help_request_id, position")

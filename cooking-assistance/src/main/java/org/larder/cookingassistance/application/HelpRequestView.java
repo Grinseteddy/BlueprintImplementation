@@ -1,5 +1,6 @@
 package org.larder.cookingassistance.application;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -29,6 +30,7 @@ public record HelpRequestView(
     IngredientId ingredient,
     String ingredientName,
     String substituteRequirements,
+    List<URI> pictures,
     List<AskedProvider> askedProviders,
     HelpRequestStatus status,
     List<Note> notes,
