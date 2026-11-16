@@ -1,5 +1,6 @@
 package org.larder.cookingassistance.adapter.in.rest;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -46,7 +47,10 @@ final class HelpMapper {
         toAnswer(body.getAnswer()));
   }
 
-  /** Preparation Step Explanations and Substitutes are built; the other kinds come later. */
+  /**
+   * Preparation Step Explanations, Substitutes and Catastrophe Mitigations are built; the other
+   * kinds come later.
+   */
   private static HelpAnswer toAnswer(Answer answer) {
     return switch (answer) {
       case org.larder.cookingassistance.adapter.in.rest.generated.model.PreparationStepExplanation
@@ -55,8 +59,7 @@ final class HelpMapper {
               new RecipeId(explanation.getRecipe()),
               new HowToStepId(explanation.getHowToStep()),
               explanation.getDescription(),
-              // images are optional in the spec: no images, no pictures
-              Objects.requireNonNullElse(explanation.getImages(), List.of()));
+              pictures(explanation.getImages()));
       case org.larder.cookingassistance.adapter.in.rest.generated.model.Substitutes substitutes ->
           new Substitutes(
               new RecipeId(substitutes.getRecipe()),
@@ -67,10 +70,14 @@ final class HelpMapper {
               // INV-37: a mitigation may name no recipe
               Optional.ofNullable(mitigation.getRecipe()).map(RecipeId::new).orElse(null),
               mitigation.getExplanation(),
-              // images are optional in the spec: no images, no pictures
-              Objects.requireNonNullElse(mitigation.getImages(), List.of()));
+              pictures(mitigation.getImages()));
       default -> throw new NotImplemented("provideHelp with " + answer.getClass().getSimpleName());
     };
+  }
+
+  /** Images are optional in the spec: no images, no pictures. */
+  private static List<URI> pictures(@Nullable List<URI> images) {
+    return Objects.requireNonNullElse(images, List.of());
   }
 
   private static Substitute toSubstitute(
