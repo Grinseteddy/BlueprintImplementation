@@ -285,4 +285,79 @@ class OutboxMessageMapperTest {
         .isInstanceOf(InvalidOutgoingMessage.class)
         .hasMessageContaining("substitute");
   }
+
+  @DisplayName(
+      "HelpRequestCreated row for Lena's catastrophe (recipe Roast chicken, pictures [burnt-chicken-1, burnt-chicken-2]) -> channel cooking-assistance.help-request.created, valid against the spec, payload unchanged -- B4-S01 US-CA-04 INV-19 INV-20 op publishHelpRequestCreated")
+  @Test
+  void helpRequestCreatedForACatastropheBecomesItsMessage() {
+    String payload = OutboxPayloads.helpRequestCreatedForACatastrophe(REQUEST);
+
+    OutgoingMessage message =
+        mapper.toMessage(new OutboxRecord(47, REQUEST, "HelpRequestCreated", payload));
+
+    assertThat(message.channel()).isEqualTo("cooking-assistance.help-request.created");
+    assertThat(message.payload()).isEqualTo(payload);
+  }
+
+  @DisplayName(
+      "HelpRequestCreated row for a catastrophe without recipe and without pictures -> valid against the spec, payload unchanged -- B4-S01 US-CA-04 INV-19 op publishHelpRequestCreated")
+  @Test
+  void helpRequestCreatedForACatastropheWithoutRecipeOrPicturesBecomesItsMessage() {
+    String payload =
+        OutboxPayloads.helpRequestCreatedForACatastrophe(REQUEST)
+            .replaceFirst("\"recipe\":\"[^\"]*\",\"pictures\":\\[[^\\]]*\\],", "");
+    assertThat(payload).doesNotContain("recipe").doesNotContain("pictures");
+
+    OutgoingMessage message =
+        mapper.toMessage(new OutboxRecord(48, REQUEST, "HelpRequestCreated", payload));
+
+    assertThat(message.channel()).isEqualTo("cooking-assistance.help-request.created");
+    assertThat(message.payload()).isEqualTo(payload);
+  }
+
+  @DisplayName(
+      "HelpRequestCreated row with a picture http://img.larder.example/burnt.jpg -> InvalidOutgoingMessage naming pictures, never sent -- B4-S01 US-CA-04 INV-38 SEC-07 ADR0015")
+  @Test
+  void pictureThatIsNoHttpsLinkIsRefused() {
+    String httpPicture =
+        OutboxPayloads.helpRequestCreatedForACatastrophe(REQUEST)
+            .replace(
+                "https://img.larder.example/burnt-chicken-1.jpg",
+                "http://img.larder.example/burnt.jpg");
+    assertThat(httpPicture).contains("http://img.larder.example/burnt.jpg");
+
+    assertThatThrownBy(
+            () ->
+                mapper.toMessage(new OutboxRecord(49, REQUEST, "HelpRequestCreated", httpPicture)))
+        .isInstanceOf(InvalidOutgoingMessage.class)
+        .hasMessageContaining("pictures");
+  }
+
+  @DisplayName(
+      "HelpProvided row with a CatastropheMitigation (recipe Roast chicken, explanation, images [cut-skin, sauce]) -> channel cooking-assistance.help.provided, valid against the spec, payload unchanged -- B4-S02 US-CA-04 R5.E1 op publishHelpProvided")
+  @Test
+  void helpProvidedWithAMitigationBecomesItsMessage() {
+    String payload = OutboxPayloads.helpProvidedWithAMitigation(REQUEST);
+
+    OutgoingMessage message =
+        mapper.toMessage(new OutboxRecord(50, REQUEST, "HelpProvided", payload));
+
+    assertThat(message.channel()).isEqualTo("cooking-assistance.help.provided");
+    assertThat(message.payload()).isEqualTo(payload);
+  }
+
+  @DisplayName(
+      "HelpProvided row with a CatastropheMitigation without explanation -> InvalidOutgoingMessage naming explanation, never sent -- B4-S02 US-CA-04 ADR0015")
+  @Test
+  void mitigationWithoutExplanationIsRefused() {
+    String noExplanation =
+        OutboxPayloads.helpProvidedWithAMitigation(REQUEST)
+            .replace("\"explanation\":\"Cut off the burnt skin, make a fresh sauce\",", "");
+    assertThat(noExplanation).doesNotContain("explanation");
+
+    assertThatThrownBy(
+            () -> mapper.toMessage(new OutboxRecord(51, REQUEST, "HelpProvided", noExplanation)))
+        .isInstanceOf(InvalidOutgoingMessage.class)
+        .hasMessageContaining("explanation");
+  }
 }

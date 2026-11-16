@@ -94,4 +94,31 @@ final class OutboxPayloads {
             HelpRequests.TOMATO_SOUP.value(),
             HelpRequests.CREME_FRAICHE.value());
   }
+
+  /** Lena's burnt roast chicken, Sat 18:40 CET, asking the Community and Grandma (US-CA-04). */
+  static String helpRequestCreatedForACatastrophe(UUID helpRequestId) {
+    return """
+        {"helpRequestId":"%s","requester":"%s","title":"My roast chicken is burnt",\
+        "type":"STEPS_TO_MITIGATE_CATASTROPHE","description":"The skin is black on one side",\
+        "recipe":"%s","pictures":["https://img.larder.example/burnt-chicken-1.jpg",\
+        "https://img.larder.example/burnt-chicken-2.jpg"],\
+        "askedProviders":[{"providerType":"COMMUNITY","deadline":"2026-11-14T17:55:00Z"},\
+        {"providerType":"GRANDMA_AVATAR","deadline":"2026-11-14T17:45:00Z"}],\
+        "status":"OPEN","occurredAt":"2026-11-14T17:40:00Z"}"""
+        .formatted(helpRequestId, HelpRequests.LENA.value(), HelpRequests.ROAST_CHICKEN.value());
+  }
+
+  static String helpProvidedWithAMitigation(UUID helpRequestId) {
+    return """
+        {"helpId":"%s","helpRequest":"%s","helpRequester":"%s","answerTitle":"Save the chicken",\
+        "helpProviderType":"GRANDMA_AVATAR","answer":{"answerType":"STEPS_TO_MITIGATE_CATASTROPHE",\
+        "recipe":"%s","explanation":"Cut off the burnt skin, make a fresh sauce",\
+        "images":["https://img.larder.example/cut-skin.jpg","https://img.larder.example/sauce.jpg"]},\
+        "helpRequestStatus":"ANSWERED","occurredAt":"2026-11-14T17:44:00Z"}"""
+        .formatted(
+            HelpRequests.HELP_ID.value(),
+            helpRequestId,
+            HelpRequests.LENA.value(),
+            HelpRequests.ROAST_CHICKEN.value());
+  }
 }
