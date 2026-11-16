@@ -10,9 +10,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.math.BigDecimal;
+import java.net.URI;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -23,6 +25,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.larder.cookingassistance.application.fakes.InMemoryHelpRequestRepository;
+import org.larder.cookingassistance.domain.helprequest.CatastropheMitigation;
 import org.larder.cookingassistance.domain.helprequest.CookId;
 import org.larder.cookingassistance.domain.helprequest.HelpAnswer;
 import org.larder.cookingassistance.domain.helprequest.HelpId;
@@ -588,6 +591,30 @@ class HelpsControllerTest {
         .hasSize(1);
   }
 
+  private void lenasCatastropheRequestIsStored() {
+    helpRequests.clear();
+    helpRequests.save(
+        HelpRequests.lenaAsksAboutBurntChicken(
+            Optional.of(HelpRequests.ROAST_CHICKEN),
+            HelpRequests.BURNT_CHICKEN_PHOTOS,
+            HelpProviderType.COMMUNITY));
+  }
+
+  /** Jonas's mitigation of the burnt chicken; recipe and images are given as JSON fragments. */
+  private static String mitigating(String recipe, String images) {
+    return """
+        {
+          "answerTitle": "Save the chicken",
+          "helpProviderType": "COMMUNITY",
+          "answer": {
+            "answerType": "STEPS_TO_MITIGATE_CATASTROPHE",
+            %s"explanation": "Cut off the burnt skin, make a fresh sauce"%s
+          }
+        }
+        """
+        .formatted(recipe, images);
+  }
+
   private void lenasIngredientRequestIsStored() {
     helpRequests.clear();
     helpRequests.save(HelpRequests.lenaAsksForASubstitute(HelpProviderType.COMMUNITY));
@@ -637,5 +664,72 @@ class HelpsControllerTest {
         .helps()
         .getFirst()
         .answer();
+  }
+
+  @DisplayName(
+      "Jonas posts a CatastropheMitigation (recipe Roast chicken, explanation, images [cut-skin, sauce]) on Lena's catastrophe request -> 201 with the help link; the saved Help holds the same CatastropheMitigation (replaces the 501 placeholder) -- B4-S02 US-CA-04 R5.E2 op provideHelp")
+  @Test
+  void communityMitigationIsProvided() throws Exception {
+    lenasCatastropheRequestIsStored();
+
+    MvcResult result =
+        post201(
+            mitigating(
+                "\"recipe\": \"%s\", ".formatted(HelpRequests.ROAST_CHICKEN.value()),
+                ", \"images\": [\"https://img.larder.example/cut-skin.jpg\", \"https://img.larder.example/sauce.jpg\"]"));
+
+    SpecSchemas.assertMatches(result.getResponse().getContentAsString(), "HelpLink");
+    assertThat(storedAnswer())
+        .isEqualTo(
+            new CatastropheMitigation(
+                HelpRequests.ROAST_CHICKEN,
+                "Cut off the burnt skin, make a fresh sauce",
+                List.of(
+                    URI.create("https://img.larder.example/cut-skin.jpg"),
+                    URI.create("https://img.larder.example/sauce.jpg"))));
+  }
+
+  @DisplayName(
+      "a CatastropheMitigation without recipe and without images -> 201; the saved Help has no recipe and no images -- B4-S02 US-CA-04 INV-37 op provideHelp")
+  @Test
+  void mitigationWithoutRecipeOrImagesIsProvided() throws Exception {
+    lenasCatastropheRequestIsStored();
+
+    post201(mitigating("", ""));
+
+    assertThat(storedAnswer())
+        .isEqualTo(
+            new CatastropheMitigation(
+                null, "Cut off the burnt skin, make a fresh sauce", List.of()));
+  }
+
+  @DisplayName(
+      "a CatastropheMitigation naming Tomato soup on the Roast chicken request -> 422 ANSWER_DOES_NOT_MATCH_REQUEST with rule INV-37, no Help saved -- B4-S02 US-CA-04 INV-37 op provideHelp")
+  @Test
+  void mitigationForAnotherRecipeIsRefused() throws Exception {
+    lenasCatastropheRequestIsStored();
+
+    mvc.perform(
+            post("/help-requests/" + REQUEST_ID + "/helps")
+                .header(AUTHORIZATION, JONAS_AS_COMMUNITY)
+                .header("version", "1.0.3")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    mitigating(
+                        "\"recipe\": \"%s\", ".formatted(HelpRequests.TOMATO_SOUP.value()), "")))
+        .andExpect(status().is(422))
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.code").value("ANSWER_DOES_NOT_MATCH_REQUEST"))
+        .andExpect(jsonPath("$.rule").value("INV-37"));
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().helps()).isEmpty();
+  }
+
+  @DisplayName(
+      "a CatastropheMitigation with 11 images -> 400 VALIDATION_FAILED, no Help saved (maxItems 10) -- B4-S02 US-CA-04 INV-38 op provideHelp")
+  @Test
+  void mitigationWithElevenImagesIsRefused() throws Exception {
+    lenasCatastropheRequestIsStored();
+
+    expectValidationFailed(mitigating("", ", \"images\": " + elevenImages()));
   }
 }

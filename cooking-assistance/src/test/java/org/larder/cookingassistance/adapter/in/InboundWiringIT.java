@@ -5,6 +5,7 @@ import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -330,5 +331,61 @@ class InboundWiringIT {
           Duration.ofSeconds(5), () -> assertThat(statusOf(id)).isEqualTo("CANCELLED"));
       assertThat(outboxRows("HelpRequestTimedOut", id)).isEqualTo(1);
     }
+  }
+
+  @DisplayName(
+      "W7 POST /help-requests STEPS_TO_MITIGATE_CATASTROPHE with recipe and two pictures -> help_request row with the pictures and outbox HelpRequestCreated carrying them -- B4-S01 US-CA-04 op createHelpRequest wiring")
+  @Test
+  void catastropheRequestOverHttpIsStored() throws Exception {
+    String body =
+        """
+        {
+          "title": "My roast chicken is burnt",
+          "type": "STEPS_TO_MITIGATE_CATASTROPHE",
+          "description": "The skin is black on one side",
+          "recipe": "%s",
+          "pictures": [
+            "https://img.larder.example/burnt-chicken-1.jpg",
+            "https://img.larder.example/burnt-chicken-2.jpg"
+          ],
+          "preferredProvider": ["COMMUNITY", "GRANDMA_AVATAR"]
+        }
+        """
+            .formatted(HelpRequests.ROAST_CHICKEN.value());
+    String response =
+        mvc.perform(
+                post("/help-requests")
+                    .header(AUTHORIZATION, LENA_AS_COOK)
+                    .header("version", "1.0.3")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body))
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    UUID helpRequestId = UUID.fromString(json.readTree(response).get("helpRequestId").asText());
+
+    assertThat(
+            jdbc.sql("select array_to_string(pictures, ',') from help_request where id = :id")
+                .param("id", helpRequestId)
+                .query(String.class)
+                .single())
+        .isEqualTo(
+            "https://img.larder.example/burnt-chicken-1.jpg,https://img.larder.example/burnt-chicken-2.jpg");
+    String payload =
+        jdbc.sql(
+                "select payload from outbox where event_type = 'HelpRequestCreated' and aggregate_id = :id")
+            .param("id", helpRequestId)
+            .query(String.class)
+            .single();
+    JsonNode created = json.readTree(payload);
+    assertThat(created.get("type").asText()).isEqualTo("STEPS_TO_MITIGATE_CATASTROPHE");
+    assertThat(created.get("recipe").asText())
+        .isEqualTo(HelpRequests.ROAST_CHICKEN.value().toString());
+    assertThat(created.get("pictures"))
+        .extracting(JsonNode::asText)
+        .containsExactly(
+            "https://img.larder.example/burnt-chicken-1.jpg",
+            "https://img.larder.example/burnt-chicken-2.jpg");
   }
 }

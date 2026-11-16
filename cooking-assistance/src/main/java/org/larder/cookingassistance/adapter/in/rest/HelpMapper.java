@@ -61,6 +61,14 @@ final class HelpMapper {
           new Substitutes(
               new RecipeId(substitutes.getRecipe()),
               substitutes.getSubstitute().stream().map(HelpMapper::toSubstitute).toList());
+      case org.larder.cookingassistance.adapter.in.rest.generated.model.CatastropheMitigation
+              mitigation ->
+          new CatastropheMitigation(
+              // INV-37: a mitigation may name no recipe
+              Optional.ofNullable(mitigation.getRecipe()).map(RecipeId::new).orElse(null),
+              mitigation.getExplanation(),
+              // images are optional in the spec: no images, no pictures
+              Objects.requireNonNullElse(mitigation.getImages(), List.of()));
       default -> throw new NotImplemented("provideHelp with " + answer.getClass().getSimpleName());
     };
   }

@@ -10,10 +10,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.larder.cookingassistance.application.fakes.InMemoryHelpRequestRepository;
+import org.larder.cookingassistance.domain.helprequest.AskedProvider;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequest;
 import org.larder.cookingassistance.domain.helprequest.HelpType;
@@ -66,6 +69,22 @@ class HelpRequestsControllerTest {
       }
       """
           .formatted(HelpRequests.TOMATO_SOUP.value(), HelpRequests.CREME_FRAICHE.value());
+
+  static final String LENAS_CATASTROPHE_REQUEST =
+      """
+      {
+        "title": "My roast chicken is burnt",
+        "type": "STEPS_TO_MITIGATE_CATASTROPHE",
+        "description": "The skin is black on one side",
+        "recipe": "%s",
+        "pictures": [
+          "https://img.larder.example/burnt-chicken-1.jpg",
+          "https://img.larder.example/burnt-chicken-2.jpg"
+        ],
+        "preferredProvider": ["COMMUNITY", "GRANDMA_AVATAR"]
+      }
+      """
+          .formatted(HelpRequests.ROAST_CHICKEN.value());
 
   @Autowired MockMvc mvc;
   @Autowired InMemoryHelpRequestRepository helpRequests;
@@ -562,5 +581,117 @@ class HelpRequestsControllerTest {
     expectValidationFailed(
         LENAS_REQUEST.replace(
             "\"preferredProvider\"", "\"ingredientName\": \"egg yolk\", \"preferredProvider\""));
+  }
+
+  @DisplayName(
+      "valid STEPS_TO_MITIGATE_CATASTROPHE request by Lena (recipe Roast chicken, pictures [burnt-chicken-1, burnt-chicken-2], preferredProvider [COMMUNITY, GRANDMA_AVATAR]) -> 201 with the link; a catastrophe request with the recipe, the pictures in order and both providers is saved (replaces the 501 placeholder) -- B4-S01 US-CA-04 R1.E2 INV-19 INV-20 op createHelpRequest")
+  @Test
+  void catastropheRequestIsCreated() throws Exception {
+    MvcResult result =
+        mvc.perform(
+                post("/help-requests")
+                    .header(AUTHORIZATION, LENA_AS_COOK)
+                    .header("version", "1.0.2")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(LENAS_CATASTROPHE_REQUEST))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.helpRequestId").value(ID))
+            .andReturn();
+
+    SpecSchemas.assertMatches(result.getResponse().getContentAsString(), "HelpRequestLink");
+    HelpRequest stored = helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    assertThat(stored.type()).isEqualTo(HelpType.STEPS_TO_MITIGATE_CATASTROPHE);
+    assertThat(stored.recipe()).isEqualTo(HelpRequests.ROAST_CHICKEN);
+    assertThat(stored.pictures()).isEqualTo(HelpRequests.BURNT_CHICKEN_PHOTOS);
+    assertThat(stored.askedProviders())
+        .extracting(AskedProvider::providerType)
+        .containsExactlyInAnyOrder(HelpProviderType.COMMUNITY, HelpProviderType.GRANDMA_AVATAR);
+  }
+
+  @DisplayName(
+      "STEPS_TO_MITIGATE_CATASTROPHE without recipe and without pictures -> 201; the request is saved with no recipe and no pictures -- B4-S01 US-CA-04 R2.E3 INV-19 op createHelpRequest")
+  @Test
+  void catastropheWithoutRecipeOrPicturesIsCreated() throws Exception {
+    mvc.perform(
+            post("/help-requests")
+                .header(AUTHORIZATION, LENA_AS_COOK)
+                .header("version", "1.0.2")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "title": "My souffle collapsed",
+                      "type": "STEPS_TO_MITIGATE_CATASTROPHE",
+                      "description": "It fell flat when I opened the oven",
+                      "preferredProvider": ["GRANDMA_AVATAR"]
+                    }
+                    """))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.helpRequestId").value(ID));
+
+    HelpRequest stored = helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    assertThat(stored.type()).isEqualTo(HelpType.STEPS_TO_MITIGATE_CATASTROPHE);
+    assertThat(stored.recipe()).isNull();
+    assertThat(stored.pictures()).isEmpty();
+  }
+
+  @DisplayName(
+      "STEPS_TO_MITIGATE_CATASTROPHE with an ingredient -> 400 VALIDATION_FAILED, nothing saved (if/then checked) -- B4-S01 US-CA-04 INV-19 op createHelpRequest")
+  @Test
+  void catastropheWithAnIngredientIsRefused() throws Exception {
+    expectValidationFailed(
+        LENAS_CATASTROPHE_REQUEST.replace(
+            "\"preferredProvider\"",
+            "\"ingredient\": \"%s\", \"preferredProvider\""
+                .formatted(HelpRequests.CREME_FRAICHE.value())));
+  }
+
+  @DisplayName(
+      "STEPS_TO_MITIGATE_CATASTROPHE with 11 pictures -> 400 VALIDATION_FAILED, nothing saved (maxItems 10) -- B4-S01 US-CA-04 INV-20 INV-38 op createHelpRequest")
+  @Test
+  void catastropheWithElevenPicturesIsRefused() throws Exception {
+    String elevenPictures =
+        IntStream.rangeClosed(1, 11)
+            .mapToObj(i -> "\"https://img.larder.example/burnt-chicken-" + i + ".jpg\"")
+            .collect(Collectors.joining(", ", "\"pictures\": [", "],"));
+
+    expectValidationFailed(
+        LENAS_CATASTROPHE_REQUEST.replaceFirst("(?s)\"pictures\": \\[.*?\\],", elevenPictures));
+  }
+
+  @DisplayName(
+      "STEPS_TO_MITIGATE_CATASTROPHE with a picture http://img.larder.example/burnt.jpg -> 400 VALIDATION_FAILED, nothing saved (pattern ^https://) -- B4-S01 US-CA-04 INV-38 SEC-07 op createHelpRequest")
+  @Test
+  void catastropheWithAnHttpPictureIsRefused() throws Exception {
+    expectValidationFailed(
+        LENAS_CATASTROPHE_REQUEST.replaceFirst(
+            "(?s)\"pictures\": \\[.*?\\],",
+            "\"pictures\": [\"http://img.larder.example/burnt.jpg\"],"));
+  }
+
+  @DisplayName(
+      "STEPS_TO_MITIGATE_CATASTROPHE naming the Chef -> 400 VALIDATION_FAILED, nothing saved (schema else branch) -- B4-S01 US-CA-04 INV-18 R1.E4 op createHelpRequest")
+  @Test
+  void catastropheNamingTheChefIsRefused() throws Exception {
+    expectValidationFailed(
+        LENAS_CATASTROPHE_REQUEST.replace("[\"COMMUNITY\", \"GRANDMA_AVATAR\"]", "[\"CHEF\"]"));
+  }
+
+  @DisplayName(
+      "STEPS_TO_MITIGATE_CATASTROPHE by an actor without role cook -> 403 NOT_AUTHORIZED, nothing saved -- B4-S01 US-CA-04 ADR0013 op createHelpRequest")
+  @Test
+  void catastropheByAnActorWithoutCookRoleIsRefused() throws Exception {
+    String chefOnly =
+        TestTokens.forCook(HelpRequests.LENA).roles("chef").scope("help:write").bearer();
+
+    mvc.perform(
+            post("/help-requests")
+                .header(AUTHORIZATION, chefOnly)
+                .header("version", "1.0.2")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(LENAS_CATASTROPHE_REQUEST))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("NOT_AUTHORIZED"));
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID)).isEmpty();
   }
 }

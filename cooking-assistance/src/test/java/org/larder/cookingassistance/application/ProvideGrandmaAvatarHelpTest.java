@@ -331,7 +331,7 @@ class ProvideGrandmaAvatarHelpTest {
   }
 
   @DisplayName(
-      "Grandma's side timed out at 18:46; her mitigation arrives at 18:47 -> AnswerTooLate propagates unchanged (named outcome: dead-lettered with its rule, step 9), no Help saved -- B4-S02 US-CA-04 INV-26 R9.E3 step 3 r21")
+      "Grandma's side timed out at 18:46; her mitigation arrives at 18:47 -> AnswerTooLate propagates unchanged (named outcome: ignored with ACK, Q-A2, step 9), no Help saved -- B4-S02 US-CA-04 INV-26 R9.E3 step 3 r21")
   @Test
   void grandmaAnswersAfterHerSideTimedOut() {
     helpRequests.clear();

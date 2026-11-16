@@ -5,10 +5,12 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import org.larder.cookingassistance.adapter.messaging.generated.Answer;
 import org.larder.cookingassistance.adapter.messaging.generated.GrandmaHelpProvidedPayload;
 import org.larder.cookingassistance.application.ProvideGrandmaAvatarHelp.GrandmaAnswer;
+import org.larder.cookingassistance.domain.helprequest.CatastropheMitigation;
 import org.larder.cookingassistance.domain.helprequest.HelpAnswer;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HowToStepId;
@@ -53,6 +55,16 @@ final class GrandmaAnswerMapper {
           new Substitutes(
               new RecipeId(substitutes.recipe()),
               substitutes.substitute().stream().map(GrandmaAnswerMapper::toSubstitute).toList());
+      case org.larder.cookingassistance.adapter.messaging.generated.CatastropheMitigation
+              mitigation ->
+          new CatastropheMitigation(
+              // INV-37: a mitigation may name no recipe
+              Optional.ofNullable(mitigation.recipe()).map(RecipeId::new).orElse(null),
+              mitigation.explanation(),
+              // images are optional in the spec: no images, no pictures
+              Objects.requireNonNullElse(mitigation.images(), List.<String>of()).stream()
+                  .map(GrandmaAnswerMapper::pictureLink)
+                  .toList());
       default -> throw new AnswerKindNotBuilt(answer.getClass().getSimpleName());
     };
   }
