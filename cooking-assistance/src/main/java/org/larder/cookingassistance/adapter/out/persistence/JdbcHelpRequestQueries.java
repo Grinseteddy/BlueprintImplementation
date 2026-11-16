@@ -84,9 +84,9 @@ class JdbcHelpRequestQueries implements HelpRequestQueries {
           + " and earlier.requester = read.requester"
           + " and (("
           + ABOUT_THE_SAME_STEP_OF_THE_SAME_RECIPE
-          + ") or "
+          + ") or ("
           + ABOUT_AN_INGREDIENT_OF_THE_SAME_NAME
-          + " or ("
+          + ") or ("
           + ABOUT_A_CATASTROPHE_OF_THE_SAME_RECIPE
           + "))";
 

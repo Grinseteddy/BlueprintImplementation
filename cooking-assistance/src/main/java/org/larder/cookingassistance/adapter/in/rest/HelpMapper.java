@@ -158,7 +158,7 @@ final class HelpMapper {
             org.larder.cookingassistance.adapter.in.rest.generated.model.CatastropheMitigation
                 .AnswerTypeEnum.STEPS_TO_MITIGATE_CATASTROPHE,
             answer.explanation())
-        .recipe(Optional.ofNullable(answer.recipe()).map(RecipeId::value).orElse(null))
+        .recipe(answer.recipe() == null ? null : answer.recipe().value())
         .images(OptionalArrays.absentWhenEmpty(answer.images()));
   }
 
