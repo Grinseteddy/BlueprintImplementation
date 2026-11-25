@@ -204,7 +204,7 @@ Each asked provider has its own deadline. A provider's side times out alone, and
 - **Slice / command:** policy → Notification · (Help requested published) · **kind:** other
 - **Guard / outcome:** every request sent to the Community notifies Community members — cross-context policy, staleness: seconds; compensation: none (notification only); a request that asks only the Grandma Avatar notifies nobody in the Community (Q1, step 3 r20); this context's part: HelpRequestCreated names the asked providers; the notification itself is the Notification context's (planned list, other owner)
 - **Sources:** map; board 'Cook notified'; red card Q1 deferred → increment 3
-  - `US-CA-04 R4.E1` **Given/When** Lena asks the Community at 18:40 **Then** Jonas and Mia notified at 18:40
+  - `US-CA-04 R4.E1` **Given/When** Lena asks the Community at 18:40 **Then** the request announced at 18:40 names the Community among the asked providers, for its members to be notified *(step 3 r24, 2026-11-25, step 12 of increment 3, decided by the user: worded as INV-21's guard (r20, Q1) — notifying Jonas and Mia is the Notification context's; the graph's Ex_EM04_R4_E1 still says "Jonas and Mia notified at 18:40")*
 
 #### INV-22 — US-CA-04 R5: Accepting an answer closes the whole request
 - **Slice / command:** B3-S04 · Accept help · **kind:** other
@@ -230,7 +230,7 @@ Each asked provider has its own deadline. A provider's side times out alone, and
 - **Slice / command:** B3-S03 · Cancel help request · **kind:** other
 - **Guard / outcome:** = INV-08
 - **Sources:** map (same card)
-  - `US-CA-04 R8.E1` **Given/When** 18:50 Lena cancels: "ordered pizza" **Then** closed, providers see the note
+  - `US-CA-04 R8.E1` **Given/When** 18:50 Lena cancels: "ordered pizza" **Then** cancelled, providers see the note *(step 3 r22, 2026-11-24, step 12 of increment 3, decided by the user: "closed" corrected to "cancelled" — a cancellation ends in CANCELLED, as INV-08; the graph's Ex_EM04_R8_E1 still says "closed")*
 
 #### INV-26 — US-CA-04 R9: Unanswered: cancelled after 15 min (Community) or 5 min (Grandma); a provider not yet asked is suggested
 - **Slice / command:** B3-S06 · Time out help request · **kind:** quantitative
@@ -240,7 +240,7 @@ Each asked provider has its own deadline. A provider's side times out alone, and
   - `US-CA-04 R9.E2` **Given/When** Only Grandma asked 18:40, silent until 18:45 **Then** cancelled, Community suggested
   - `US-CA-04 R9.E3` **Given/When** Both asked, Grandma silent at 18:45 **Then** only Grandma's side cancelled, Community until 18:55
   - `US-CA-04 R9.E4` **Given/When** Both asked, both silent until 18:55 **Then** cancelled, Lena told
-  - `US-CA-04 R9.E5` **Given/When** Jonas answers 18:54 **Then** answer counts
+  - `US-CA-04 R9.E5` **Given/When** Jonas answers 18:54 **Then** Jonas's answer counts *(step 3 r23, 2026-11-24, step 12 of increment 3, decided by the user: "his answer counts" named Jonas — the same words as US-CA-03 R8.E4, whose step is the preparation request's; the graph's Ex_EM04_R9_E5 still says "answer counts")*
 
 ## B1 — Help with a meal plan
 
