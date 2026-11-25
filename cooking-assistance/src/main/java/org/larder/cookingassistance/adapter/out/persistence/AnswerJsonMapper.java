@@ -85,10 +85,11 @@ final class AnswerJsonMapper {
         case STEPS_TO_MITIGATE_CATASTROPHE ->
             toMitigation(
                 AsyncApiJson.MAPPER.readValue(json.value(), CatastropheMitigationJson.class));
-        // PREPARATION_STEP_EXPLANATION, the first kind of answer
-        default ->
+        case PREPARATION_STEP_EXPLANATION ->
             toExplanation(
                 AsyncApiJson.MAPPER.readValue(json.value(), PreparationStepExplanationJson.class));
+        default ->
+            throw new IllegalStateException("Unknown stored answer type " + answerTypeOf(json));
       };
     } catch (JsonProcessingException e) {
       throw new IllegalStateException("Cannot read the stored answer", e);
@@ -96,7 +97,7 @@ final class AnswerJsonMapper {
   }
 
   private static String answerTypeOf(AnswerJson json) throws JsonProcessingException {
-    return AsyncApiJson.MAPPER.readTree(json.value()).get("answerType").asText();
+    return AsyncApiJson.MAPPER.readTree(json.value()).path("answerType").asText();
   }
 
   private static PreparationStepExplanation toExplanation(PreparationStepExplanationJson stored) {
