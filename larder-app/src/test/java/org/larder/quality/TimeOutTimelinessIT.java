@@ -212,7 +212,7 @@ class TimeOutTimelinessIT {
             .header(
                 "Authorization",
                 TestTokens.forCook(HelpRequests.LENA).roles("cook").scope("help:write").bearer())
-            .header("version", "1.0.10")
+            .header("version", "1.0.18")
             .contentType(MediaType.APPLICATION_JSON)
             .body(HelpRequestBodies.burntChicken("COMMUNITY", "GRANDMA_AVATAR"))
             .retrieve()
@@ -248,7 +248,7 @@ class TimeOutTimelinessIT {
                     .roles("cook", "community")
                     .scope("help:read")
                     .bearer())
-            .header("version", "1.0.10")
+            .header("version", "1.0.18")
             .retrieve()
             .body(String.class);
     return new ObjectMapper().readTree(body);
