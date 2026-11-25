@@ -40,7 +40,7 @@ class AsyncApiContractTest {
   }
 
   @DisplayName(
-      "every message example of the spec -> its payload and headers match their schemas (the lint checks AsyncAPI 2 examples only) -- B2-S01,B2-S02 US-CA-02,US-CA-03 (step 4 r22)")
+      "every message example of the spec -> its payload and headers match their schemas (the lint checks AsyncAPI 2 examples only) -- B2-S01,B2-S02,B4-S01,B4-S02 US-CA-02,US-CA-03,US-CA-04 (step 4 r22, r26)")
   @Test
   void everyMessageExampleMatchesItsSchemas() throws Exception {
     AsyncApiContract contract = new AsyncApiContract();

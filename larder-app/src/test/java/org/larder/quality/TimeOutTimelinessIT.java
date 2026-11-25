@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.larder.LarderApplication;
@@ -97,6 +99,75 @@ class TimeOutTimelinessIT {
     }
   }
 
+  @DisplayName(
+      "E3 once the clock passes Grandma's deadline of a request to both, her side times out within 30 s, the Community's side still asked, no HelpRequestTimedOut -- B3-S06 US-CA-04 INV-26 QS-09")
+  @Test
+  void oneSideTimesOutWithin30Seconds() throws Exception {
+    ServiceChannels.listenToEvery(admin);
+    String queue = ServiceChannels.queueOn(TIMED_OUT);
+    clock.moveTo(SATURDAY_18_40);
+    String helpRequestId = lenaAsksBothAboutHerBurntChicken();
+
+    clock.moveTo(SATURDAY_18_40.plus(Duration.ofMinutes(5)).plusSeconds(1));
+    long passed = System.nanoTime();
+    JsonNode request = sideTimedOutWithin(helpRequestId, "GRANDMA_AVATAR", Duration.ofSeconds(40));
+    Duration timeliness = Duration.ofNanos(System.nanoTime() - passed);
+
+    assertThat(timeliness)
+        .as("time from Grandma's deadline to her side timed out")
+        .isLessThanOrEqualTo(Duration.ofSeconds(30));
+    assertThat(stateOf(request, "COMMUNITY")).as("the Community's side").isEqualTo("ASKED");
+    assertThat(request.get("status").asText()).isEqualTo("OPEN");
+    assertThat(timedOutWithin(queue, helpRequestId, Duration.ofSeconds(12)))
+        .as("a HelpRequestTimedOut while the Community's side is still asked")
+        .isNull();
+  }
+
+  @DisplayName(
+      "E4 two service instances, a request to both: Grandma's side times out within 30 s of her deadline with no event, then exactly one HelpRequestTimedOut within 30 s of the Community's deadline (indicative) -- B3-S06 US-CA-04 INV-26 QS-09 ADR0021")
+  @Test
+  void twoInstancesTimeOutEachSideOnce() throws Exception {
+    ServiceChannels.listenToEvery(admin);
+    String queue = ServiceChannels.queueOn(TIMED_OUT);
+    try (ConfigurableApplicationContext second = secondInstance()) {
+      AcceptanceClock secondClock = second.getBean(AcceptanceClock.class);
+      clock.moveTo(SATURDAY_18_40);
+      secondClock.moveTo(SATURDAY_18_40);
+      String helpRequestId = lenaAsksBothAboutHerBurntChicken();
+
+      Instant afterGrandmasDeadline = SATURDAY_18_40.plus(Duration.ofMinutes(5)).plusSeconds(1);
+      clock.moveTo(afterGrandmasDeadline);
+      secondClock.moveTo(afterGrandmasDeadline);
+      long grandmasPassed = System.nanoTime();
+      sideTimedOutWithin(helpRequestId, "GRANDMA_AVATAR", Duration.ofSeconds(40));
+      assertThat(Duration.ofNanos(System.nanoTime() - grandmasPassed))
+          .as("time from Grandma's deadline to her side timed out")
+          .isLessThanOrEqualTo(Duration.ofSeconds(30));
+      assertThat(timedOutWithin(queue, helpRequestId, Duration.ofSeconds(12)))
+          .as("a HelpRequestTimedOut after Grandma's deadline only")
+          .isNull();
+
+      Instant afterTheCommunitysDeadline =
+          SATURDAY_18_40.plus(Duration.ofMinutes(15)).plusSeconds(1);
+      clock.moveTo(afterTheCommunitysDeadline);
+      secondClock.moveTo(afterTheCommunitysDeadline);
+      long communitysPassed = System.nanoTime();
+      JsonNode timedOut = timedOutWithin(queue, helpRequestId, Duration.ofSeconds(40));
+      assertThat(timedOut).as("HelpRequestTimedOut after the Community's deadline").isNotNull();
+      assertThat(Duration.ofNanos(System.nanoTime() - communitysPassed))
+          .as("time from the Community's deadline to HelpRequestTimedOut")
+          .isLessThanOrEqualTo(Duration.ofSeconds(30));
+      List<String> timedOutProviders = new ArrayList<>();
+      timedOut
+          .get("timedOutProviders")
+          .forEach(provider -> timedOutProviders.add(provider.asText()));
+      assertThat(timedOutProviders).containsExactlyInAnyOrder("COMMUNITY", "GRANDMA_AVATAR");
+      assertThat(timedOutWithin(queue, helpRequestId, Duration.ofSeconds(12)))
+          .as("a second HelpRequestTimedOut from the other instance")
+          .isNull();
+    }
+  }
+
   /** A second Larder process on the same database and broker, with its own clock (indicative). */
   private ConfigurableApplicationContext secondInstance() {
     return new SpringApplicationBuilder(LarderApplication.class, AcceptanceTime.class)
@@ -128,6 +199,68 @@ class TimeOutTimelinessIT {
             .retrieve()
             .body(String.class);
     return new ObjectMapper().readTree(created).get("helpRequestId").asText();
+  }
+
+  /** Saturday 18:40 CET (US-CA-04 R1.E1). */
+  private static final Instant SATURDAY_18_40 = Instant.parse("2026-11-14T17:40:00Z");
+
+  private String lenaAsksBothAboutHerBurntChicken() throws Exception {
+    String created =
+        RestClient.create("http://localhost:" + port)
+            .post()
+            .uri("/help-requests")
+            .header(
+                "Authorization",
+                TestTokens.forCook(HelpRequests.LENA).roles("cook").scope("help:write").bearer())
+            .header("version", "1.0.10")
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(HelpRequestBodies.burntChicken("COMMUNITY", "GRANDMA_AVATAR"))
+            .retrieve()
+            .body(String.class);
+    return new ObjectMapper().readTree(created).get("helpRequestId").asText();
+  }
+
+  /**
+   * Jonas reads the request every 500 ms until the provider's side timed out (no event of its own).
+   */
+  private JsonNode sideTimedOutWithin(String helpRequestId, String provider, Duration within)
+      throws Exception {
+    long deadline = System.nanoTime() + within.toNanos();
+    while (System.nanoTime() < deadline) {
+      JsonNode request = jonasReads(helpRequestId);
+      if (stateOf(request, provider).equals("TIMED_OUT")) {
+        return request;
+      }
+      Thread.sleep(500);
+    }
+    throw new AssertionError(
+        provider + "'s side of " + helpRequestId + " not TIMED_OUT within " + within);
+  }
+
+  private JsonNode jonasReads(String helpRequestId) throws Exception {
+    String body =
+        RestClient.create("http://localhost:" + port)
+            .get()
+            .uri("/help-requests/{id}", helpRequestId)
+            .header(
+                "Authorization",
+                TestTokens.forCook(HelpRequests.JONAS)
+                    .roles("cook", "community")
+                    .scope("help:read")
+                    .bearer())
+            .header("version", "1.0.10")
+            .retrieve()
+            .body(String.class);
+    return new ObjectMapper().readTree(body);
+  }
+
+  private static String stateOf(JsonNode request, String provider) {
+    for (JsonNode asked : request.get("askedProviders")) {
+      if (asked.get("providerType").asText().equals(provider)) {
+        return asked.get("state").asText();
+      }
+    }
+    throw new AssertionError("no " + provider + " among " + request.get("askedProviders"));
   }
 
   private void timedOutFor(String queue, String helpRequestId, Duration within) throws Exception {

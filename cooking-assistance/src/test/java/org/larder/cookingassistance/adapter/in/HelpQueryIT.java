@@ -258,6 +258,20 @@ class HelpQueryIT {
   }
 
   @DisplayName(
+      "H9 listHelps with a cursor the API did not issue, limit=0, a helpProvider that is no UUID or an unknown type -> 400 VALIDATION_FAILED each -- B3-S02 US-CA-03 ADR0016 L5 L6 op listHelps")
+  @Test
+  void invalidValuesOfDeclaredParametersAreRefused() throws Exception {
+    helpRequests.save(grandmaThenJonasAnswer());
+
+    for (String query :
+        List.of("?cursor=abc", "?limit=0", "?helpProvider=jonas", "?type=MENU_PROPOSAL_X")) {
+      assertThat(new ObjectMapper().readTree(helps(query, 400)).path("code").asText())
+          .as(query)
+          .isEqualTo("VALIDATION_FAILED");
+    }
+  }
+
+  @DisplayName(
       "H5 getHelpOfHelpRequest -> 200 with that Help; unknown helpId -> 404 NOT_FOUND; a helpId of another request -> 404 NOT_FOUND -- B3-S04 US-CA-03 INV-05 op getHelpOfHelpRequest")
   @Test
   void oneHelpOfARequest() throws Exception {

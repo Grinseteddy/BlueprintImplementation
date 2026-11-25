@@ -21,4 +21,16 @@ final class HelpRequestBodies {
                 .map(provider -> '"' + provider + '"')
                 .collect(Collectors.joining(",")));
   }
+
+  /** Lena's roast chicken is burnt; she asks the given providers for help (US-CA-04). */
+  static String burntChicken(String... preferredProviders) {
+    return """
+        {"title":"My roast chicken is burnt","type":"STEPS_TO_MITIGATE_CATASTROPHE",
+         "description":"Burnt on the bottom","recipe":"%s","preferredProvider":[%s]}"""
+        .formatted(
+            HelpRequests.ROAST_CHICKEN.value(),
+            Arrays.stream(preferredProviders)
+                .map(provider -> '"' + provider + '"')
+                .collect(Collectors.joining(",")));
+  }
 }

@@ -236,4 +236,42 @@ class OpenApiExamplesIT {
         200,
         "Help");
   }
+
+  @DisplayName(
+      "D7 createHelpRequest example catastrophe -> 201 HelpRequestLink; provideHelp example catastropheMitigation on that request -> 201 HelpLink; getHelpRequestById -> 200 HelpRequest, getHelpOfHelpRequest -> 200 Help; each body valid against the spec -- B4-S01,B4-S02 US-CA-04 INV-19 INV-20 INV-37 op createHelpRequest,provideHelp,getHelpRequestById,getHelpOfHelpRequest (step 4 r26)")
+  @Test
+  void catastropheExamplesAreAnsweredAsSpecified() throws Exception {
+    ResponseEntity<String> created =
+        send(
+            HttpMethod.POST,
+            "/help-requests",
+            HelpRequests.LENA,
+            "cook",
+            spec.requestBodyExample("HelpRequestCreateRequest", "catastrophe"));
+    answeredAsSpecified(created, 201, "HelpRequestLink");
+    String id = new ObjectMapper().readTree(created.getBody()).get("helpRequestId").asText();
+    ResponseEntity<String> provided =
+        send(
+            HttpMethod.POST,
+            "/help-requests/" + id + "/helps",
+            HelpRequests.JONAS,
+            "cook,community",
+            spec.requestBodyExample("HelpCreateRequest", "catastropheMitigation"));
+    answeredAsSpecified(provided, 201, "HelpLink");
+    String link = new ObjectMapper().readTree(provided.getBody()).get("helpLink").asText();
+
+    answeredAsSpecified(
+        send(HttpMethod.GET, "/help-requests/" + id, HelpRequests.JONAS, "cook,community", null),
+        200,
+        "HelpRequest");
+    answeredAsSpecified(
+        send(
+            HttpMethod.GET,
+            "/help-requests/" + id + "/helps/" + link.substring(link.lastIndexOf('/') + 1),
+            HelpRequests.LENA,
+            "cook",
+            null),
+        200,
+        "Help");
+  }
 }

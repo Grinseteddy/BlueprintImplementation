@@ -33,6 +33,7 @@ import org.larder.cookingassistance.domain.helprequest.HowToStepId;
 import org.larder.cookingassistance.domain.helprequest.IngredientId;
 import org.larder.cookingassistance.domain.helprequest.RecipeId;
 import org.larder.cookingassistance.fixtures.HelpRequests;
+import org.larder.cookingassistance.fixtures.StoryClock;
 import org.larder.cookingassistance.fixtures.TestSigningKeys;
 import org.larder.cookingassistance.fixtures.TestTokens;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,7 +50,7 @@ import org.springframework.test.web.servlet.MockMvc;
  */
 @SpringBootTest(classes = PersistenceTestApplication.class)
 @AutoConfigureMockMvc
-@Import({PostgresTestContainer.class, TestSigningKeys.class})
+@Import({PostgresTestContainer.class, TestSigningKeys.class, StoryClock.class})
 class HelpRequestQueryIT {
 
   static final String JONAS_READING =

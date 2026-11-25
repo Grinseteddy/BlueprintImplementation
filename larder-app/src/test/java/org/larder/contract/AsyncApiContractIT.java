@@ -9,7 +9,10 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.larder.LarderApplication;
@@ -17,6 +20,7 @@ import org.larder.acceptance.AcceptanceInfrastructure;
 import org.larder.acceptance.DatabaseReset;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequest;
+import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestRepository;
 import org.larder.cookingassistance.fixtures.Eventually;
 import org.larder.cookingassistance.fixtures.HelpRequests;
@@ -112,6 +116,53 @@ class AsyncApiContractIT {
     broken.remove(firstRequired);
     ObjectNode otherMessage = example.get("headers").deepCopy();
     otherMessage.put("messageId", "8293b4c5-c6d7-4e8f-9012-7d8e9fa0b1c3");
+    publish(otherMessage, broken);
+
+    Eventually.within(
+        Duration.ofSeconds(10), () -> assertThat(messageCount(DEAD_LETTERS)).isEqualTo(1));
+  }
+
+  @DisplayName(
+      "D2c the GrandmaHelpProvided example with a catastrophe mitigation is acked (nothing pending, nothing dead-lettered); without its first required field it is dead-lettered -- B4-S02 US-CA-04 INV-37 op consumeGrandmaHelpProvided (step 4 r26)")
+  @Test
+  void mitigationExampleIsAcceptedAndBrokenOneDeadLettered() throws Exception {
+    JsonNode spec = asyncApi();
+    JsonNode example = null;
+    for (JsonNode candidate : spec.at("/components/messages/grandmaHelpProvided/examples")) {
+      if ("grandmaMitigatesCatastrophe".equals(candidate.path("name").asText())) {
+        example = candidate;
+      }
+    }
+    assertThat(example).as("example grandmaMitigatesCatastrophe").isNotNull();
+    String firstRequired =
+        spec.at("/components/schemas/GrandmaHelpProvidedPayload/required").get(0).asText();
+    // the example answers a request of its own id, about the Roast chicken it names
+    HelpRequestId requestId =
+        new HelpRequestId(UUID.fromString(example.at("/payload/helpRequest").asText()));
+    theRequestTheExampleAnswersIsStored(
+        HelpRequest.requestHelpWithCatastrophe(
+            requestId,
+            HelpRequests.LENA,
+            "My roast chicken is burnt",
+            "The skin is black on one side",
+            Optional.of(HelpRequests.ROAST_CHICKEN),
+            HelpRequests.BURNT_CHICKEN_PHOTOS,
+            Set.of(HelpProviderType.GRANDMA_AVATAR),
+            HelpRequests.SATURDAY_18_40));
+    admin.purgeQueue(DEAD_LETTERS, false);
+
+    publish(example.get("headers"), example.get("payload"));
+
+    Eventually.within(
+        Duration.ofSeconds(10),
+        () -> assertThat(helpRequests.findById(requestId).orElseThrow().helps()).hasSize(1));
+    assertThat(messageCount(QUEUE)).isZero();
+    assertThat(messageCount(DEAD_LETTERS)).isZero();
+
+    ObjectNode broken = example.get("payload").deepCopy();
+    broken.remove(firstRequired);
+    ObjectNode otherMessage = example.get("headers").deepCopy();
+    otherMessage.put("messageId", "93a4c5d6-d7e8-4f90-a123-8e9fa0b1c2d4");
     publish(otherMessage, broken);
 
     Eventually.within(
