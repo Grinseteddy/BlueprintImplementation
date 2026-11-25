@@ -1,7 +1,8 @@
 package org.larder.acceptance;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.within;
+import static org.larder.acceptance.HelpRequestAssertions.assertDeadline;
+import static org.larder.acceptance.HelpRequestAssertions.assertShowsThePreviousNote;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.cucumber.java.Before;
@@ -12,7 +13,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -82,12 +82,6 @@ public class IngredientSubstitutionSteps {
   /** The story's Tuesday, 10 November 2026, at the given time in Berlin (CET). */
   static Instant tuesday(String time) {
     return monday(time).plus(Duration.ofDays(1));
-  }
-
-  private static void assertCloseTo(JsonNode deadline, Instant expected, String whose) {
-    assertThat(Instant.parse(deadline.asText()))
-        .as("%s's deadline", whose)
-        .isCloseTo(expected, within(5, ChronoUnit.SECONDS));
   }
 
   /**
@@ -503,11 +497,11 @@ public class IngredientSubstitutionSteps {
     assertThat(rejected.get("helpRequest").asText()).isEqualTo(lenasRequest());
     assertThat(rejected.get("askedProviders").findValuesAsText("providerType"))
         .containsExactly("GRANDMA_AVATAR");
-    assertCloseTo(
+    assertDeadline(
         rejected.get("askedProviders").get(0).get("deadline"), tuesday("11:00"), "Grandma");
     JsonNode grandmasSide = readRequest(lenasRequest()).get("askedProviders").get(0);
     assertThat(grandmasSide.get("state").asText()).isEqualTo("ASKED");
-    assertCloseTo(grandmasSide.get("deadline"), tuesday("11:00"), "Grandma");
+    assertDeadline(grandmasSide.get("deadline"), tuesday("11:00"), "Grandma");
   }
 
   @Given("Lena asked the Community for a substitute for the saffron in her risotto")
@@ -561,7 +555,7 @@ public class IngredientSubstitutionSteps {
     assertThat(rejected.get("askedProviders").findValuesAsText("providerType"))
         .containsExactlyInAnyOrder("COMMUNITY", "GRANDMA_AVATAR");
     for (JsonNode asked : rejected.get("askedProviders")) {
-      assertCloseTo(
+      assertDeadline(
           asked.get("deadline"),
           rejectedAt.plus(Duration.ofHours(24)),
           asked.get("providerType").asText());
@@ -647,12 +641,7 @@ public class IngredientSubstitutionSteps {
   @Then("her new ingredient request shows the earlier note {string}")
   public void herNewRequestShowsTheEarlierNote(String note) {
     String earlier = lenasRequests.get(lenasRequests.size() - 2);
-    JsonNode previous = readRequest(lenasRequest()).get("previousNotes");
-    assertThat(previous).as("previousNotes of the new request").isNotNull().hasSize(1);
-    assertThat(previous.get(0).get("kind").asText()).isEqualTo("REJECTION");
-    assertThat(previous.get(0).get("text").asText()).isEqualTo(note);
-    assertThat(previous.get(0).get("helpRequestLink").asText())
-        .endsWith("/help-requests/" + earlier);
+    assertShowsThePreviousNote(readRequest(lenasRequest()), note, earlier);
   }
 
   /** The earlier rejection is only shown: a later request does not refuse it (INV-15 S4). */
