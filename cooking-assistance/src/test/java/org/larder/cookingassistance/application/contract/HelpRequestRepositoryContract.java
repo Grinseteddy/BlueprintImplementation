@@ -365,6 +365,10 @@ public abstract class HelpRequestRepositoryContract {
         HelpType.PREPARATION_STEP_EXPLANATION,
         HelpRequests.HOLLANDAISE,
         HelpRequests.STEP_4,
+        null,
+        null,
+        null,
+        List.of(),
         List.of(
             new AskedProvider(
                 HelpProviderType.COMMUNITY, Instant.parse("2026-11-07T05:00:00Z"), community),
