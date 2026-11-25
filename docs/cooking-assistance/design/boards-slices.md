@@ -150,6 +150,7 @@ Shared slices (B3-S03 to S06) are built in increment 1. Each later board adds it
 The feature files' `Feature:` lines quote these word for word.
 - **US-CA-03:** As a Cook, I want to ask a help provider for Help with a Meal Preparation Step, so that I can complete a preparation step I'm unsure about.
 - **US-CA-02:** As a Cook, I want to ask a help provider for Help with Ingredients, so that I can still cook when an ingredient is missing or doesn't suit my guests.
+- **US-CA-04:** As a Cook, I want to ask a help provider for help with my kitchen catastrophe, e.g. a burnt meal, so that I get help to rescue my meals and dinners. *(step 1 r2, 2026-11-17, from step 12 of increment 3: `:Story_US_CA_04` in the domain knowledge graph)*
 
 ### User stories (split of US-CA-01, accepted 2026-10-31)
 

@@ -1,5 +1,13 @@
 # Cook Assistance API — changelog
 
+## OpenAPI 1.0.18 and AsyncAPI 1.0.14 — 2026-11-17 (step 4 r26, from step 12 of increment 3)
+
+| Change | Why |
+|---|---|
+| OpenAPI: `HelpRequestCreateRequest` gets the example `catastrophe` (burnt roast chicken, two https photos, Community and Grandma); `HelpCreateRequest` gets `catastropheMitigation` (Jonas from the Community: cut off the burnt part, make a fresh sauce) | the example-based contract check creates and answers what the spec documents; no example carried a catastrophe or a mitigation. The request asks the Community, so the Community's answer fits it. Additive |
+| AsyncAPI: `helpRequestCreated` gets `burntChicken` (pictures, both providers with their deadlines), `helpProvided` gets `grandmaMitigates`, `grandmaHelpProvided` gets `grandmaMitigatesCatastrophe` | the receive operation's contract test accepts every example, and the schema check validates every example; none carried pictures or a mitigation. Additive |
+| `version` header accepts 1.0.18 (OpenAPI) | |
+
 ## OpenAPI 1.0.17 — 2026-11-16 (step 4 r25, from step 11 of increment 3)
 
 | Change | Why |

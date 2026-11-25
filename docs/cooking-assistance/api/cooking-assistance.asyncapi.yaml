@@ -1,7 +1,7 @@
 asyncapi: 3.0.0
 info:
   title: Cooking Assistance
-  version: 1.0.13
+  version: 1.0.14
   description: |
     Event-driven API of the Cooking Assistance bounded context. It provides help
     for cooks in planning and preparation of meals and dinners: cooks create help
@@ -267,6 +267,29 @@ components:
                 deadline: '2026-11-07T08:00:00+01:00'
             status: OPEN
             occurredAt: '2026-11-06T20:00:00+01:00'
+        - name: burntChicken
+          summary: Lena asks the Community and Grandma about her burnt roast chicken, with two photos
+          headers:
+            correlationId: 5e8a1c2b-7d3f-4a9e-b6c1-0f2d4e6a8b13
+            messageId: 6f9b2d3c-8e4a-4b0f-a7d2-1a3e5f7b9c24
+            source: cooking-assistance
+          payload:
+            helpRequestId: 4d1f7c3a-8b2e-4f6a-9c0d-1e2f3a4b5c6d
+            requester: f64e07f0-f9e7-4b7a-8695-e7a8b3ef5074
+            title: My roast chicken is burnt
+            type: STEPS_TO_MITIGATE_CATASTROPHE
+            description: Roast chicken burnt on the bottom, guests at 19:00
+            recipe: 5b6c7d8e-9f0a-4b1c-8d2e-3f4a5b6c7d8e
+            pictures:
+              - https://img.larder.example/burnt-chicken-1.jpg
+              - https://img.larder.example/burnt-chicken-2.jpg
+            askedProviders:
+              - providerType: COMMUNITY
+                deadline: '2026-11-14T18:55:00+01:00'
+              - providerType: GRANDMA_AVATAR
+                deadline: '2026-11-14T18:45:00+01:00'
+            status: OPEN
+            occurredAt: '2026-11-14T18:40:00+01:00'
 
     helpProvided:
       name: HelpProvided
@@ -300,6 +323,27 @@ components:
               description: Add the butter in a thin stream
             helpRequestStatus: ANSWERED
             occurredAt: '2026-11-06T20:10:00+01:00'
+        - name: grandmaMitigates
+          summary: Grandma tells Lena how to save the roast chicken
+          headers:
+            correlationId: 5e8a1c2b-7d3f-4a9e-b6c1-0f2d4e6a8b13
+            messageId: 7a0c3e4d-9f5b-4c1a-b8e3-2b4f6a8c0d35
+            source: cooking-assistance
+          payload:
+            helpId: 7a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d
+            helpRequest: 4d1f7c3a-8b2e-4f6a-9c0d-1e2f3a4b5c6d
+            helpRequester: f64e07f0-f9e7-4b7a-8695-e7a8b3ef5074
+            answerTitle: Save the chicken
+            helpProviderType: GRANDMA_AVATAR
+            answer:
+              answerType: STEPS_TO_MITIGATE_CATASTROPHE
+              recipe: 5b6c7d8e-9f0a-4b1c-8d2e-3f4a5b6c7d8e
+              explanation: cut off the burnt part, make a fresh sauce
+              images:
+                - https://img.larder.example/cut-skin.jpg
+                - https://img.larder.example/sauce.jpg
+            helpRequestStatus: ANSWERED
+            occurredAt: '2026-11-14T18:44:00+01:00'
 
     helpAccepted:
       name: HelpAccepted
@@ -471,6 +515,22 @@ components:
                     - name: sour cream
                       value: 200
                       unit: GRAM
+        - name: grandmaMitigatesCatastrophe
+          summary: Grandma tells Lena how to save the roast chicken
+          headers:
+            correlationId: 5e8a1c2b-7d3f-4a9e-b6c1-0f2d4e6a8b13
+            messageId: 8b1d4f5e-0a6c-4d2b-c9f4-3c5a7b9d1e46
+            source: grandma-avatar
+          payload:
+            helpRequest: 4d1f7c3a-8b2e-4f6a-9c0d-1e2f3a4b5c6d
+            answerTitle: Save the chicken
+            answer:
+              answerType: STEPS_TO_MITIGATE_CATASTROPHE
+              recipe: 5b6c7d8e-9f0a-4b1c-8d2e-3f4a5b6c7d8e
+              explanation: cut off the burnt part, make a fresh sauce
+              images:
+                - https://img.larder.example/cut-skin.jpg
+                - https://img.larder.example/sauce.jpg
 
   schemas:
     # Headers of the Grandma Avatar's answers: only the Grandma Avatar sends them.
