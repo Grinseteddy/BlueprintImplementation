@@ -1,5 +1,6 @@
 package org.larder.cookingassistance.application.fakes;
 
+import java.net.URI;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -19,6 +20,7 @@ import org.larder.cookingassistance.domain.helprequest.HelpType;
 import org.larder.cookingassistance.domain.helprequest.HowToStepId;
 import org.larder.cookingassistance.domain.helprequest.IngredientId;
 import org.larder.cookingassistance.domain.helprequest.Note;
+import org.larder.cookingassistance.domain.helprequest.ProviderState;
 import org.larder.cookingassistance.domain.helprequest.RecipeId;
 
 /**
@@ -45,7 +47,10 @@ public class InMemoryHelpRequestRepository implements HelpRequestRepository {
         .filter(request -> request.status() == HelpRequestStatus.OPEN)
         .filter(
             request ->
-                request.askedProviders().stream().allMatch(asked -> now.isAfter(asked.deadline())))
+                request.askedProviders().stream()
+                    .anyMatch(
+                        asked ->
+                            asked.state() == ProviderState.ASKED && now.isAfter(asked.deadline())))
         .limit(limit)
         .toList();
   }
@@ -98,6 +103,7 @@ public class InMemoryHelpRequestRepository implements HelpRequestRepository {
       IngredientId ingredient,
       String ingredientName,
       String substituteRequirements,
+      List<URI> pictures,
       List<AskedProvider> askedProviders,
       HelpRequestStatus status,
       List<Help> helps,
@@ -116,6 +122,7 @@ public class InMemoryHelpRequestRepository implements HelpRequestRepository {
           request.ingredient(),
           request.ingredientName(),
           request.substituteRequirements(),
+          request.pictures(),
           List.copyOf(request.askedProviders()),
           request.status(),
           List.copyOf(request.helps()),
@@ -135,6 +142,7 @@ public class InMemoryHelpRequestRepository implements HelpRequestRepository {
           ingredient,
           ingredientName,
           substituteRequirements,
+          pictures,
           askedProviders,
           status,
           helps,

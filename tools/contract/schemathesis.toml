@@ -18,6 +18,10 @@ checks.positive_data_acceptance.enabled = false
 [[operations]]
 include-operation-id = "listHelps"
 checks.positive_data_acceptance.enabled = false
+# Query parameters the spec does not declare are ignored, not refused (tolerant reader; decided by
+# the user 2026-11-06, as for listHelpRequests). Invalid values of declared parameters stay covered
+# by HelpQueryIT H9 (a foreign cursor, limit=0, a helpProvider that is no UUID, an unknown type: 400).
+checks.negative_data_rejection.enabled = false
 
 # Schemathesis does not honour the request schema's if/then rules (a MENU_PROPOSAL must name a chef
 # and carry no pictures, INV-01/INV-03): it generated such bodies as "valid" and the 400 is right.
@@ -27,6 +31,12 @@ include-operation-id = "createHelpRequest"
 checks.positive_data_acceptance.enabled = false
 # Variants later increments build answer the declared 501 (OpenAPI 1.0.16); any other 5xx still fails.
 checks.not_a_server_error.expected-statuses = ["2xx", "3xx", "4xx", "501"]
+# The Coverage phase cannot build this body: hypothesis_jsonschema recurses without end merging the
+# allOf of HelpRequestInvariants' if/then rules (RecursionError in Schemathesis 4.1.4, already with
+# OpenAPI 1.0.16), and the crash ends the phase for every operation. A tool limitation, not an API
+# finding (step 12 of increment 3, decided by the user 2026-11-25); the body stays covered by the
+# Examples, Fuzzing and Stateful phases and by HelpRequestsControllerTest.
+phases.coverage.enabled = false
 
 [[operations]]
 include-operation-id = "provideHelp"

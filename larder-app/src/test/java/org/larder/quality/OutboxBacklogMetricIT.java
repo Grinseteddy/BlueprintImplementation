@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.web.client.RestClient;
 
 /**
@@ -40,6 +41,7 @@ class OutboxBacklogMetricIT {
   int managementPort;
 
   @Autowired AcceptanceClock clock;
+  @Autowired JdbcClient jdbc;
 
   @DisplayName(
       "E4 unpublished outbox rows -> /actuator/prometheus shows the backlog count and the oldest row's age; above 100 rows or 1 min the alert thresholds are reached -- B3-S01 US-CA-03 QS-14 ADR0020")
@@ -47,6 +49,22 @@ class OutboxBacklogMetricIT {
   void backlogIsExposed() {
     Instant friday1800 = Instant.parse("2026-11-06T17:00:00Z");
     clock.moveTo(friday1800);
+    // a failure seen twice (backlog 0; a POST answered 404 without a body): is this port this
+    // context's API? Without a token the API answers its 401 Problem.
+    String unauthenticated =
+        RestClient.create("http://localhost:" + port)
+            .get()
+            .uri("/help-requests")
+            .header("version", "1.0.10")
+            .exchange(
+                (request, response) ->
+                    response.getStatusCode().value() + " " + response.bodyTo(String.class));
+    assertThat(unauthenticated)
+        .as(
+            "GET /help-requests without a token on port %d (management port %d)",
+            port, managementPort)
+        .startsWith("401 ")
+        .contains("UNAUTHENTICATED");
     lenaAsksTheCommunity();
     lenaAsksTheCommunity();
 
@@ -58,6 +76,14 @@ class OutboxBacklogMetricIT {
             .retrieve()
             .body(String.class);
 
+    // a failure seen once (backlog 0): tells the data from the gauge if it comes back
+    assertThat(
+            jdbc.sql(
+                    "select count(*) from outbox where published_at is null and dead_lettered_at is null")
+                .query(Long.class)
+                .single())
+        .as("pending outbox rows in this context's database")
+        .isEqualTo(2L);
     assertThat(gauge(metrics, "cooking_assistance_outbox_backlog")).as("backlog").isEqualTo(2.0);
     assertThat(gauge(metrics, "cooking_assistance_outbox_oldest_age_seconds"))
         .as("age of the oldest unpublished row, alert above 60 s")

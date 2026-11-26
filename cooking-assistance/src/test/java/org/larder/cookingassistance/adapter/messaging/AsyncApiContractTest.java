@@ -40,7 +40,32 @@ class AsyncApiContractTest {
   }
 
   @DisplayName(
-      "every message example of the spec -> its payload and headers match their schemas (the lint checks AsyncAPI 2 examples only) -- B2-S01,B2-S02 US-CA-02,US-CA-03 (step 4 r22)")
+      "Grandma's mitigation with an image link of 2049 characters -> the payload schema reports a violation (maxLength 2048) -- B4-S02 US-CA-04 INV-38 OWASP-API4 op consumeGrandmaHelpProvided")
+  @Test
+  void pictureLinksAreAtMost2048Characters() throws Exception {
+    String prefix = "https://img.larder.example/";
+    var payload =
+        new ObjectMapper()
+            .readTree(
+                """
+                {
+                  "helpRequest": "4d1f7c3a-8b2e-4f6a-9c0d-1e2f3a4b5c6d",
+                  "answerTitle": "Save the chicken",
+                  "answer": {
+                    "answerType": "STEPS_TO_MITIGATE_CATASTROPHE",
+                    "explanation": "cut off the burnt part, make a fresh sauce",
+                    "images": ["%s"]
+                  }
+                }
+                """
+                    .formatted(prefix + "a".repeat(2049 - prefix.length())));
+
+    assertThat(new AsyncApiContract().violations("GrandmaHelpProvidedPayload", payload))
+        .isNotEmpty();
+  }
+
+  @DisplayName(
+      "every message example of the spec -> its payload and headers match their schemas (the lint checks AsyncAPI 2 examples only) -- B2-S01,B2-S02,B4-S01,B4-S02 US-CA-02,US-CA-03,US-CA-04 (step 4 r22, r26)")
   @Test
   void everyMessageExampleMatchesItsSchemas() throws Exception {
     AsyncApiContract contract = new AsyncApiContract();

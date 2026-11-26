@@ -7,7 +7,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.net.URI;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,7 +18,11 @@ import org.junit.jupiter.api.Test;
 import org.larder.cookingassistance.adapter.out.persistence.PersistenceTestApplication;
 import org.larder.cookingassistance.adapter.out.persistence.PostgresTestContainer;
 import org.larder.cookingassistance.application.ProvideGrandmaAvatarHelp;
+import org.larder.cookingassistance.application.TimeOutDueHelpRequests;
+import org.larder.cookingassistance.application.UnitOfWork;
+import org.larder.cookingassistance.domain.helprequest.CatastropheMitigation;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
+import org.larder.cookingassistance.domain.helprequest.HelpRequestRepository;
 import org.larder.cookingassistance.domain.helprequest.Substitutes;
 import org.larder.cookingassistance.fixtures.HelpRequests;
 import org.larder.cookingassistance.fixtures.TestSigningKeys;
@@ -45,6 +51,8 @@ class OutboundWiringIT {
   @Autowired Clock clock;
   @Autowired ObjectMapper json;
   @Autowired ProvideGrandmaAvatarHelp provideGrandmaAvatarHelp;
+  @Autowired HelpRequestRepository helpRequests;
+  @Autowired UnitOfWork unitOfWork;
 
   final RecordingPublisher publisher = new RecordingPublisher();
 
@@ -235,11 +243,136 @@ class OutboundWiringIT {
     return UUID.fromString(json.readTree(response).get("helpRequestId").asText());
   }
 
+  /** Lena asks about her burnt roast chicken through the API; returns the new request's id. */
+  private UUID lenaAsksAboutBurntChicken(String providers) throws Exception {
+    String response =
+        mvc.perform(
+                post("/help-requests")
+                    .header(
+                        AUTHORIZATION,
+                        TestTokens.forCook(HelpRequests.LENA)
+                            .roles("cook")
+                            .scope("help:write")
+                            .bearer())
+                    .header("version", "1.0.13")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        """
+                    {
+                      "title": "My roast chicken is burnt",
+                      "type": "STEPS_TO_MITIGATE_CATASTROPHE",
+                      "description": "The skin is black on one side",
+                      "recipe": "%s",
+                      "pictures": [
+                        "https://img.larder.example/burnt-chicken-1.jpg",
+                        "https://img.larder.example/burnt-chicken-2.jpg"
+                      ],
+                      "preferredProvider": [%s]
+                    }
+                    """
+                            .formatted(HelpRequests.ROAST_CHICKEN.value(), providers)))
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    return UUID.fromString(json.readTree(response).get("helpRequestId").asText());
+  }
+
   private void assertNothingPending() {
     assertThat(
             jdbc.sql("select count(*) from outbox where published_at is null")
                 .query(Integer.class)
                 .single())
         .isZero();
+  }
+
+  @DisplayName(
+      "RequestHelpWithCatastrophe through the real adapters, then one relay run -> one message on the created channel with type STEPS_TO_MITIGATE_CATASTROPHE, the recipe and both pictures in order, no pending rows -- B4-S01 US-CA-04 wiring")
+  @Test
+  void catastropheRequestIsPublishedWithItsPictures() throws Exception {
+    lenaAsksAboutBurntChicken("\"COMMUNITY\", \"GRANDMA_AVATAR\"");
+
+    new OutboxRelay(jdbc, transactions, publisher, clock).runOnce();
+
+    assertThat(publisher.published())
+        .singleElement()
+        .satisfies(
+            message -> {
+              assertThat(message.channel()).isEqualTo("cooking-assistance.help-request.created");
+              JsonNode payload = json.readTree(message.payload());
+              assertThat(payload.get("type").asText()).isEqualTo("STEPS_TO_MITIGATE_CATASTROPHE");
+              assertThat(payload.get("recipe").asText())
+                  .isEqualTo(HelpRequests.ROAST_CHICKEN.value().toString());
+              assertThat(payload.get("pictures"))
+                  .extracting(JsonNode::asText)
+                  .containsExactly(
+                      "https://img.larder.example/burnt-chicken-1.jpg",
+                      "https://img.larder.example/burnt-chicken-2.jpg");
+            });
+    assertNothingPending();
+  }
+
+  @DisplayName(
+      "Grandma's mitigation saved through the real adapters, then one relay run -> one message on the provided channel with the CatastropheMitigation, no pending rows -- B4-S02 US-CA-04 wiring")
+  @Test
+  void grandmasMitigationIsPublished() throws Exception {
+    UUID helpRequestId = lenaAsksAboutBurntChicken("\"GRANDMA_AVATAR\"");
+    provideGrandmaAvatarHelp.handle(
+        new ProvideGrandmaAvatarHelp.GrandmaAnswer(
+            UUID.fromString("8293b4c5-c6d7-4e8f-9012-7d8e9fa0b1c2"),
+            new HelpRequestId(helpRequestId),
+            "Save the chicken",
+            new CatastropheMitigation(
+                HelpRequests.ROAST_CHICKEN,
+                "Cut off the burnt skin, make a fresh sauce",
+                List.of(
+                    URI.create("https://img.larder.example/cut-skin.jpg"),
+                    URI.create("https://img.larder.example/sauce.jpg")))));
+
+    new OutboxRelay(jdbc, transactions, publisher, clock).runOnce();
+
+    assertThat(publisher.published())
+        .extracting(OutgoingMessage::channel)
+        .containsExactly(
+            "cooking-assistance.help-request.created", "cooking-assistance.help.provided");
+    JsonNode answer = json.readTree(publisher.published().getLast().payload()).get("answer");
+    assertThat(answer.get("answerType").asText()).isEqualTo("STEPS_TO_MITIGATE_CATASTROPHE");
+    assertThat(answer.get("recipe").asText())
+        .isEqualTo(HelpRequests.ROAST_CHICKEN.value().toString());
+    assertThat(answer.get("explanation").asText())
+        .isEqualTo("Cut off the burnt skin, make a fresh sauce");
+    assertThat(answer.get("images"))
+        .extracting(JsonNode::asText)
+        .containsExactly(
+            "https://img.larder.example/cut-skin.jpg", "https://img.larder.example/sauce.jpg");
+    assertNothingPending();
+  }
+
+  @DisplayName(
+      "catastrophe request to Community and Grandma: a time-out pass at 18:46 (Grandma's side), a relay run, a pass at 18:56 (Community's side), a relay run -> exactly one HelpRequestTimedOut on its channel, after the second pass only -- B3-S06 US-CA-04 INV-26 r21 R9.E3 wiring")
+  @Test
+  void perSideTimeOutPublishesOneTimedOutMessage() throws Exception {
+    // asked now: Grandma's side runs 5 minutes, the Community's 15 (AnswerTime)
+    lenaAsksAboutBurntChicken("\"COMMUNITY\", \"GRANDMA_AVATAR\"");
+    OutboxRelay relay = new OutboxRelay(jdbc, transactions, publisher, clock);
+
+    timeOutPassAfter(Duration.ofMinutes(6));
+    relay.runOnce();
+    assertThat(publisher.published())
+        .extracting(OutgoingMessage::channel)
+        .containsExactly("cooking-assistance.help-request.created");
+
+    timeOutPassAfter(Duration.ofMinutes(16));
+    relay.runOnce();
+    assertThat(publisher.published())
+        .extracting(OutgoingMessage::channel)
+        .containsExactly(
+            "cooking-assistance.help-request.created", "cooking-assistance.help-request.timed-out");
+    assertNothingPending();
+  }
+
+  private void timeOutPassAfter(Duration elapsed) {
+    new TimeOutDueHelpRequests(helpRequests, unitOfWork, Clock.offset(clock, elapsed), 10)
+        .execute();
   }
 }

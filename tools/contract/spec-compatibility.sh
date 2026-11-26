@@ -9,8 +9,11 @@
 #
 # oasdiff-err-ignore.txt: breaking changes decided as exceptions (ADR0014 addition, step 14 of
 # increment 2), one line per operation and property, each matching exactly one oasdiff error.
-# SEC-20: SubstituteIngredient.value gets maximum 10,000 (REST answer and Grandma's message). Once the
-# change is on main the base carries it and the line matches nothing; remove it with the next change.
+# SEC-24 (increment 3): picture and image links get maxLength 2048 (provideHelp's images through the
+# shared Pictures schema; the images of Grandma's message). Once the change is on main the base
+# carries it and the lines match nothing; remove them with the next change (as SEC-20's were).
+# createHelpRequest's pictures get the same bound; oasdiff reports it only as a warning (it compares
+# the allOf branches one at a time), and the gate fails on errors only, so it needs no line.
 set -euo pipefail
 
 base_ref="$1"

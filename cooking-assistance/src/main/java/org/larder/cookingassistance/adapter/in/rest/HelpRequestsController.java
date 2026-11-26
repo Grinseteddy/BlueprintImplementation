@@ -14,6 +14,7 @@ import org.larder.cookingassistance.application.HelpRequestNotFound;
 import org.larder.cookingassistance.application.HelpRequestQueries;
 import org.larder.cookingassistance.application.HelpRequestView;
 import org.larder.cookingassistance.application.Page;
+import org.larder.cookingassistance.application.RequestHelpWithCatastrophe;
 import org.larder.cookingassistance.application.RequestHelpWithIngredient;
 import org.larder.cookingassistance.application.RequestHelpWithPreparationStep;
 import org.larder.cookingassistance.domain.helprequest.HelpRequestId;
@@ -27,6 +28,7 @@ class HelpRequestsController implements HelpRequestsApi {
 
   private final RequestHelpWithPreparationStep requestHelpWithPreparationStep;
   private final RequestHelpWithIngredient requestHelpWithIngredient;
+  private final RequestHelpWithCatastrophe requestHelpWithCatastrophe;
   private final CancelHelpRequest cancelHelpRequest;
   private final HelpRequestQueries queries;
   private final String publicBaseUrl;
@@ -34,18 +36,20 @@ class HelpRequestsController implements HelpRequestsApi {
   HelpRequestsController(
       RequestHelpWithPreparationStep requestHelpWithPreparationStep,
       RequestHelpWithIngredient requestHelpWithIngredient,
+      RequestHelpWithCatastrophe requestHelpWithCatastrophe,
       CancelHelpRequest cancelHelpRequest,
       HelpRequestQueries queries,
       @PublicBaseUrl String publicBaseUrl) {
     this.requestHelpWithPreparationStep = requestHelpWithPreparationStep;
     this.requestHelpWithIngredient = requestHelpWithIngredient;
+    this.requestHelpWithCatastrophe = requestHelpWithCatastrophe;
     this.cancelHelpRequest = cancelHelpRequest;
     this.queries = queries;
     this.publicBaseUrl = publicBaseUrl;
   }
 
   // op: createHelpRequest (cooking-assistance.openapi.yaml) · cmd: Request help Preparation step,
-  // Request help ingredients
+  // Request help ingredients, Request help Catastrophe
   @Override
   public ResponseEntity<HelpRequestLink> createHelpRequest(
       String version, HelpRequestCreate helpRequestCreate) {
@@ -58,6 +62,9 @@ class HelpRequestsController implements HelpRequestsApi {
           case INGREDIENT_SUBSTITUTE ->
               requestHelpWithIngredient.execute(
                   HelpRequestMapper.toIngredientCommand(CurrentActor.get(), helpRequestCreate));
+          case STEPS_TO_MITIGATE_CATASTROPHE ->
+              requestHelpWithCatastrophe.execute(
+                  HelpRequestMapper.toCatastropheCommand(CurrentActor.get(), helpRequestCreate));
           default -> throw new NotImplemented("createHelpRequest " + helpRequestCreate.getType());
         };
     return ResponseEntity.status(HttpStatus.CREATED)

@@ -20,6 +20,7 @@ record HelpRequestRow(
     UUID ingredient,
     String ingredientName,
     String substituteRequirements,
+    List<String> pictures,
     String status,
     @Version long version,
     @MappedCollection(idColumn = "help_request_id", keyColumn = "position")

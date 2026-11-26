@@ -10,11 +10,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.larder.LarderApplication;
@@ -59,6 +62,18 @@ class OutboxTimelinessIT {
       "E7 20 ingredient requests, one every 100 ms -> each HelpRequestCreated is on the broker within 5 s of its commit, measured from before the POST (p95) -- B2-S01 US-CA-02 QS-08 op publishHelpRequestCreated")
   @Test
   void eventsReachTheBrokerWithinFiveSeconds() throws Exception {
+    reachTheBrokerWithinFiveSeconds(this::lenaAsksForASubstitute);
+  }
+
+  @DisplayName(
+      "E8 20 catastrophe requests with 10 pictures each, one every 100 ms -> each HelpRequestCreated is on the broker within 5 s of its commit, measured from before the POST (p95) -- B4-S01 US-CA-04 INV-20 INV-38 QS-08 op publishHelpRequestCreated")
+  @Test
+  void eventsWithPicturesReachTheBrokerWithinFiveSeconds() throws Exception {
+    reachTheBrokerWithinFiveSeconds(this::lenaAsksAboutHerBurntChickenWithTenPictures);
+  }
+
+  /** Sends the requests one every 100 ms; p95 from before each POST to its HelpRequestCreated. */
+  private void reachTheBrokerWithinFiveSeconds(Callable<String> request) throws Exception {
     DatabaseReset.emptyAllTables(jdbc);
     ServiceChannels.listenToEvery(admin);
     // arrivals are taken while the requests are still being sent, not after the send loop
@@ -69,7 +84,7 @@ class OutboxTimelinessIT {
     for (int i = 0; i < REQUESTS; i++) {
       // before the POST: the commit happens later, so the measured latency is an upper bound
       Instant beforeTheCommit = Instant.now();
-      committedAt.put(lenaAsksForASubstitute(), beforeTheCommit);
+      committedAt.put(request.call(), beforeTheCommit);
       Thread.sleep(100);
     }
     receiving.get(30, TimeUnit.SECONDS);
@@ -121,6 +136,32 @@ class OutboxTimelinessIT {
                  "preferredProvider":["COMMUNITY"]}"""
                     .formatted(
                         HelpRequests.TOMATO_SOUP.value(), HelpRequests.CREME_FRAICHE.value()))
+            .retrieve()
+            .body(String.class);
+    return new ObjectMapper().readTree(created.getBytes(UTF_8)).get("helpRequestId").asText();
+  }
+
+  /** Lena asks the Community about her burnt roast chicken, with 10 photos (INV-38's maximum). */
+  private String lenaAsksAboutHerBurntChickenWithTenPictures() throws Exception {
+    String pictures =
+        IntStream.rangeClosed(1, 10)
+            .mapToObj(n -> "\"https://img.larder.example/burnt-chicken-" + n + ".jpg\"")
+            .collect(Collectors.joining(","));
+    String created =
+        RestClient.create("http://localhost:" + port)
+            .post()
+            .uri("/help-requests")
+            .header(
+                "Authorization",
+                TestTokens.forCook(HelpRequests.LENA).roles("cook").scope("help:write").bearer())
+            .header("version", "1.0.18")
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(
+                """
+                {"title":"My roast chicken is burnt","type":"STEPS_TO_MITIGATE_CATASTROPHE",
+                 "description":"Burnt on the bottom","recipe":"%s","pictures":[%s],
+                 "preferredProvider":["COMMUNITY"]}"""
+                    .formatted(HelpRequests.ROAST_CHICKEN.value(), pictures))
             .retrieve()
             .body(String.class);
     return new ObjectMapper().readTree(created.getBytes(UTF_8)).get("helpRequestId").asText();

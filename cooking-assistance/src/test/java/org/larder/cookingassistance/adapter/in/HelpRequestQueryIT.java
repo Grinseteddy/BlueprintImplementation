@@ -33,6 +33,7 @@ import org.larder.cookingassistance.domain.helprequest.HowToStepId;
 import org.larder.cookingassistance.domain.helprequest.IngredientId;
 import org.larder.cookingassistance.domain.helprequest.RecipeId;
 import org.larder.cookingassistance.fixtures.HelpRequests;
+import org.larder.cookingassistance.fixtures.StoryClock;
 import org.larder.cookingassistance.fixtures.TestSigningKeys;
 import org.larder.cookingassistance.fixtures.TestTokens;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,7 +50,7 @@ import org.springframework.test.web.servlet.MockMvc;
  */
 @SpringBootTest(classes = PersistenceTestApplication.class)
 @AutoConfigureMockMvc
-@Import({PostgresTestContainer.class, TestSigningKeys.class})
+@Import({PostgresTestContainer.class, TestSigningKeys.class, StoryClock.class})
 class HelpRequestQueryIT {
 
   static final String JONAS_READING =
@@ -109,6 +110,20 @@ class HelpRequestQueryIT {
         HelpRequests.STEP_4,
         Set.of(HelpProviderType.COMMUNITY),
         Clock.fixed(Instant.parse("2026-12-04T17:00:00Z"), ZoneOffset.UTC));
+  }
+
+  /** Lena asks Grandma Avatar about a catastrophe, with or without a recipe. */
+  private static HelpRequest lenaAsksAboutACatastrophe(
+      HelpRequestId id, Optional<RecipeId> recipe, Clock clock) {
+    return HelpRequest.requestHelpWithCatastrophe(
+        id,
+        HelpRequests.LENA,
+        "My roast chicken is burnt",
+        "The skin is black on one side",
+        recipe,
+        List.of(),
+        Set.of(HelpProviderType.GRANDMA_AVATAR),
+        clock);
   }
 
   static final HowToStepId STEP_6 =
@@ -1020,5 +1035,212 @@ class HelpRequestQueryIT {
     JsonNode previous = new ObjectMapper().readTree(body).get("previousNotes");
     assertThat(previous).as("previousNotes").isNotNull().hasSize(1);
     assertThat(previous.get(0).get("text").asText()).isEqualTo("sour cream curdled");
+  }
+
+  @DisplayName(
+      "GET /help-requests/{id} of Lena's catastrophe request (recipe Roast chicken, pictures [burnt-chicken-1, burnt-chicken-2], Community and Grandma) -> 200 matching HelpRequest; type STEPS_TO_MITIGATE_CATASTROPHE, the recipe, both pictures in order, two asked providers ASKED with their deadlines -- B4-S01 US-CA-04 INV-19 INV-20 op getHelpRequestById")
+  @Test
+  void catastropheRequestIsReadBack() throws Exception {
+    helpRequests.save(
+        HelpRequests.lenaAsksAboutBurntChicken(
+            Optional.of(HelpRequests.ROAST_CHICKEN),
+            HelpRequests.BURNT_CHICKEN_PHOTOS,
+            HelpProviderType.COMMUNITY,
+            HelpProviderType.GRANDMA_AVATAR));
+
+    String body = read(HelpRequests.HELP_REQUEST_ID.value().toString(), JONAS_READING, 200);
+
+    SpecSchemas.assertMatches(body, "HelpRequest");
+    JsonNode request = new ObjectMapper().readTree(body);
+    assertThat(request.get("type").asText()).isEqualTo("STEPS_TO_MITIGATE_CATASTROPHE");
+    assertThat(request.get("recipe").asText())
+        .isEqualTo(HelpRequests.ROAST_CHICKEN.value().toString());
+    assertThat(request.path("pictures"))
+        .extracting(JsonNode::asText)
+        .containsExactly(
+            "https://img.larder.example/burnt-chicken-1.jpg",
+            "https://img.larder.example/burnt-chicken-2.jpg");
+    assertThat(request.get("askedProviders"))
+        .extracting(
+            asked -> asked.get("providerType").asText(),
+            asked -> asked.get("deadline").asText(),
+            asked -> asked.get("state").asText())
+        .containsExactlyInAnyOrder(
+            org.assertj.core.groups.Tuple.tuple("COMMUNITY", "2026-11-14T17:55:00Z", "ASKED"),
+            org.assertj.core.groups.Tuple.tuple("GRANDMA_AVATAR", "2026-11-14T17:45:00Z", "ASKED"));
+  }
+
+  @DisplayName(
+      "GET of a catastrophe request without recipe and without pictures -> recipe and pictures absent from the body (not null) -- B4-S01 US-CA-04 INV-19 op getHelpRequestById")
+  @Test
+  void catastropheWithoutRecipeOrPicturesLeavesThemOut() throws Exception {
+    helpRequests.save(
+        HelpRequests.lenaAsksAboutBurntChicken(
+            Optional.empty(), List.of(), HelpProviderType.GRANDMA_AVATAR));
+
+    String body = read(HelpRequests.HELP_REQUEST_ID.value().toString(), JONAS_READING, 200);
+
+    SpecSchemas.assertMatches(body, "HelpRequest");
+    JsonNode request = new ObjectMapper().readTree(body);
+    assertThat(request.get("type").asText()).isEqualTo("STEPS_TO_MITIGATE_CATASTROPHE");
+    assertThat(fieldNames(request)).doesNotContain("recipe", "pictures");
+  }
+
+  @DisplayName(
+      "listHelpRequests with type STEPS_TO_MITIGATE_CATASTROPHE -> only Lena's catastrophe request, with its pictures -- B4-S01 US-CA-04 op listHelpRequests")
+  @Test
+  void theListShowsCatastropheRequests() throws Exception {
+    helpRequests.save(lenasRequest("01a1b1cd-8a80-7000-8000-00000000000b"));
+    helpRequests.save(
+        HelpRequests.lenaAsksAboutBurntChicken(
+            Optional.of(HelpRequests.ROAST_CHICKEN),
+            HelpRequests.BURNT_CHICKEN_PHOTOS,
+            HelpProviderType.COMMUNITY));
+
+    String body = list("?type=STEPS_TO_MITIGATE_CATASTROPHE", JONAS_READING, 200);
+
+    SpecSchemas.assertMatches(body, "HelpRequestPage");
+    assertThat(ids(body)).containsExactly(HelpRequests.HELP_REQUEST_ID.value().toString());
+    assertThat(new ObjectMapper().readTree(body).get("items").get(0).path("pictures"))
+        .extracting(JsonNode::asText)
+        .containsExactly(
+            "https://img.larder.example/burnt-chicken-1.jpg",
+            "https://img.larder.example/burnt-chicken-2.jpg");
+  }
+
+  @DisplayName(
+      "Grandma's side timed out at 18:46, the Community's runs until 18:55 -> GET shows Grandma TIMED_OUT, Community ASKED, status OPEN, no suggestedProviders -- B3-S06 US-CA-04 INV-26 r21 R9.E3 op getHelpRequestById")
+  @Test
+  void aSideThatTimedOutIsShownAlone() throws Exception {
+    HelpRequest lenas =
+        HelpRequests.lenaAsksAboutBurntChicken(
+            Optional.of(HelpRequests.ROAST_CHICKEN),
+            HelpRequests.BURNT_CHICKEN_PHOTOS,
+            HelpProviderType.COMMUNITY,
+            HelpProviderType.GRANDMA_AVATAR);
+    lenas.timeOut(Clock.fixed(Instant.parse("2026-11-14T17:46:00Z"), ZoneOffset.UTC));
+    helpRequests.save(lenas);
+
+    String body = read(HelpRequests.HELP_REQUEST_ID.value().toString(), JONAS_READING, 200);
+
+    SpecSchemas.assertMatches(body, "HelpRequest");
+    JsonNode request = new ObjectMapper().readTree(body);
+    assertThat(request.get("status").asText()).isEqualTo("OPEN");
+    assertThat(request.get("askedProviders"))
+        .extracting(
+            asked -> asked.get("providerType").asText(), asked -> asked.get("state").asText())
+        .containsExactlyInAnyOrder(
+            org.assertj.core.groups.Tuple.tuple("COMMUNITY", "ASKED"),
+            org.assertj.core.groups.Tuple.tuple("GRANDMA_AVATAR", "TIMED_OUT"));
+    assertThat(fieldNames(request)).doesNotContain("suggestedProviders");
+  }
+
+  @DisplayName(
+      "Lena's earlier catastrophe request about Roast chicken was cancelled with the note 'still tastes smoky'; her new one about Roast chicken -> previousNotes ['still tastes smoky'] -- B4-S01 US-CA-04 INV-24 R7.E1 step 3 r21 op getHelpRequestById")
+  @Test
+  void earlierCatastropheNotesOfTheSameRecipeAreShown() throws Exception {
+    Clock saturday1930 = Clock.fixed(Instant.parse("2026-11-14T18:30:00Z"), ZoneOffset.UTC);
+    HelpRequest earlier =
+        lenaAsksAboutACatastrophe(
+            NOVEMBER_REQUEST_ID,
+            Optional.of(HelpRequests.ROAST_CHICKEN),
+            HelpRequests.SATURDAY_18_40);
+    earlier.cancel(Optional.of("still tastes smoky"), saturday1930);
+    helpRequests.save(earlier);
+    helpRequests.save(
+        lenaAsksAboutACatastrophe(
+            NEXT_MONTH_REQUEST_ID,
+            Optional.of(HelpRequests.ROAST_CHICKEN),
+            Clock.fixed(Instant.parse("2026-12-04T17:00:00Z"), ZoneOffset.UTC)));
+
+    String body = read(NEXT_MONTH_REQUEST_ID.value().toString(), JONAS_READING, 200);
+
+    SpecSchemas.assertMatches(body, "HelpRequest");
+    JsonNode previous = new ObjectMapper().readTree(body).get("previousNotes");
+    assertThat(previous).as("previousNotes").isNotNull().hasSize(1);
+    assertThat(previous.get(0).get("kind").asText()).isEqualTo("CANCELLATION");
+    assertThat(previous.get(0).get("text").asText()).isEqualTo("still tastes smoky");
+    assertThat(Instant.parse(previous.get(0).get("writtenAt").asText()))
+        .isEqualTo(saturday1930.instant());
+    assertThat(previous.get(0).get("helpRequestLink").asText())
+        .isEqualTo("http://localhost/help-requests/" + NOVEMBER_REQUEST_ID.value());
+  }
+
+  @DisplayName(
+      "an earlier catastrophe request and the new one both without a recipe, the earlier cancelled with a note -> previousNotes empty -- B4-S01 US-CA-04 INV-24 step 3 r21 op getHelpRequestById")
+  @Test
+  void aCatastropheWithoutRecipeCarriesNoNotes() throws Exception {
+    HelpRequest earlier =
+        lenaAsksAboutACatastrophe(
+            NOVEMBER_REQUEST_ID, Optional.empty(), HelpRequests.SATURDAY_18_40);
+    earlier.cancel(
+        Optional.of("still tastes smoky"),
+        Clock.fixed(Instant.parse("2026-11-14T18:30:00Z"), ZoneOffset.UTC));
+    helpRequests.save(earlier);
+    helpRequests.save(
+        lenaAsksAboutACatastrophe(
+            NEXT_MONTH_REQUEST_ID,
+            Optional.empty(),
+            Clock.fixed(Instant.parse("2026-12-04T17:00:00Z"), ZoneOffset.UTC)));
+
+    String body = read(NEXT_MONTH_REQUEST_ID.value().toString(), JONAS_READING, 200);
+
+    SpecSchemas.assertMatches(body, "HelpRequest");
+    assertThat(new ObjectMapper().readTree(body).get("previousNotes")).as("previousNotes").isNull();
+  }
+
+  @DisplayName(
+      "an earlier catastrophe note about Tomato soup -> not among the previousNotes of the Roast chicken request -- B4-S01 US-CA-04 INV-24 op getHelpRequestById")
+  @Test
+  void catastropheNotesOfAnotherRecipeAreLeftOut() throws Exception {
+    HelpRequest earlier =
+        lenaAsksAboutACatastrophe(
+            NOVEMBER_REQUEST_ID,
+            Optional.of(HelpRequests.TOMATO_SOUP),
+            HelpRequests.SATURDAY_18_40);
+    earlier.cancel(
+        Optional.of("too salty"),
+        Clock.fixed(Instant.parse("2026-11-14T18:30:00Z"), ZoneOffset.UTC));
+    helpRequests.save(earlier);
+    helpRequests.save(
+        lenaAsksAboutACatastrophe(
+            NEXT_MONTH_REQUEST_ID,
+            Optional.of(HelpRequests.ROAST_CHICKEN),
+            Clock.fixed(Instant.parse("2026-12-04T17:00:00Z"), ZoneOffset.UTC)));
+
+    String body = read(NEXT_MONTH_REQUEST_ID.value().toString(), JONAS_READING, 200);
+
+    SpecSchemas.assertMatches(body, "HelpRequest");
+    assertThat(new ObjectMapper().readTree(body).get("previousNotes")).as("previousNotes").isNull();
+  }
+
+  @DisplayName(
+      "an earlier preparation-step request about Roast chicken with a note -> not among the previousNotes of the Roast chicken catastrophe request -- B4-S01 US-CA-04 INV-24 INV-07 op getHelpRequestById")
+  @Test
+  void preparationStepNotesOfTheSameRecipeAreLeftOut() throws Exception {
+    HelpRequest earlier =
+        HelpRequest.requestHelpWithPreparationStep(
+            NOVEMBER_REQUEST_ID,
+            HelpRequests.LENA,
+            "How long does the chicken roast?",
+            "Step 4 of my Roast chicken",
+            HelpRequests.ROAST_CHICKEN,
+            HelpRequests.STEP_4,
+            Set.of(HelpProviderType.GRANDMA_AVATAR),
+            HelpRequests.SATURDAY_18_40);
+    earlier.cancel(
+        Optional.of("oven too hot"),
+        Clock.fixed(Instant.parse("2026-11-14T18:30:00Z"), ZoneOffset.UTC));
+    helpRequests.save(earlier);
+    helpRequests.save(
+        lenaAsksAboutACatastrophe(
+            NEXT_MONTH_REQUEST_ID,
+            Optional.of(HelpRequests.ROAST_CHICKEN),
+            Clock.fixed(Instant.parse("2026-12-04T17:00:00Z"), ZoneOffset.UTC)));
+
+    String body = read(NEXT_MONTH_REQUEST_ID.value().toString(), JONAS_READING, 200);
+
+    SpecSchemas.assertMatches(body, "HelpRequest");
+    assertThat(new ObjectMapper().readTree(body).get("previousNotes")).as("previousNotes").isNull();
   }
 }

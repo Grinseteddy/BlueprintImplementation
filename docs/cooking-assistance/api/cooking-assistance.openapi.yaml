@@ -9,7 +9,7 @@ info:
 
     Clients must be tolerant readers: ignore unknown fields and handle unknown enum values
     (status, type and error codes can grow in later minor versions).
-  version: 1.0.16
+  version: 1.0.19
   contact:
     name: Annegret Junker
     email: annegret.junker@larder.org
@@ -499,8 +499,8 @@ components:
       description: Version of the API the client was built against.
       schema:
         type: string
-        default: "1.0.16"
-        enum: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6", "1.0.7", "1.0.8", "1.0.9", "1.0.10", "1.0.11", "1.0.12", "1.0.13", "1.0.14", "1.0.15", "1.0.16"]
+        default: "1.0.19"
+        enum: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6", "1.0.7", "1.0.8", "1.0.9", "1.0.10", "1.0.11", "1.0.12", "1.0.13", "1.0.14", "1.0.15", "1.0.16", "1.0.17", "1.0.18", "1.0.19"]
 
   schemas:
     HelpType:
@@ -556,12 +556,13 @@ components:
       uniqueItems: true
 
     Pictures:
-      description: Links to pictures (0..10), https only.
+      description: Links to pictures (0..10), https only, each at most 2048 characters (INV-38, SEC-24).
       type: array
       items:
         type: string
         format: uri
         pattern: '^https://'
+        maxLength: 2048
       maxItems: 10
       examples:
         - - https://larder.org/media/images/b009a5d1-0205-4b0c-af82-822229cf243a
@@ -885,7 +886,7 @@ components:
           items:
             $ref: '#/components/schemas/Note'
         previousNotes:
-          description: Notes of the requester's earlier requests about the same step of the same recipe (INV-07) or an ingredient of the same name in any recipe (INV-15), shown so providers don't repeat what didn't work; notes about the same dish come with catastrophe help (planned). The 10 most recent notes, oldest first.
+          description: Notes of the requester's earlier requests about the same step of the same recipe (INV-07), an ingredient of the same name in any recipe (INV-15), or - for a catastrophe - earlier catastrophe requests about the same recipe, none without a recipe (INV-24), shown so providers don't repeat what didn't work. The 10 most recent notes, oldest first.
           type: array
           maxItems: 10
           items:
@@ -1591,6 +1592,19 @@ components:
                 preferredProvider:
                   - COMMUNITY
                   - GRANDMA_AVATAR
+            catastrophe:
+              summary: Lena asks the Community and Grandma about her burnt roast chicken, with two photos
+              value:
+                title: My roast chicken is burnt
+                type: STEPS_TO_MITIGATE_CATASTROPHE
+                description: Roast chicken burnt on the bottom, guests at 19:00
+                recipe: 5b6c7d8e-9f0a-4b1c-8d2e-3f4a5b6c7d8e
+                pictures:
+                  - https://img.larder.example/burnt-chicken-1.jpg
+                  - https://img.larder.example/burnt-chicken-2.jpg
+                preferredProvider:
+                  - COMMUNITY
+                  - GRANDMA_AVATAR
 
     CancellationRequest:
       description: Cancellation with an optional note
@@ -1658,6 +1672,17 @@ components:
                         - name: yogurt
                           value: 100
                           unit: GRAM
+            catastropheMitigation:
+              summary: Jonas from the Community tells Lena how to save the roast chicken
+              value:
+                answerTitle: Save the chicken
+                helpProviderType: COMMUNITY
+                answer:
+                  answerType: STEPS_TO_MITIGATE_CATASTROPHE
+                  recipe: 5b6c7d8e-9f0a-4b1c-8d2e-3f4a5b6c7d8e
+                  explanation: cut off the burnt part, make a fresh sauce
+                  images:
+                    - https://img.larder.example/cut-skin.jpg
 
   securitySchemes:
     oAuth2:

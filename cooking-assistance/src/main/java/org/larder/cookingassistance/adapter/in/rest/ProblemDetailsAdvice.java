@@ -17,6 +17,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.lang.Nullable;
+import org.springframework.security.web.firewall.RequestRejectedException;
 import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.transaction.TransactionSystemException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -78,6 +79,15 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
       HttpHeaders headers,
       HttpStatusCode status,
       WebRequest request) {
+    return NamedProblem.VALIDATION_FAILED.response();
+  }
+
+  /**
+   * A header value the request firewall refuses (a control character) is an invalid request (step 9
+   * r2, Schemathesis on PR #10).
+   */
+  @ExceptionHandler(RequestRejectedException.class)
+  ResponseEntity<Object> handleRequestRejected(RequestRejectedException ex) {
     return NamedProblem.VALIDATION_FAILED.response();
   }
 

@@ -70,7 +70,7 @@ Kinds: *quantitative* and *cardinality* rules get a property test in step 6.
 
 #### INV-09 — US-CA-03 R8: Unanswered after 12 h: cancelled; a provider not yet asked is suggested
 - **Slice / command:** B3-S06 · Time out help request · **kind:** quantitative — the 12 h deadline of each asked provider is set in B3-S01 (Request help Preparation step); only the timeout is B3-S06 *(step 3 r2, 2026-11-01, reverse check of increment 0)*
-- **Guard / outcome:** no answer within 12 h → Help request timed out (Cancelled); a provider not yet asked is suggested; an answer at 11:59 h counts. *(step 3 r5, 2026-11-03, decided by the user at the increment 1 test list:)* an answer **at or before** its provider's deadline counts, a later one is refused → AnswerTooLate (B3-S02); an Open request times out only **after** every asked provider's deadline → DeadlineNotPassed before that; only an Open request times out (D5) → InvalidHelpRequestState otherwise. *(step 3 r9, 2026-11-08, from the reverse check of step 13, decided by the user:)* on the REST API the refusal is the response; a Grandma Avatar message that comes too late (after a cancel, an acceptance, a time-out or its deadline) is acknowledged and ignored, never dead-lettered (Q-A2, ADR0015)
+- **Guard / outcome:** no answer within 12 h → Help request timed out (Cancelled); a provider not yet asked is suggested; an answer at 11:59 h counts. *(step 3 r5, 2026-11-03, decided by the user at the increment 1 test list:)* an answer **at or before** its provider's deadline counts, a later one is refused → AnswerTooLate (B3-S02); each asked provider's side times out after its deadline; the request times out once every asked side has → DeadlineNotPassed while no side is due *(step 3 r5, changed by r25)*; only an Open request times out (D5) → InvalidHelpRequestState otherwise. *(step 3 r9, 2026-11-08, from the reverse check of step 13, decided by the user:)* on the REST API the refusal is the response; a Grandma Avatar message that comes too late (after a cancel, an acceptance, a time-out or its deadline) is acknowledged and ignored, never dead-lettered (Q-A2, ADR0015) *(step 3 r25, 2026-11-25, step 13 of increment 3, decided by the user: as INV-26, each asked provider's side times out on its own when its deadline passes, with no event; the request times out when every asked side has — for every request type since step 7 of increment 3)*
 - **Sources:** map; board 'System cancels request when answer takes too long'; hotspot 'Define timeouts'
   - `US-CA-03 R8.E1` **Given/When** Only Community asked Fri 18:00, silent until Sat 06:00 **Then** cancelled, Grandma suggested
   - `US-CA-03 R8.E2` **Given/When** Only Grandma asked Fri 18:00, silent until Sat 06:00 **Then** cancelled, Community suggested
@@ -91,13 +91,13 @@ Kinds: *quantitative* and *cardinality* rules get a property test in step 6.
 
 #### INV-38 — added in step 3: At most 10 pictures
 - **Slice / command:** B3-S02 · Provide Help (answer pictures); B4-S01 · Request help Catastrophe (request photos) · **kind:** cardinality
-- **Guard / outcome:** TooManyPictures — 0..10 pictures; PictureLinkNotSecure (INVALID_PICTURE_LINK) — every picture is an https link *(step 3 r3, 2026-11-01, from the security review SEC-07)*; the domain compares the scheme case-insensitively (RFC 3986 §3.1), both specs are stricter at the edge (`^https://`) *(step 3 r4, 2026-11-02, reverse check of step 14)*
+- **Guard / outcome:** TooManyPictures — 0..10 pictures; PictureLinkNotSecure (INVALID_PICTURE_LINK) — every picture is an https link *(step 3 r3, 2026-11-01, from the security review SEC-07)*; the domain compares the scheme case-insensitively (RFC 3986 §3.1), both specs are stricter at the edge (`^https://`) *(step 3 r4, 2026-11-02, reverse check of step 14)*; *(step 3 r26, 2026-11-26, from the security review SEC-24, decided by the user:)* every picture link is at most 2048 characters → PictureLinkTooLong (INVALID_PICTURE_LINK); both specs bound the link at the edge with `maxLength: 2048`
 - **Sources:** glossary v2 'Help Request contains Picture 0..10' (chosen over model v2 0..*); example added by the user 2026-10-31
   - `US-CA-03 S3.E3` **Given/When** Grandma's answer carries 11 photos **Then** refused and set aside, max 10; the request is still open
 
 #### INV-39 — added in step 3 r5: A rejected answer is never accepted later
 - **Slice / command:** B3-S04 · Accept help (and B3-S05 · Reject help, which marks the answer) · **kind:** other
-- **Guard / outcome:** rejecting an answer marks it rejected; accepting or rejecting it again → HelpAlreadyRejected
+- **Guard / outcome:** rejecting an answer marks it rejected; accepting or rejecting it again → HelpAlreadyRejected; after a rejection the request is Open again: the other answers are set aside and cannot be accepted until a new answer arrives (Answered); then any answer not rejected can be accepted *(step 3 r20, 2026-11-12, readiness gate of increment 3, O-7 from step 14 of increment 2, decided by the user)*
 - **Sources:** decision by the user at the increment 1 test list (2026-11-03), from INV-06 (a rejected answer "didn't work")
   - `US-CA-03 S3.E4` **Given/When** Lena rejected Grandma's answer ("warm water didn't help"); Grandma answers again; Lena tries to accept the first answer **Then** refused, that answer was rejected
 
@@ -165,7 +165,7 @@ Each asked provider has its own deadline. A provider's side times out alone, and
 
 #### INV-17 — US-CA-02 R7: Unanswered after 24 h: cancelled; a provider not yet asked is suggested
 - **Slice / command:** B3-S06 · Time out help request · **kind:** quantitative
-- **Guard / outcome:** no answer within 24 h → timed out; suggest a provider not yet asked
+- **Guard / outcome:** no answer within 24 h → timed out; suggest a provider not yet asked *(step 3 r25, 2026-11-25, step 13 of increment 3, decided by the user: as INV-26, each asked provider's side times out on its own when its deadline passes, with no event; the request times out when every asked side has — for every request type since step 7 of increment 3)*
 - **Sources:** map; red card Q1 answered at the readiness gate of increment 2 (2026-11-08): both silent → Lena is only told, nothing is offered
   - `US-CA-02 R7.E1` **Given/When** Only Community asked Mon 18:00, silent until Tue 18:00 **Then** cancelled, Grandma suggested
   - `US-CA-02 R7.E2` **Given/When** Only Grandma asked Mon 10:00, silent until Tue 10:00 **Then** cancelled, Community suggested
@@ -183,7 +183,7 @@ Each asked provider has its own deadline. A provider's side times out alone, and
   - `US-CA-04 R1.E1` **Given/When** Sat 18:40, Lena asks Grandma about her burnt roast chicken **Then** Grandma receives it
   - `US-CA-04 R1.E2` **Given/When** Lena asks the Community and Grandma together **Then** both get the same request
   - `US-CA-04 R1.E3` **Given/When** Tom (free plan) asks about his collapsed soufflé **Then** request sent
-  - `US-CA-04 R1.E4` **Given/When** Lena looks for help providers **Then** Chef Marco not offered
+  - `US-CA-04 R1.E4` **Given/When** Lena asks chef Marco about her burnt roast chicken **Then** the request is refused (a chef never helps with a catastrophe); nobody receives it *(reworded in step 3 r20, 2026-11-12, readiness gate of increment 3: offering providers is the client's part, as US-CA-03 r2 and US-CA-02 r16)*
 
 #### INV-19 — US-CA-04 R2: A request describes one catastrophe with one dish; a recipe can be given
 - **Slice / command:** B4-S01 · Request help Catastrophe · **kind:** cardinality
@@ -202,9 +202,9 @@ Each asked provider has its own deadline. A provider's side times out alone, and
 
 #### INV-21 — US-CA-04 R4: Community members are notified of every request sent to the Community
 - **Slice / command:** policy → Notification · (Help requested published) · **kind:** other
-- **Guard / outcome:** every request sent to the Community notifies Community members — cross-context policy, staleness: seconds; compensation: none (notification only)
+- **Guard / outcome:** every request sent to the Community notifies Community members — cross-context policy, staleness: seconds; compensation: none (notification only); a request that asks only the Grandma Avatar notifies nobody in the Community (Q1, step 3 r20); this context's part: HelpRequestCreated names the asked providers; the notification itself is the Notification context's (planned list, other owner)
 - **Sources:** map; board 'Cook notified'; red card Q1 deferred → increment 3
-  - `US-CA-04 R4.E1` **Given/When** Lena asks the Community at 18:40 **Then** Jonas and Mia notified at 18:40
+  - `US-CA-04 R4.E1` **Given/When** Lena asks the Community at 18:40 **Then** the request announced at 18:40 names the Community among the asked providers, for its members to be notified *(step 3 r24, 2026-11-25, step 12 of increment 3, decided by the user: worded as INV-21's guard (r20, Q1) — notifying Jonas and Mia is the Notification context's; the graph's Ex_EM04_R4_E1 still says "Jonas and Mia notified at 18:40")*
 
 #### INV-22 — US-CA-04 R5: Accepting an answer closes the whole request
 - **Slice / command:** B3-S04 · Accept help · **kind:** other
@@ -222,25 +222,25 @@ Each asked provider has its own deadline. A provider's side times out alone, and
 
 #### INV-24 — US-CA-04 R7: Notes are kept and shown on future requests
 - **Slice / command:** read model · (notes) · **kind:** other
-- **Guard / outcome:** notes are shown on future catastrophe requests — as INV-07
+- **Guard / outcome:** notes are shown on future catastrophe requests — as INV-07: the notes of the cook's earlier catastrophe requests with the same recipe; without a recipe nothing carries over *(step 3 r21, 2026-11-12, step 6 of increment 3, decided by the user: a catastrophe request has no dish of its own)*
 - **Sources:** map
-  - `US-CA-04 R7.E1` **Given/When** Next month: burnt roast chicken again **Then** note "still tastes smoky" shown
+  - `US-CA-04 R7.E1` **Given/When** Next month: burnt roast chicken again, with the recipe "Roast chicken" **Then** note "still tastes smoky" shown *(step 3 r21: the recipe names the dish)*
 
 #### INV-25 — US-CA-04 R8: The Cook can cancel an open request at any time, with an optional note
 - **Slice / command:** B3-S03 · Cancel help request · **kind:** other
 - **Guard / outcome:** = INV-08
 - **Sources:** map (same card)
-  - `US-CA-04 R8.E1` **Given/When** 18:50 Lena cancels: "ordered pizza" **Then** closed, providers see the note
+  - `US-CA-04 R8.E1` **Given/When** 18:50 Lena cancels: "ordered pizza" **Then** cancelled, providers see the note *(step 3 r22, 2026-11-24, step 12 of increment 3, decided by the user: "closed" corrected to "cancelled" — a cancellation ends in CANCELLED, as INV-08; the graph's Ex_EM04_R8_E1 still says "closed")*
 
 #### INV-26 — US-CA-04 R9: Unanswered: cancelled after 15 min (Community) or 5 min (Grandma); a provider not yet asked is suggested
 - **Slice / command:** B3-S06 · Time out help request · **kind:** quantitative
-- **Guard / outcome:** deadline per provider (Community 15 min, Grandma 5 min); a provider's side times out alone; the request times out when every asked provider has; suggest a provider not yet asked
+- **Guard / outcome:** deadline per provider (Community 15 min, Grandma 5 min); a provider's side times out alone — a time-out pass marks every side whose deadline has passed as timed out, with no event of its own *(step 3 r21, 2026-11-12, step 6 of increment 3, decided by the user)*; the request times out when every asked provider has; suggest a provider not yet asked
 - **Sources:** map (E3 shows per-provider state)
   - `US-CA-04 R9.E1` **Given/When** Only Community asked 18:40, silent until 18:55 **Then** cancelled, Grandma suggested
   - `US-CA-04 R9.E2` **Given/When** Only Grandma asked 18:40, silent until 18:45 **Then** cancelled, Community suggested
   - `US-CA-04 R9.E3` **Given/When** Both asked, Grandma silent at 18:45 **Then** only Grandma's side cancelled, Community until 18:55
   - `US-CA-04 R9.E4` **Given/When** Both asked, both silent until 18:55 **Then** cancelled, Lena told
-  - `US-CA-04 R9.E5` **Given/When** Jonas answers 18:54 **Then** answer counts
+  - `US-CA-04 R9.E5` **Given/When** Jonas answers 18:54 **Then** Jonas's answer counts *(step 3 r23, 2026-11-24, step 12 of increment 3, decided by the user: "his answer counts" named Jonas — the same words as US-CA-03 R8.E4, whose step is the preparation request's; the graph's Ex_EM04_R9_E5 still says "answer counts")*
 
 ## B1 — Help with a meal plan
 
@@ -332,7 +332,7 @@ Each asked provider has its own deadline. A provider's side times out alone, and
 | US-CA-03 Q1 | Notes shown only for the same step of the same recipe, or for any request about the same technique? | INV-07 | increment 1 readiness gate |
 | US-CA-02 Q1 | If both providers stay silent, should Lena be offered anything? | INV-17 | answered: no, she is only told; the request stays as it is *(step 3 r11, 2026-11-08, readiness gate of increment 2, decided by the user)* |
 | B2 pictures | May an ingredient request or answer carry pictures? (map silent) | INV-11/12 | answered: no, neither *(step 3 r11, 2026-11-08, readiness gate of increment 2, decided by the user)* |
-| US-CA-04 Q1 | Is the Community also notified when only Grandma was asked? | INV-21 | increment 3 |
+| US-CA-04 Q1 | Is the Community also notified when only Grandma was asked? | INV-21 | answered: no — only a request that asks the Community notifies its members *(step 3 r20, 2026-11-12, readiness gate of increment 3, decided by the user)* |
 | US-CA-01 Q1 | Must the Chef's Menu respect the Occasion's dietary needs and budget? | INV-32 | increment 4 |
 | US-CA-01 Q2 | May a reset push the deadline past the Occasion? | INV-34, INV-35 | increment 4 |
 | Course bound | Menu course 1..10 (glossary) — upper bound unconfirmed by the map | INV-32 | increment 4 (example needed) |

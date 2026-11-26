@@ -29,6 +29,12 @@ public record AskedProvider(HelpProviderType providerType, Instant deadline, Pro
     return new AskedProvider(providerType, deadline, ProviderState.ANSWERED);
   }
 
+  // INV-26 (step 3 r21): this side still waits for an answer and its deadline has passed, so it
+  // times out
+  boolean isDueAt(Instant instant) {
+    return state == ProviderState.ASKED && deadlinePassedAt(instant);
+  }
+
   // INV-09: the deadline itself still counts; only a later instant has passed it (step 3 r5)
   boolean deadlinePassedAt(Instant instant) {
     return instant.isAfter(deadline);

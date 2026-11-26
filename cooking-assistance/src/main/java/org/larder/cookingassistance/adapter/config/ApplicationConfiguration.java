@@ -9,6 +9,7 @@ import org.larder.cookingassistance.application.ProcessedMessages;
 import org.larder.cookingassistance.application.ProvideGrandmaAvatarHelp;
 import org.larder.cookingassistance.application.ProvideHelp;
 import org.larder.cookingassistance.application.RejectHelp;
+import org.larder.cookingassistance.application.RequestHelpWithCatastrophe;
 import org.larder.cookingassistance.application.RequestHelpWithIngredient;
 import org.larder.cookingassistance.application.RequestHelpWithPreparationStep;
 import org.larder.cookingassistance.application.TimeOutDueHelpRequests;
@@ -44,6 +45,12 @@ class ApplicationConfiguration {
   RequestHelpWithIngredient requestHelpWithIngredient(
       HelpRequestRepository helpRequests, IdGenerator ids, Clock clock) {
     return new RequestHelpWithIngredient(helpRequests, ids, clock);
+  }
+
+  @Bean
+  RequestHelpWithCatastrophe requestHelpWithCatastrophe(
+      HelpRequestRepository helpRequests, IdGenerator ids, Clock clock) {
+    return new RequestHelpWithCatastrophe(helpRequests, ids, clock);
   }
 
   @Bean

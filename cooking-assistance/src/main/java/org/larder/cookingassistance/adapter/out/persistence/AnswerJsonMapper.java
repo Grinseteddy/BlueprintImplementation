@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
+import org.larder.cookingassistance.domain.helprequest.CatastropheMitigation;
 import org.larder.cookingassistance.domain.helprequest.HelpAnswer;
 import org.larder.cookingassistance.domain.helprequest.HowToStepId;
 import org.larder.cookingassistance.domain.helprequest.IngredientId;
@@ -18,7 +19,9 @@ import org.larder.cookingassistance.domain.helprequest.Unit;
 /** Writes and reads a Help's answer as JSON under the AsyncAPI field names. */
 final class AnswerJsonMapper {
 
+  private static final String PREPARATION_STEP_EXPLANATION = "PREPARATION_STEP_EXPLANATION";
   private static final String INGREDIENT_SUBSTITUTE = "INGREDIENT_SUBSTITUTE";
+  private static final String STEPS_TO_MITIGATE_CATASTROPHE = "STEPS_TO_MITIGATE_CATASTROPHE";
 
   private AnswerJsonMapper() {}
 
@@ -27,6 +30,7 @@ final class AnswerJsonMapper {
         switch (answer) {
           case PreparationStepExplanation explanation -> toPayload(explanation);
           case Substitutes substitutes -> toPayload(substitutes);
+          case CatastropheMitigation mitigation -> toPayload(mitigation);
         };
     try {
       return new AnswerJson(AsyncApiJson.MAPPER.writeValueAsString(payload));
@@ -38,7 +42,7 @@ final class AnswerJsonMapper {
   /** The answer in its AsyncAPI shape. */
   private static PreparationStepExplanationJson toPayload(PreparationStepExplanation answer) {
     return new PreparationStepExplanationJson(
-        "PREPARATION_STEP_EXPLANATION",
+        PREPARATION_STEP_EXPLANATION,
         answer.recipe().value(),
         answer.howToStep().value(),
         answer.description(),
@@ -50,6 +54,15 @@ final class AnswerJsonMapper {
         INGREDIENT_SUBSTITUTE,
         answer.recipe().value(),
         answer.substitute().stream().map(AnswerJsonMapper::toPayload).toList());
+  }
+
+  private static CatastropheMitigationJson toPayload(CatastropheMitigation answer) {
+    return new CatastropheMitigationJson(
+        STEPS_TO_MITIGATE_CATASTROPHE,
+        // INV-37: a mitigation may name no recipe
+        answer.recipe() == null ? null : answer.recipe().value(),
+        answer.explanation(),
+        answer.images());
   }
 
   private static SubstituteJson toPayload(Substitute substitute) {
@@ -66,17 +79,25 @@ final class AnswerJsonMapper {
   /** The answer stored as this JSON; its answerType says which kind it is. */
   static HelpAnswer toAnswer(AnswerJson json) {
     try {
-      return INGREDIENT_SUBSTITUTE.equals(answerTypeOf(json))
-          ? toSubstitutes(AsyncApiJson.MAPPER.readValue(json.value(), SubstitutesJson.class))
-          : toExplanation(
-              AsyncApiJson.MAPPER.readValue(json.value(), PreparationStepExplanationJson.class));
+      return switch (answerTypeOf(json)) {
+        case INGREDIENT_SUBSTITUTE ->
+            toSubstitutes(AsyncApiJson.MAPPER.readValue(json.value(), SubstitutesJson.class));
+        case STEPS_TO_MITIGATE_CATASTROPHE ->
+            toMitigation(
+                AsyncApiJson.MAPPER.readValue(json.value(), CatastropheMitigationJson.class));
+        case PREPARATION_STEP_EXPLANATION ->
+            toExplanation(
+                AsyncApiJson.MAPPER.readValue(json.value(), PreparationStepExplanationJson.class));
+        default ->
+            throw new IllegalStateException("Unknown stored answer type " + answerTypeOf(json));
+      };
     } catch (JsonProcessingException e) {
       throw new IllegalStateException("Cannot read the stored answer", e);
     }
   }
 
   private static String answerTypeOf(AnswerJson json) throws JsonProcessingException {
-    return AsyncApiJson.MAPPER.readTree(json.value()).get("answerType").asText();
+    return AsyncApiJson.MAPPER.readTree(json.value()).path("answerType").asText();
   }
 
   private static PreparationStepExplanation toExplanation(PreparationStepExplanationJson stored) {
@@ -91,6 +112,13 @@ final class AnswerJsonMapper {
     return new Substitutes(
         new RecipeId(stored.recipe()),
         stored.substitute().stream().map(AnswerJsonMapper::toSubstitute).toList());
+  }
+
+  private static CatastropheMitigation toMitigation(CatastropheMitigationJson stored) {
+    return new CatastropheMitigation(
+        stored.recipe() == null ? null : new RecipeId(stored.recipe()),
+        stored.explanation(),
+        stored.images());
   }
 
   private static Substitute toSubstitute(SubstituteJson stored) {
@@ -111,6 +139,10 @@ final class AnswerJsonMapper {
 
   /** AsyncAPI shape of a Substitutes answer. */
   record SubstitutesJson(String answerType, UUID recipe, List<SubstituteJson> substitute) {}
+
+  /** AsyncAPI shape of a Catastrophe Mitigation answer. */
+  record CatastropheMitigationJson(
+      String answerType, UUID recipe, String explanation, List<URI> images) {}
 
   /** AsyncAPI shape of one substitute. */
   record SubstituteJson(UUID ingredient, List<SubstituteIngredientJson> substituteIngredients) {}

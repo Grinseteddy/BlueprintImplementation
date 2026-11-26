@@ -136,6 +136,16 @@ class EdgeTest {
   }
 
   @DisplayName(
+      "GET /help-requests with a control character in the version header (the firewall refuses the header) -> 400 VALIDATION_FAILED Problem, never a 500 -- B3-S01 US-CA-03 edge (step 9 r2 from step 14 of increment 3, Schemathesis CI on PR #10)")
+  @Test
+  void headerTheFirewallRefusesIsABadRequest() throws Exception {
+    mvc.perform(get("/help-requests").header(AUTHORIZATION, LENA).header("version", "yfj\u0016V"))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+  }
+
+  @DisplayName(
       "GET /help-requests/{id} accepting only application/xml -> 406 NOT_ACCEPTABLE Problem -- B3-S01 US-CA-03 edge")
   @Test
   void unacceptableMediaTypeIsNotAcceptable() throws Exception {

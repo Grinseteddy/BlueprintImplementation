@@ -23,16 +23,19 @@ import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * QS-03 (and QS-11 on a database seeded with 150,000 requests): 20 HTTP requests a second — 10
- * commands, 10 queries — and 10 Grandma Avatar answers a second on the broker, against the running
- * service. Commands p95 at most 300 ms, queries p95 at most 200 ms, no failed request, and no
- * request left OPEN after the load (each of Grandma's answers was published and consumed). Results
- * are indicative: one CI runner, not production.
+ * commands (5 ingredient, 5 catastrophe requests with two pictures), 10 queries — and 10 Grandma
+ * Avatar answers a second on the broker, against the running service. Commands p95 at most 300 ms,
+ * queries p95 at most 200 ms, no failed request, and no request left OPEN after the load (each of
+ * Grandma's answers was published and consumed). Results are indicative: one CI runner, not
+ * production.
  */
 public class HelpRequestLoadSimulation extends Simulation {
 
   static final String TOMATO_SOUP = "3f0a6c1e-2b7d-4d9a-9c41-6a1f0e7b2c10";
   static final String CREME_FRAICHE = "8956b2e5-8d0c-470e-ae9c-6071bd7c5b0d";
+  static final String ROAST_CHICKEN = "5b6c7d8e-9f0a-4b1c-8d2e-3f4a5b6c7d8e";
   static final String CREATE = "command: create an ingredient request";
+  static final String CREATE_CATASTROPHE = "command: create a catastrophe request";
   static final String READ = "query: read a request";
   static final String LIST = "query: list requests";
   static final String LIST_RECENT = "query: list recent requests";
@@ -45,7 +48,7 @@ public class HelpRequestLoadSimulation extends Simulation {
   /** Requests the commands created, for the queries and for Grandma's answers. */
   final List<String> created = new CopyOnWriteArrayList<>();
 
-  final GrandmaAvatar grandma = new GrandmaAvatar(TOMATO_SOUP, CREME_FRAICHE);
+  final GrandmaAvatar grandma = new GrandmaAvatar(TOMATO_SOUP, CREME_FRAICHE, ROAST_CHICKEN);
 
   final HttpProtocolBuilder service =
       http.baseUrl(System.getProperty("baseUrl", "http://localhost:8080"))
@@ -71,6 +74,28 @@ public class HelpRequestLoadSimulation extends Simulation {
               session -> {
                 created.add(session.getString("id"));
                 grandma.willAnswer(session.getString("id"));
+                return session;
+              });
+
+  final ScenarioBuilder catastropheCommands =
+      scenario("catastrophe commands")
+          .exec(
+              http(CREATE_CATASTROPHE)
+                  .post("/help-requests")
+                  .body(
+                      StringBody(
+                          """
+                          {"title":"My roast chicken is burnt","type":"STEPS_TO_MITIGATE_CATASTROPHE",
+                           "description":"Burnt on the bottom","recipe":"%s",
+                           "pictures":["https://img.larder.example/burnt-chicken-1.jpg",
+                                       "https://img.larder.example/burnt-chicken-2.jpg"],
+                           "preferredProvider":["COMMUNITY","GRANDMA_AVATAR"]}"""
+                              .formatted(ROAST_CHICKEN)))
+                  .check(status().is(201), jsonPath("$.helpRequestId").saveAs("id")))
+          .exec(
+              session -> {
+                created.add(session.getString("id"));
+                grandma.willMitigate(session.getString("id"));
                 return session;
               });
 
@@ -116,13 +141,15 @@ public class HelpRequestLoadSimulation extends Simulation {
     // queries: 10/3 users a second, each reads one created request and lists twice: 10 queries a
     // second
     setUp(
-            commands.injectOpen(constantUsersPerSec(10).during(seconds)),
+            commands.injectOpen(constantUsersPerSec(5).during(seconds)),
+            catastropheCommands.injectOpen(constantUsersPerSec(5).during(seconds)),
             queries.injectOpen(constantUsersPerSec(10.0 / 3).during(seconds)),
             grandmasAnswers.injectOpen(atOnceUsers(1)))
         .protocols(service)
         .assertions(
             global().failedRequests().count().is(0L),
             details(CREATE).responseTime().percentile(95.0).lte(commandsP95),
+            details(CREATE_CATASTROPHE).responseTime().percentile(95.0).lte(commandsP95),
             details(READ).responseTime().percentile(95.0).lte(queriesP95),
             details(LIST).responseTime().percentile(95.0).lte(queriesP95),
             details(LIST_RECENT).responseTime().percentile(95.0).lte(queriesP95));

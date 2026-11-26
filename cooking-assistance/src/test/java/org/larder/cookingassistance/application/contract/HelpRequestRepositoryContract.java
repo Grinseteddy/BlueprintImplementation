@@ -211,37 +211,6 @@ public abstract class HelpRequestRepositoryContract {
   }
 
   @DisplayName(
-      "Community's deadline Sat 06:00 passed, Grandma asked again until Sat 08:00 -> not due at Sat 07:00 -- B3-S06 US-CA-03 INV-09 per-provider contract")
-  @Test
-  void aRequestWithARunningSideIsNotDue() {
-    repository()
-        .save(
-            HelpRequest.reconstitute(
-                HelpRequests.HELP_REQUEST_ID,
-                HelpRequests.LENA,
-                "How do I keep the sauce from splitting?",
-                "Step 4 of my Hollandaise keeps splitting",
-                HelpType.PREPARATION_STEP_EXPLANATION,
-                HelpRequests.HOLLANDAISE,
-                HelpRequests.STEP_4,
-                List.of(
-                    new AskedProvider(
-                        HelpProviderType.COMMUNITY,
-                        Instant.parse("2026-11-07T05:00:00Z"),
-                        ProviderState.ASKED),
-                    new AskedProvider(
-                        HelpProviderType.GRANDMA_AVATAR,
-                        Instant.parse("2026-11-07T07:00:00Z"),
-                        ProviderState.ASKED)),
-                HelpRequestStatus.OPEN,
-                List.of(),
-                List.of(),
-                0L));
-
-    assertThat(repository().findDueForTimeOut(Instant.parse("2026-11-07T06:00:00Z"), 10)).isEmpty();
-  }
-
-  @DisplayName(
       "three due requests, limit 2 -> two are returned -- B3-S06 US-CA-03 ADR0021 batch contract")
   @Test
   void atMostTheLimitIsReturned() {
@@ -339,5 +308,77 @@ public abstract class HelpRequestRepositoryContract {
         .isEqualTo(
             new Substitutes(
                 HelpRequests.TOMATO_SOUP, List.of(HelpRequests.gramsOf("yogurt", "200"))));
+  }
+
+  // increment 3: B4-S01, B3-S06 (US-CA-04)
+
+  @DisplayName(
+      "a saved catastrophe request with recipe and the 2 photos is found again with type STEPS_TO_MITIGATE_CATASTROPHE, recipe and pictures in order -- B4-S01 US-CA-04 INV-19 INV-20 contract")
+  @Test
+  void aCatastropheRequestWithPicturesRoundTrips() {
+    repository()
+        .save(
+            HelpRequests.lenaAsksAboutBurntChicken(
+                Optional.of(HelpRequests.ROAST_CHICKEN),
+                HelpRequests.BURNT_CHICKEN_PHOTOS,
+                HelpProviderType.GRANDMA_AVATAR));
+
+    assertThat(repository().findById(HelpRequests.HELP_REQUEST_ID))
+        .hasValueSatisfying(
+            found -> {
+              assertThat(found.type()).isEqualTo(HelpType.STEPS_TO_MITIGATE_CATASTROPHE);
+              assertThat(found.recipe()).isEqualTo(HelpRequests.ROAST_CHICKEN);
+              assertThat(found.pictures()).isEqualTo(HelpRequests.BURNT_CHICKEN_PHOTOS);
+            });
+  }
+
+  @DisplayName(
+      "Community's deadline Sat 06:00 passed and still ASKED, Grandma asked again until Sat 08:00 -> due at Sat 07:00 -- B3-S06 US-CA-04 INV-26 step 3 r21 contract")
+  @Test
+  void aRequestWithOneSideDueIsDue() {
+    repository().save(hollandaiseWithCommunity(ProviderState.ASKED));
+
+    assertThat(repository().findDueForTimeOut(Instant.parse("2026-11-07T06:00:00Z"), 10))
+        .extracting(HelpRequest::id)
+        .containsExactly(HelpRequests.HELP_REQUEST_ID);
+  }
+
+  @DisplayName(
+      "Community's side already TIMED_OUT, Grandma asked until Sat 08:00 -> not due at Sat 07:00 -- B3-S06 US-CA-04 INV-26 step 3 r21 contract")
+  @Test
+  void aRequestWhoseOnlyPassedSideTimedOutIsNotDue() {
+    repository().save(hollandaiseWithCommunity(ProviderState.TIMED_OUT));
+
+    assertThat(repository().findDueForTimeOut(Instant.parse("2026-11-07T06:00:00Z"), 10)).isEmpty();
+  }
+
+  /**
+   * Lena's OPEN Hollandaise request: Community until Sat 06:00 in the given state, Grandma asked
+   * until Sat 08:00.
+   */
+  private static HelpRequest hollandaiseWithCommunity(ProviderState community) {
+    return HelpRequest.reconstitute(
+        HelpRequests.HELP_REQUEST_ID,
+        HelpRequests.LENA,
+        "How do I keep the sauce from splitting?",
+        "Step 4 of my Hollandaise keeps splitting",
+        HelpType.PREPARATION_STEP_EXPLANATION,
+        HelpRequests.HOLLANDAISE,
+        HelpRequests.STEP_4,
+        null,
+        null,
+        null,
+        List.of(),
+        List.of(
+            new AskedProvider(
+                HelpProviderType.COMMUNITY, Instant.parse("2026-11-07T05:00:00Z"), community),
+            new AskedProvider(
+                HelpProviderType.GRANDMA_AVATAR,
+                Instant.parse("2026-11-07T07:00:00Z"),
+                ProviderState.ASKED)),
+        HelpRequestStatus.OPEN,
+        List.of(),
+        List.of(),
+        0L);
   }
 }

@@ -60,9 +60,28 @@ class AmqpAdaptersIT {
   @Autowired AmqpAdmin admin;
   @Autowired RabbitListenerEndpointRegistry listeners;
 
-  /** A queue the test owns, bound to the service's exchange. */
+  /**
+   * The message with this id from the probe, within 5 s; the class's outbox poller may put rows the
+   * earlier tests stored on the same channel first.
+   */
+  private Message ownMessage(String queue, String messageId) {
+    long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
+    for (long left = deadline - System.nanoTime(); left > 0; left = deadline - System.nanoTime()) {
+      Message received = rabbit.receive(queue, Duration.ofNanos(left).toMillis());
+      if (received != null && messageId.equals(received.getMessageProperties().getMessageId())) {
+        return received;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * A queue the test owns, bound to the service's exchange; exclusive, so it goes with the
+   * connection, but not auto-delete, so it outlives a receive's consumer.
+   */
   private String probe(String routingKey) {
-    Queue queue = admin.declareQueue();
+    Queue queue = new Queue("probe." + UUID.randomUUID(), false, true, false);
+    admin.declareQueue(queue);
     admin.declareBinding(
         BindingBuilder.bind(queue).to(new TopicExchange("cooking-assistance")).with(routingKey));
     return queue.getName();
@@ -88,7 +107,7 @@ class AmqpAdaptersIT {
 
     publisher.publish(message(CREATED));
 
-    Message received = rabbit.receive(queue, 5_000);
+    Message received = ownMessage(queue, "8c6894b6-9321-3924-ac9a-3d6f6d4c5aa7");
     assertThat(received).isNotNull();
     assertThat(new String(received.getBody())).isEqualTo(message(CREATED).payload());
     assertThat(received.getMessageProperties().getMessageId())

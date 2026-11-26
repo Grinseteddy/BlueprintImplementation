@@ -1,7 +1,9 @@
 package org.larder.cookingassistance.adapter.in.rest;
 
+import java.net.URI;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -21,6 +23,7 @@ import org.larder.cookingassistance.application.HelpRequestFilter;
 import org.larder.cookingassistance.application.HelpRequestView;
 import org.larder.cookingassistance.application.Page;
 import org.larder.cookingassistance.application.PreviousNote;
+import org.larder.cookingassistance.application.RequestHelpWithCatastrophe;
 import org.larder.cookingassistance.application.RequestHelpWithIngredient;
 import org.larder.cookingassistance.application.RequestHelpWithPreparationStep;
 import org.larder.cookingassistance.domain.helprequest.CookId;
@@ -57,6 +60,18 @@ final class HelpRequestMapper {
         new IngredientId(body.getIngredient()),
         body.getIngredientName(),
         body.getSubstituteRequirements(),
+        preferredProviders(body));
+  }
+
+  static RequestHelpWithCatastrophe.Command toCatastropheCommand(
+      Actor actor, HelpRequestCreate body) {
+    return new RequestHelpWithCatastrophe.Command(
+        actor,
+        body.getTitle(),
+        body.getDescription(),
+        Optional.ofNullable(body.getRecipe()).map(RecipeId::new),
+        // the spec's optional pictures array: absent means no pictures (INV-19)
+        Objects.requireNonNullElse(body.getPictures(), List.<URI>of()),
         preferredProviders(body));
   }
 
@@ -121,6 +136,7 @@ final class HelpRequestMapper {
             .ingredient(view.ingredient() == null ? null : view.ingredient().value())
             .ingredientName(view.ingredientName())
             .substituteRequirements(view.substituteRequirements())
+            .pictures(OptionalArrays.absentWhenEmpty(view.pictures()))
             .helpsLink(
                 Links.absolute(
                     publicBaseUrl, "/help-requests/{helpRequestId}/helps", view.id().value()));

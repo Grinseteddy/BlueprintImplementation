@@ -1,7 +1,8 @@
 package org.larder.acceptance;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.within;
+import static org.larder.acceptance.HelpRequestAssertions.assertDeadline;
+import static org.larder.acceptance.HelpRequestAssertions.assertShowsThePreviousNote;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.cucumber.java.After;
@@ -14,7 +15,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -239,9 +239,7 @@ public class HelpRequestSteps {
 
   /** A new 12 h deadline from Friday 20:00, within the seconds the clock ticked meanwhile. */
   private static void assertDeadlineIsSaturdayAt0800(JsonNode deadline, String whose) {
-    assertThat(Instant.parse(deadline.asText()))
-        .as("%s's deadline", whose)
-        .isCloseTo(saturday("08:00"), within(5, ChronoUnit.SECONDS));
+    assertDeadline(deadline, saturday("08:00"), whose);
   }
 
   private void assertCancelledAfterTimeOut(String timedOutProvider, String suggestedProvider) {
@@ -558,12 +556,7 @@ public class HelpRequestSteps {
   @Then("the note {string} is shown")
   public void theNoteIsShown(String note) {
     String earlier = lenasRequests.get(lenasRequests.size() - 2);
-    JsonNode previous = readRequest(lenasRequest()).get("previousNotes");
-    assertThat(previous).as("previousNotes of the new request").isNotNull().hasSize(1);
-    assertThat(previous.get(0).get("kind").asText()).isEqualTo("REJECTION");
-    assertThat(previous.get(0).get("text").asText()).isEqualTo(note);
-    assertThat(previous.get(0).get("helpRequestLink").asText())
-        .endsWith("/help-requests/" + earlier);
+    assertShowsThePreviousNote(readRequest(lenasRequest()), note, earlier);
   }
 
   // R7 — cancelling, with an optional note

@@ -1,5 +1,34 @@
 # Cook Assistance API — changelog
 
+## OpenAPI 1.0.19 and AsyncAPI 1.0.15 — 2026-11-26 (step 4 r27, from step 14 of increment 3)
+
+| Change | Why |
+|---|---|
+| `Pictures.items` (OpenAPI; the request's pictures and every answer's images) and the AsyncAPI link lists `HelpRequestCreatedPayload.pictures`, `PreparationStepExplanation.images`, `CatastropheMitigation.images` get `maxLength: 2048` | SEC-24 (INV-38 r26): an unbounded link let ten 100,000-character links make a 1 MB request, a 1 MB published event and multi-megabyte list pages. Narrower — breaking for a client sending longer links; released under ADR0014's security-fix exception with named, path-scoped lines in `tools/contract/oasdiff-err-ignore.txt` |
+| `version` header accepts 1.0.19 (OpenAPI) | |
+
+## OpenAPI 1.0.18 and AsyncAPI 1.0.14 — 2026-11-17 (step 4 r26, from step 12 of increment 3)
+
+| Change | Why |
+|---|---|
+| OpenAPI: `HelpRequestCreateRequest` gets the example `catastrophe` (burnt roast chicken, two https photos, Community and Grandma); `HelpCreateRequest` gets `catastropheMitigation` (Jonas from the Community: cut off the burnt part, make a fresh sauce) | the example-based contract check creates and answers what the spec documents; no example carried a catastrophe or a mitigation. The request asks the Community, so the Community's answer fits it. Additive |
+| AsyncAPI: `helpRequestCreated` gets `burntChicken` (pictures, both providers with their deadlines), `helpProvided` gets `grandmaMitigates`, `grandmaHelpProvided` gets `grandmaMitigatesCatastrophe` | the receive operation's contract test accepts every example, and the schema check validates every example; none carried pictures or a mitigation. Additive |
+| `version` header accepts 1.0.18 (OpenAPI) | |
+
+## OpenAPI 1.0.17 — 2026-11-16 (step 4 r25, from step 11 of increment 3)
+
+| Change | Why |
+|---|---|
+| `HelpRequest.previousNotes` description names INV-24: earlier catastrophe requests about the same recipe, none without a recipe | step 3 r21 decided the rule; the description still called it planned. Description only |
+| `version` header accepts 1.0.17 | |
+
+## AsyncAPI 1.0.13 — 2026-11-16 (step 4 r24, from step 10 of increment 3)
+
+| Change | Why |
+|---|---|
+| `HelpRequestCreatedPayload.pictures` items get `pattern: '^https://'`; the description says "https links only" | INV-38, SEC-07: the OpenAPI `Pictures` and the AsyncAPI `CatastropheMitigation.images` already allow https links only; the published event did not promise it. The producer's output only narrows (the domain refuses other links) — not breaking for consumers |
+| The decided exceptions in `tools/contract/oasdiff-err-ignore.txt` (SEC-20, AsyncAPI 1.0.12) are removed | ADR0014 addition: removed with the next spec change; main carries the bound since PR #9 |
+
 ## OpenAPI 1.0.16 and AsyncAPI 1.0.12 — 2026-11-12 (step 4 r23, from step 14 of increment 2)
 
 | Change | Why |

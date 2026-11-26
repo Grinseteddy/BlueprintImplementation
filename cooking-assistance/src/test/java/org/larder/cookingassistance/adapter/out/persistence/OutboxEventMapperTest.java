@@ -9,7 +9,9 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -347,5 +349,128 @@ class OutboxEventMapperTest {
             HelpRequests.CREME_FRAICHE, List.of(new SubstituteIngredient("quark", amount, unit))));
     JsonNode payload = payloadOf(request.pullEvents().getFirst());
     return payload.get("answer").get("substitute").get(0).get("substituteIngredients").get(0);
+  }
+
+  // B4-S01: Request help Catastrophe
+
+  @DisplayName(
+      "HelpRequested for Lena's burnt roast chicken with recipe and 2 photos, asking Community and Grandma -> payload with type STEPS_TO_MITIGATE_CATASTROPHE, recipe, pictures [burnt-chicken-1, burnt-chicken-2] in order, askedProviders Community until 18:55 and Grandma until 18:45, no howToStep, no ingredient, no null field -- B4-S01 US-CA-04 INV-19 INV-20 INV-26 AsyncAPI HelpRequestCreated")
+  @Test
+  void helpRequestCreatedForACatastropheCarriesRecipeAndPictures() throws Exception {
+    HelpRequest request =
+        HelpRequests.lenaAsksAboutBurntChicken(
+            Optional.of(HelpRequests.ROAST_CHICKEN),
+            HelpRequests.BURNT_CHICKEN_PHOTOS,
+            HelpProviderType.COMMUNITY,
+            HelpProviderType.GRANDMA_AVATAR);
+
+    JsonNode payload = payloadOf(request.pullEvents().getFirst());
+
+    assertThat(fieldNames(payload))
+        .containsExactlyInAnyOrder(
+            "helpRequestId",
+            "requester",
+            "title",
+            "type",
+            "description",
+            "recipe",
+            "pictures",
+            "askedProviders",
+            "status",
+            "occurredAt");
+    assertThat(payload.get("type").asText()).isEqualTo("STEPS_TO_MITIGATE_CATASTROPHE");
+    assertThat(payload.get("recipe").asText())
+        .isEqualTo(HelpRequests.ROAST_CHICKEN.value().toString());
+    assertThat(payload.get("pictures"))
+        .extracting(JsonNode::asText)
+        .containsExactly(
+            "https://img.larder.example/burnt-chicken-1.jpg",
+            "https://img.larder.example/burnt-chicken-2.jpg");
+    Map<String, Instant> deadlines = new HashMap<>();
+    payload
+        .get("askedProviders")
+        .forEach(
+            asked ->
+                deadlines.put(
+                    asked.get("providerType").asText(),
+                    Instant.parse(asked.get("deadline").asText())));
+    assertThat(deadlines)
+        .containsOnly(
+            Map.entry("COMMUNITY", Instant.parse("2026-11-14T17:55:00Z")),
+            Map.entry("GRANDMA_AVATAR", Instant.parse("2026-11-14T17:45:00Z")));
+    assertNoNulls(payload);
+  }
+
+  @DisplayName(
+      "HelpRequested for a catastrophe without a recipe -> payload without recipe, no exception -- B4-S01 US-CA-04 INV-19 AsyncAPI HelpRequestCreated")
+  @Test
+  void aCatastropheWithoutARecipeHasNoRecipeField() throws Exception {
+    HelpRequest request =
+        HelpRequests.lenaAsksAboutBurntChicken(
+            Optional.empty(), HelpRequests.BURNT_CHICKEN_PHOTOS, HelpProviderType.GRANDMA_AVATAR);
+
+    JsonNode payload = payloadOf(request.pullEvents().getFirst());
+
+    assertThat(payload.has("recipe")).isFalse();
+    assertNoNulls(payload);
+  }
+
+  @DisplayName(
+      "HelpRequested for a catastrophe without photos -> payload without pictures -- B4-S01 US-CA-04 INV-20 AsyncAPI HelpRequestCreated (decided 2026-11-13: absent when none)")
+  @Test
+  void aCatastropheWithoutPhotosHasNoPicturesField() throws Exception {
+    HelpRequest request =
+        HelpRequests.lenaAsksAboutBurntChicken(
+            Optional.of(HelpRequests.ROAST_CHICKEN), List.of(), HelpProviderType.GRANDMA_AVATAR);
+
+    JsonNode payload = payloadOf(request.pullEvents().getFirst());
+
+    assertThat(payload.has("pictures")).isFalse();
+  }
+
+  // B4-S02: Provide Help (catastrophe mitigation)
+
+  @DisplayName(
+      "HelpProvided with Grandma's mitigation -> answer with exactly answerType STEPS_TO_MITIGATE_CATASTROPHE, recipe, explanation \"Cut off the black skin and serve it with a sauce\", images [cut-skin, sauce]; no null field -- B4-S02 US-CA-04 INV-22 AsyncAPI HelpProvided CatastropheMitigation")
+  @Test
+  void helpProvidedWithAMitigationCarriesExactlyTheSpecFields() throws Exception {
+    HelpRequest request =
+        HelpRequests.lenaAsksAboutBurntChicken(
+            Optional.of(HelpRequests.ROAST_CHICKEN),
+            HelpRequests.BURNT_CHICKEN_PHOTOS,
+            HelpProviderType.GRANDMA_AVATAR);
+    request.pullEvents();
+    HelpRequests.grandmaMitigates(request, HelpRequests.ROAST_CHICKEN);
+
+    JsonNode answer = payloadOf(request.pullEvents().getFirst()).get("answer");
+
+    assertThat(fieldNames(answer))
+        .containsExactlyInAnyOrder("answerType", "recipe", "explanation", "images");
+    assertThat(answer.get("answerType").asText()).isEqualTo("STEPS_TO_MITIGATE_CATASTROPHE");
+    assertThat(answer.get("recipe").asText())
+        .isEqualTo(HelpRequests.ROAST_CHICKEN.value().toString());
+    assertThat(answer.get("explanation").asText())
+        .isEqualTo("Cut off the black skin and serve it with a sauce");
+    assertThat(answer.get("images"))
+        .extracting(JsonNode::asText)
+        .containsExactly(
+            "https://img.larder.example/cut-skin.jpg", "https://img.larder.example/sauce.jpg");
+    assertNoNulls(answer);
+  }
+
+  @DisplayName(
+      "HelpProvided with a mitigation that names no recipe -> answer without recipe -- B4-S02 US-CA-04 INV-37 AsyncAPI CatastropheMitigation")
+  @Test
+  void aMitigationWithoutARecipeHasNoRecipeField() throws Exception {
+    HelpRequest request =
+        HelpRequests.lenaAsksAboutBurntChicken(
+            Optional.empty(), List.of(), HelpProviderType.GRANDMA_AVATAR);
+    request.pullEvents();
+    HelpRequests.grandmaMitigates(request, null);
+
+    JsonNode answer = payloadOf(request.pullEvents().getFirst()).get("answer");
+
+    assertThat(answer.has("recipe")).isFalse();
+    assertNoNulls(answer);
   }
 }

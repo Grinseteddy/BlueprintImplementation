@@ -1,5 +1,6 @@
 package org.larder.cookingassistance.adapter.in.rest;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -17,6 +18,7 @@ import org.larder.cookingassistance.application.HelpView;
 import org.larder.cookingassistance.application.Page;
 import org.larder.cookingassistance.application.ProvideHelp;
 import org.larder.cookingassistance.application.RejectHelp;
+import org.larder.cookingassistance.domain.helprequest.CatastropheMitigation;
 import org.larder.cookingassistance.domain.helprequest.CookId;
 import org.larder.cookingassistance.domain.helprequest.HelpAnswer;
 import org.larder.cookingassistance.domain.helprequest.HelpId;
@@ -45,7 +47,10 @@ final class HelpMapper {
         toAnswer(body.getAnswer()));
   }
 
-  /** Preparation Step Explanations and Substitutes are built; the other kinds come later. */
+  /**
+   * Preparation Step Explanations, Substitutes and Catastrophe Mitigations are built; the other
+   * kinds come later.
+   */
   private static HelpAnswer toAnswer(Answer answer) {
     return switch (answer) {
       case org.larder.cookingassistance.adapter.in.rest.generated.model.PreparationStepExplanation
@@ -54,14 +59,25 @@ final class HelpMapper {
               new RecipeId(explanation.getRecipe()),
               new HowToStepId(explanation.getHowToStep()),
               explanation.getDescription(),
-              // images are optional in the spec: no images, no pictures
-              Objects.requireNonNullElse(explanation.getImages(), List.of()));
+              pictures(explanation.getImages()));
       case org.larder.cookingassistance.adapter.in.rest.generated.model.Substitutes substitutes ->
           new Substitutes(
               new RecipeId(substitutes.getRecipe()),
               substitutes.getSubstitute().stream().map(HelpMapper::toSubstitute).toList());
+      case org.larder.cookingassistance.adapter.in.rest.generated.model.CatastropheMitigation
+              mitigation ->
+          new CatastropheMitigation(
+              // INV-37: a mitigation may name no recipe
+              Optional.ofNullable(mitigation.getRecipe()).map(RecipeId::new).orElse(null),
+              mitigation.getExplanation(),
+              pictures(mitigation.getImages()));
       default -> throw new NotImplemented("provideHelp with " + answer.getClass().getSimpleName());
     };
+  }
+
+  /** Images are optional in the spec: no images, no pictures. */
+  private static List<URI> pictures(@Nullable List<URI> images) {
+    return Objects.requireNonNullElse(images, List.of());
   }
 
   private static Substitute toSubstitute(
@@ -133,7 +149,17 @@ final class HelpMapper {
     return switch (answer) {
       case PreparationStepExplanation explanation -> toContractExplanation(explanation);
       case Substitutes substitutes -> toContractSubstitutes(substitutes);
+      case CatastropheMitigation mitigation -> toContractMitigation(mitigation);
     };
+  }
+
+  private static Answer toContractMitigation(CatastropheMitigation answer) {
+    return new org.larder.cookingassistance.adapter.in.rest.generated.model.CatastropheMitigation(
+            org.larder.cookingassistance.adapter.in.rest.generated.model.CatastropheMitigation
+                .AnswerTypeEnum.STEPS_TO_MITIGATE_CATASTROPHE,
+            answer.explanation())
+        .recipe(answer.recipe() == null ? null : answer.recipe().value())
+        .images(OptionalArrays.absentWhenEmpty(answer.images()));
   }
 
   private static Answer toContractExplanation(PreparationStepExplanation answer) {

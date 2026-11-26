@@ -1,2 +1,3 @@
-POST /help-requests/{helpRequestId}/helps the `answer/oneOf[#/components/schemas/Substitutes]/substitute/items/substituteIngredients/items/value` request property's max was set to `10000.00`
-POST /consumeGrandmaHelpProvided the `answer/oneOf[#/components/schemas/Substitutes]/substitute/items/substituteIngredients/items/value` request property's max was set to `10000.00`
+POST /help-requests/{helpRequestId}/helps the `answer/oneOf[#/components/schemas/PreparationStepExplanation]/images/items/` request property's maxLength was set to `2048` (shared schema: `Pictures`, also at `answer/oneOf[#/components/schemas/PreparationStepExplanation]/images/items`, `answer/oneOf[#/components/schemas/CatastropheMitigation]/images/items`)
+POST /consumeGrandmaHelpProvided the `answer/oneOf[#/components/schemas/CatastropheMitigation]/images/items/` request property's maxLength was set to `2048`
+POST /consumeGrandmaHelpProvided the `answer/oneOf[#/components/schemas/PreparationStepExplanation]/images/items/` request property's maxLength was set to `2048`

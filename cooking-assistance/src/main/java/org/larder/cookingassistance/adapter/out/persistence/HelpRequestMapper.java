@@ -1,5 +1,6 @@
 package org.larder.cookingassistance.adapter.out.persistence;
 
+import java.net.URI;
 import java.util.Optional;
 import org.larder.cookingassistance.domain.helprequest.AskedProvider;
 import org.larder.cookingassistance.domain.helprequest.CookId;
@@ -38,6 +39,7 @@ final class HelpRequestMapper {
         request.ingredient() == null ? null : request.ingredient().value(),
         request.ingredientName(),
         request.substituteRequirements(),
+        request.pictures().stream().map(URI::toString).toList(),
         request.status().name(),
         request.version(),
         request.askedProviders().stream().map(HelpRequestMapper::toRow).toList(),
@@ -57,6 +59,7 @@ final class HelpRequestMapper {
         row.ingredient() == null ? null : new IngredientId(row.ingredient()),
         row.ingredientName(),
         row.substituteRequirements(),
+        row.pictures().stream().map(URI::create).toList(),
         row.askedProviders().stream().map(HelpRequestMapper::toDomain).toList(),
         HelpRequestStatus.valueOf(row.status()),
         row.helps().stream().map(HelpRequestMapper::toDomain).toList(),

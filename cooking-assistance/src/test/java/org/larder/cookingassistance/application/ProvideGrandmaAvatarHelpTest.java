@@ -3,6 +3,7 @@ package org.larder.cookingassistance.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.net.URI;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -17,6 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.larder.cookingassistance.application.fakes.InMemoryHelpRequestRepository;
 import org.larder.cookingassistance.application.fakes.InMemoryProcessedMessages;
 import org.larder.cookingassistance.application.fakes.RecordingUnitOfWork;
+import org.larder.cookingassistance.domain.helprequest.AnswerTooLate;
+import org.larder.cookingassistance.domain.helprequest.CatastropheMitigation;
 import org.larder.cookingassistance.domain.helprequest.Help;
 import org.larder.cookingassistance.domain.helprequest.HelpProvided;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
@@ -214,6 +217,10 @@ class ProvideGrandmaAvatarHelpTest {
             open.type(),
             open.recipe(),
             open.howToStep(),
+            null,
+            null,
+            null,
+            List.of(),
             open.askedProviders(),
             HelpRequestStatus.CANCELLED,
             List.of(),
@@ -272,9 +279,78 @@ class ProvideGrandmaAvatarHelpTest {
         .hasSize(1);
   }
 
+  static final CatastropheMitigation SAVE_THE_CHICKEN =
+      new CatastropheMitigation(
+          HelpRequests.ROAST_CHICKEN,
+          "Cut off the black skin and serve it with a sauce",
+          List.of(
+              URI.create("https://img.larder.example/cut-skin.jpg"),
+              URI.create("https://img.larder.example/sauce.jpg")));
+
+  /** The handler with its clock this long after Lena asked about her burnt chicken (Sat 18:40). */
+  private ProvideGrandmaAvatarHelp catastropheHandler(Duration afterTheRequest) {
+    return new ProvideGrandmaAvatarHelp(
+        helpRequests,
+        processedMessages,
+        unitOfWork,
+        () -> HelpRequests.OTHER_HELP_ID.value(),
+        Clock.offset(HelpRequests.SATURDAY_18_40, afterTheRequest));
+  }
+
+  private static HelpRequest lenaAsksGrandmaAboutBurntChicken() {
+    return HelpRequests.lenaAsksAboutBurntChicken(
+        Optional.of(HelpRequests.ROAST_CHICKEN),
+        HelpRequests.BURNT_CHICKEN_PHOTOS,
+        HelpProviderType.GRANDMA_AVATAR);
+  }
+
+  private static ProvideGrandmaAvatarHelp.GrandmaAnswer grandmaMitigates(UUID messageId) {
+    return new ProvideGrandmaAvatarHelp.GrandmaAnswer(
+        messageId, HelpRequests.HELP_REQUEST_ID, "Save the chicken", SAVE_THE_CHICKEN);
+  }
+
   private static ProvideGrandmaAvatarHelp.GrandmaAnswer grandmaProposes(
       UUID messageId, Substitutes answer) {
     return new ProvideGrandmaAvatarHelp.GrandmaAnswer(
         messageId, HelpRequests.HELP_REQUEST_ID, "Grandma's ideas", answer);
+  }
+
+  @DisplayName(
+      "Grandma's mitigation (message id m1) at 18:44 -> her Help with the CatastropheMitigation is added to Lena's catastrophe request and saved with HelpProvided -- B4-S02 US-CA-04 cmd Provide Help (Grandma Avatar) R5.E1")
+  @Test
+  void grandmaMitigatesACatastrophe() {
+    helpRequests.clear();
+    helpRequests.save(lenaAsksGrandmaAboutBurntChicken());
+
+    catastropheHandler(Duration.ofMinutes(4)).handle(grandmaMitigates(M1));
+
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID))
+        .hasValueSatisfying(
+            saved ->
+                assertThat(saved.helps())
+                    .singleElement()
+                    .extracting(Help::answer)
+                    .isEqualTo(SAVE_THE_CHICKEN));
+    assertThat(helpRequests.recordedEvents()).last().isInstanceOf(HelpProvided.class);
+  }
+
+  @DisplayName(
+      "Grandma's side timed out at 18:46; her mitigation arrives at 18:47 -> AnswerTooLate propagates unchanged (named outcome: ignored with ACK, Q-A2, step 9), no Help saved -- B4-S02 US-CA-04 INV-26 R9.E3 step 3 r21")
+  @Test
+  void grandmaAnswersAfterHerSideTimedOut() {
+    helpRequests.clear();
+    HelpRequest request =
+        HelpRequests.lenaAsksAboutBurntChicken(
+            Optional.of(HelpRequests.ROAST_CHICKEN),
+            HelpRequests.BURNT_CHICKEN_PHOTOS,
+            HelpProviderType.COMMUNITY,
+            HelpProviderType.GRANDMA_AVATAR);
+    request.timeOut(Clock.offset(HelpRequests.SATURDAY_18_40, Duration.ofMinutes(6)));
+    helpRequests.save(request);
+
+    assertThatThrownBy(() -> catastropheHandler(Duration.ofMinutes(7)).handle(grandmaMitigates(M1)))
+        .isInstanceOfSatisfying(
+            AnswerTooLate.class, rejection -> assertThat(rejection.rule()).isEqualTo("INV-09"));
+    assertThat(helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow().helps()).isEmpty();
   }
 }

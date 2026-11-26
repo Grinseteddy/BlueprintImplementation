@@ -6,6 +6,7 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
@@ -27,8 +28,11 @@ import org.larder.cookingassistance.application.ProvideGrandmaAvatarHelp;
 import org.larder.cookingassistance.application.fakes.InMemoryHelpRequestRepository;
 import org.larder.cookingassistance.application.fakes.InMemoryProcessedMessages;
 import org.larder.cookingassistance.application.fakes.RecordingUnitOfWork;
+import org.larder.cookingassistance.domain.helprequest.CatastropheMitigation;
+import org.larder.cookingassistance.domain.helprequest.HelpAnswer;
 import org.larder.cookingassistance.domain.helprequest.HelpProviderType;
 import org.larder.cookingassistance.domain.helprequest.HelpRequest;
+import org.larder.cookingassistance.domain.helprequest.HelpRequestStatus;
 import org.larder.cookingassistance.domain.helprequest.PreparationStepExplanation;
 import org.larder.cookingassistance.domain.helprequest.SubstituteIngredient;
 import org.larder.cookingassistance.domain.helprequest.Substitutes;
@@ -491,6 +495,53 @@ class GrandmaHelpProvidedConsumerTest {
     assertThat(output).contains(M1.toString()).contains("SubstituteRejectedBefore");
   }
 
+  private void lenasCatastropheRequestToGrandmaIsStored() {
+    helpRequests.clear();
+    helpRequests.save(
+        HelpRequests.lenaAsksAboutBurntChicken(
+            Optional.of(HelpRequests.ROAST_CHICKEN),
+            HelpRequests.BURNT_CHICKEN_PHOTOS,
+            HelpProviderType.GRANDMA_AVATAR));
+  }
+
+  @DisplayName(
+      "Grandma's mitigation with an image link of 2049 characters -> DEAD_LETTER, no Help -- B4-S02 US-CA-04 INV-38 OWASP-API4 OWASP-API10 op consumeGrandmaHelpProvided")
+  @Test
+  void mitigationWithAnOverlongImageLinkIsDeadLettered() {
+    lenasCatastropheRequestToGrandmaIsStored();
+    String prefix = "https://img.larder.example/";
+
+    expectDeadLetteredWithoutEffect(
+        HEADERS,
+        bytes(
+            grandmaMitigates(
+                "", ", \"images\": [\"" + prefix + "a".repeat(2049 - prefix.length()) + "\"]")));
+  }
+
+  /** Grandma's mitigation of the burnt chicken; recipe and images are given as JSON fragments. */
+  private static String grandmaMitigates(String recipe, String images) {
+    return """
+        {
+          "helpRequest": "%s",
+          "answerTitle": "Save the chicken",
+          "answer": {
+            "answerType": "STEPS_TO_MITIGATE_CATASTROPHE",
+            %s"explanation": "Cut off the burnt skin, make a fresh sauce"%s
+          }
+        }
+        """
+        .formatted(HelpRequests.HELP_REQUEST_ID.value(), recipe, images);
+  }
+
+  private HelpAnswer grandmasAnswer() {
+    return helpRequests
+        .findById(HelpRequests.HELP_REQUEST_ID)
+        .orElseThrow()
+        .helps()
+        .getFirst()
+        .answer();
+  }
+
   private void lenasIngredientRequestToGrandmaIsStored() {
     helpRequests.clear();
     helpRequests.save(HelpRequests.lenaAsksForASubstitute(HelpProviderType.GRANDMA_AVATAR));
@@ -533,5 +584,83 @@ class GrandmaHelpProvidedConsumerTest {
                 .getFirst()
                 .answer();
     return answer.substitute().getFirst().substituteIngredients().getFirst();
+  }
+
+  @DisplayName(
+      "a valid message with a CatastropheMitigation (recipe Roast chicken, explanation, images [cut-skin, sauce]) -> the handler receives the same CatastropheMitigation; ACK (replaces AnswerKindNotBuilt) -- B4-S02 US-CA-04 R5.E1 op consumeGrandmaHelpProvided")
+  @Test
+  void grandmasMitigationIsMappedAndAcknowledged() {
+    lenasCatastropheRequestToGrandmaIsStored();
+
+    Outcome outcome =
+        consumer.handle(
+            HEADERS,
+            bytes(
+                grandmaMitigates(
+                    "\"recipe\": \"%s\", ".formatted(HelpRequests.ROAST_CHICKEN.value()),
+                    ", \"images\": [\"https://img.larder.example/cut-skin.jpg\", \"https://img.larder.example/sauce.jpg\"]")));
+
+    assertThat(outcome).isEqualTo(Outcome.ACK);
+    assertThat(grandmasAnswer())
+        .isEqualTo(
+            new CatastropheMitigation(
+                HelpRequests.ROAST_CHICKEN,
+                "Cut off the burnt skin, make a fresh sauce",
+                List.of(
+                    URI.create("https://img.larder.example/cut-skin.jpg"),
+                    URI.create("https://img.larder.example/sauce.jpg"))));
+  }
+
+  @DisplayName(
+      "a CatastropheMitigation without recipe and without images -> mapped with no recipe and no images; ACK -- B4-S02 US-CA-04 INV-37 op consumeGrandmaHelpProvided")
+  @Test
+  void grandmasMitigationWithoutRecipeOrImagesIsMapped() {
+    lenasCatastropheRequestToGrandmaIsStored();
+
+    Outcome outcome = consumer.handle(HEADERS, bytes(grandmaMitigates("", "")));
+
+    assertThat(outcome).isEqualTo(Outcome.ACK);
+    assertThat(grandmasAnswer())
+        .isEqualTo(
+            new CatastropheMitigation(
+                null, "Cut off the burnt skin, make a fresh sauce", List.of()));
+  }
+
+  @DisplayName(
+      "Grandma's mitigation after her side timed out (AnswerTooLate) -> ignored and logged, ACK, not dead-lettered -- B4-S02 US-CA-04 INV-26 r21 Q-A2 op consumeGrandmaHelpProvided")
+  @Test
+  @ExtendWith(OutputCaptureExtension.class)
+  void grandmasLateMitigationIsIgnored(CapturedOutput output) {
+    HelpRequest lenas =
+        HelpRequests.lenaAsksAboutBurntChicken(
+            Optional.of(HelpRequests.ROAST_CHICKEN),
+            HelpRequests.BURNT_CHICKEN_PHOTOS,
+            HelpProviderType.COMMUNITY,
+            HelpProviderType.GRANDMA_AVATAR);
+    // Sat 18:45:01 CET: Grandma's side timed out, the Community's runs until 18:55
+    lenas.timeOut(Clock.fixed(Instant.parse("2026-11-14T17:45:01Z"), ZoneOffset.UTC));
+    helpRequests.clear();
+    helpRequests.save(lenas);
+    GrandmaHelpProvidedConsumer atSaturday1846 =
+        new GrandmaHelpProvidedConsumer(
+            new ProvideGrandmaAvatarHelp(
+                helpRequests,
+                processedMessages,
+                new RecordingUnitOfWork(),
+                () -> HelpRequests.HELP_ID.value(),
+                Clock.fixed(Instant.parse("2026-11-14T17:46:00Z"), ZoneOffset.UTC)));
+
+    Outcome outcome =
+        atSaturday1846.handle(
+            HEADERS,
+            bytes(
+                grandmaMitigates(
+                    "\"recipe\": \"%s\", ".formatted(HelpRequests.ROAST_CHICKEN.value()), "")));
+
+    HelpRequest after = helpRequests.findById(HelpRequests.HELP_REQUEST_ID).orElseThrow();
+    assertThat(outcome).isEqualTo(Outcome.ACK);
+    assertThat(after.status()).isEqualTo(HelpRequestStatus.OPEN);
+    assertThat(after.helps()).isEmpty();
+    assertThat(output.getOut()).containsOnlyOnce(M1.toString()).contains("INFO");
   }
 }

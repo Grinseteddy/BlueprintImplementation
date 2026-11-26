@@ -3,7 +3,7 @@
 ## How this repository is built
 - Implemented with the `blueprint-service-implementation` pipeline, one increment at a time
   (increment 0 = walking skeleton US-CA-03; increment 1 = Board: Help with a preparation step;
-  increment 2 = Board: Help with ingredient substitution; next: increment 3 — Board: Help with a catastrophe). The ledger is `docs/cooking-assistance/implementation-log.md`, with the journals in
+  increment 2 = Board: Help with ingredient substitution; increment 3 = Board: Help with a catastrophe; next: increment 4 — Board: Help with a meal plan). The ledger is `docs/cooking-assistance/implementation-log.md`, with the journals in
   `docs/cooking-assistance/ledger/`; the planned list is in the ledger.
 - Method: EXACT Coding (Predictive TDD), vendored in `.claude/skills/` at 88fb3f9, autonomy
   **full-hitl**: stop after the test list, after each Red, after each refactor (keep or undo)
@@ -16,7 +16,7 @@
 ## Commands
 - `./mvnw test` fast suite; `./mvnw verify` everything (generation, Spotless, Error Prone, fast
   and slow suites on Testcontainers, Spectral); work offline with `mvn -o`.
-- Intent coverage: `python3 tools/coverage/intent_coverage.py docs/cooking-assistance/coverage/inventory-inc2.yaml .`
+- Intent coverage: `python3 tools/coverage/intent_coverage.py docs/cooking-assistance/coverage/inventory-inc3.yaml .`
 - Spec compatibility (QS-15): `tools/contract/spec-compatibility.sh origin/main`; decided exceptions in
   `tools/contract/oasdiff-err-ignore.txt` (ADR0014), removed with the next spec change.
 - Load (QS-03, QS-11): module `load-tests` under profile `load`, `./mvnw -Pload -pl load-tests gatling:test`
