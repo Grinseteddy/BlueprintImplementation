@@ -2,11 +2,11 @@
 
 Larder is a modular monolith. This repository holds its first module, **Cook Assistance**
 (`cooking-assistance`), and the thin host application that runs it (`larder-app`). A cook asks
-for help with a preparation step or with an ingredient to substitute, and the community or the
-Grandma Avatar answers.
+for help with a preparation step, with an ingredient to substitute or with a kitchen catastrophe,
+and the community or the Grandma Avatar answers.
 
-Status: increment 2 (Board B2, user story US-CA-02) on top of increments 0 and 1 (Board B3,
-US-CA-03).
+Status: increment 3 (Board B4, user story US-CA-04) on top of increments 0 and 1 (Board B3,
+US-CA-03) and 2 (Board B2, US-CA-02).
 The design documents are in [`docs/cooking-assistance/`](docs/cooking-assistance/).
 
 ## Build and test
@@ -18,7 +18,7 @@ build installs its own pinned Node.js for the generators and Spectral.
 |---|---|
 | `./mvnw test` | the fast suite, without containers |
 | `./mvnw verify` | everything: code generation from both specs, Spotless and Error Prone, the fast and slow suites (Testcontainers), Spectral lint of both specs (ADR0017, ADR0018) |
-| `python3 tools/coverage/intent_coverage.py docs/cooking-assistance/coverage/inventory-inc2.yaml .` | intent coverage after `verify`; exits 1 on a gap |
+| `python3 tools/coverage/intent_coverage.py docs/cooking-assistance/coverage/inventory-inc3.yaml .` | intent coverage after `verify`; exits 1 on a gap |
 | `./mvnw -Psecurity -DskipTests verify` | SpotBugs with FindSecBugs (the security CI job, ADR0019) |
 | `tools/contract/spec-compatibility.sh origin/main` | QS-15: a breaking change in either spec fails (oasdiff 1.34.1 on `PATH` or `OASDIFF=<binary>`, Node 24 for `@asyncapi/cli`, PyYAML); decided exceptions in `tools/contract/oasdiff-err-ignore.txt` (ADR0014) |
 | `./mvnw -Pload -pl load-tests gatling:test -DbaseUrl=… -Dtoken=… -DbrokerUser=… -DbrokerPassword=…` | QS-03 and QS-11: Gatling against a running service; for QS-11 seed the database first with `tools/load/seed-help-requests.sql` (see [`load.yml`](.github/workflows/load.yml)) |
