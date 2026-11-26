@@ -504,6 +504,20 @@ class GrandmaHelpProvidedConsumerTest {
             HelpProviderType.GRANDMA_AVATAR));
   }
 
+  @DisplayName(
+      "Grandma's mitigation with an image link of 2049 characters -> DEAD_LETTER, no Help -- B4-S02 US-CA-04 INV-38 OWASP-API4 OWASP-API10 op consumeGrandmaHelpProvided")
+  @Test
+  void mitigationWithAnOverlongImageLinkIsDeadLettered() {
+    lenasCatastropheRequestToGrandmaIsStored();
+    String prefix = "https://img.larder.example/";
+
+    expectDeadLetteredWithoutEffect(
+        HEADERS,
+        bytes(
+            grandmaMitigates(
+                "", ", \"images\": [\"" + prefix + "a".repeat(2049 - prefix.length()) + "\"]")));
+  }
+
   /** Grandma's mitigation of the burnt chicken; recipe and images are given as JSON fragments. */
   private static String grandmaMitigates(String recipe, String images) {
     return """

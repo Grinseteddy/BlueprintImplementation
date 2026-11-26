@@ -670,6 +670,18 @@ class HelpRequestsControllerTest {
   }
 
   @DisplayName(
+      "STEPS_TO_MITIGATE_CATASTROPHE with a picture link of 2049 characters -> 400 VALIDATION_FAILED, nothing saved (maxLength 2048) -- B4-S01 US-CA-04 INV-38 OWASP-API4 op createHelpRequest")
+  @Test
+  void catastropheWithAnOverlongPictureLinkIsRefused() throws Exception {
+    String prefix = "https://img.larder.example/";
+
+    expectValidationFailed(
+        LENAS_CATASTROPHE_REQUEST.replaceFirst(
+            "(?s)\"pictures\": \\[.*?\\],",
+            "\"pictures\": [\"" + prefix + "a".repeat(2049 - prefix.length()) + "\"],"));
+  }
+
+  @DisplayName(
       "STEPS_TO_MITIGATE_CATASTROPHE naming the Chef -> 400 VALIDATION_FAILED, nothing saved (schema else branch) -- B4-S01 US-CA-04 INV-18 R1.E4 op createHelpRequest")
   @Test
   void catastropheNamingTheChefIsRefused() throws Exception {

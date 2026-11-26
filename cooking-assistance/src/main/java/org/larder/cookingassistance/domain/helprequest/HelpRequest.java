@@ -19,6 +19,7 @@ public final class HelpRequest {
 
   // INV-38: a request or an answer carries at most 10 pictures (glossary Picture 0..10)
   private static final int MAX_PICTURES = 10;
+  private static final int MAX_PICTURE_LINK_LENGTH = 2048;
 
   private final HelpRequestId id;
   private final CookId requester;
@@ -634,13 +635,17 @@ public final class HelpRequest {
   }
 
   // INV-38: a request or an answer carries at most 10 pictures, each an https link
-  // (security review SEC-07)
+  // (security review SEC-07) of at most 2048 characters (SEC-24, step 3 r26)
   private static void ensurePicturesMayBeAttached(List<URI> pictures) {
     if (pictures.size() > MAX_PICTURES) {
       throw new TooManyPictures();
     }
     if (!pictures.stream().allMatch(HelpRequest::isHttpsLink)) {
       throw new PictureLinkNotSecure();
+    }
+    if (pictures.stream()
+        .anyMatch(picture -> picture.toString().length() > MAX_PICTURE_LINK_LENGTH)) {
+      throw new PictureLinkTooLong();
     }
   }
 

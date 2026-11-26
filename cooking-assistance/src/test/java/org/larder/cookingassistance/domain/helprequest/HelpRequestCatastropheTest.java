@@ -237,6 +237,34 @@ class HelpRequestCatastropheTest {
   }
 
   @DisplayName(
+      "a photo link of 2049 characters -> rejected with PictureLinkTooLong, rule INV-38, no request -- B4-S01 US-CA-04 INV-38 OWASP-API4")
+  @Test
+  void aPhotoLinkIsAtMost2048Characters() {
+    String prefix = "https://photos.example/lena/";
+    URI tooLong = URI.create(prefix + "a".repeat(2049 - prefix.length()));
+
+    assertThatThrownBy(
+            () ->
+                lenaAsks(
+                    Set.of(HelpProviderType.GRANDMA_AVATAR), Optional.empty(), List.of(tooLong)))
+        .isInstanceOfSatisfying(
+            PictureLinkTooLong.class, rejected -> assertThat(rejected.rule()).isEqualTo("INV-38"));
+  }
+
+  @DisplayName(
+      "a photo link of exactly 2048 characters -> the request is made with it -- B4-S01 US-CA-04 INV-38 OWASP-API4")
+  @Test
+  void aPhotoLinkOf2048CharactersIsAccepted() {
+    String prefix = "https://photos.example/lena/";
+    URI longest = URI.create(prefix + "a".repeat(2048 - prefix.length()));
+
+    HelpRequest request =
+        lenaAsks(Set.of(HelpProviderType.GRANDMA_AVATAR), Optional.empty(), List.of(longest));
+
+    assertThat(request.pictures()).containsExactly(longest);
+  }
+
+  @DisplayName(
       "a photo that is not an https link -> rejected with PictureLinkNotSecure, no request -- B4-S01 US-CA-04 INV-20 INV-38")
   @Test
   void aPhotoIsAnHttpsLink() {
@@ -363,6 +391,20 @@ class HelpRequestCatastropheTest {
     assertThatThrownBy(
             () -> grandmaRescues(request, List.of(URI.create("http://photos.example/sauce.jpg"))))
         .isInstanceOf(PictureLinkNotSecure.class);
+    assertThat(request.helps()).isEmpty();
+  }
+
+  @DisplayName(
+      "an answer with a photo link of 2049 characters -> PictureLinkTooLong, rule INV-38, no help -- B4-S02 US-CA-04 INV-38 OWASP-API4")
+  @Test
+  void aMitigationPhotoLinkIsAtMost2048Characters() {
+    HelpRequest request = lenaAsks(Set.of(HelpProviderType.GRANDMA_AVATAR));
+    String prefix = "https://photos.example/grandma/";
+    URI tooLong = URI.create(prefix + "a".repeat(2049 - prefix.length()));
+
+    assertThatThrownBy(() -> grandmaRescues(request, List.of(tooLong)))
+        .isInstanceOfSatisfying(
+            PictureLinkTooLong.class, rejected -> assertThat(rejected.rule()).isEqualTo("INV-38"));
     assertThat(request.helps()).isEmpty();
   }
 

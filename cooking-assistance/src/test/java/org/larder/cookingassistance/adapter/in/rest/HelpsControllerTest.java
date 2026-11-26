@@ -736,4 +736,15 @@ class HelpsControllerTest {
 
     expectValidationFailed(mitigating("", ", \"images\": " + elevenImages()));
   }
+
+  @DisplayName(
+      "a CatastropheMitigation with an image link of 2049 characters -> 400 VALIDATION_FAILED, no Help saved (maxLength 2048) -- B4-S02 US-CA-04 INV-38 OWASP-API4 op provideHelp")
+  @Test
+  void mitigationWithAnOverlongImageLinkIsRefused() throws Exception {
+    lenasCatastropheRequestIsStored();
+    String prefix = "https://img.larder.example/";
+
+    expectValidationFailed(
+        mitigating("", ", \"images\": [\"" + prefix + "a".repeat(2049 - prefix.length()) + "\"]"));
+  }
 }
