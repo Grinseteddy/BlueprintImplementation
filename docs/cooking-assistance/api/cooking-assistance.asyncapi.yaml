@@ -1,7 +1,7 @@
 asyncapi: 3.0.0
 info:
   title: Cooking Assistance
-  version: 1.0.14
+  version: 1.0.15
   description: |
     Event-driven API of the Cooking Assistance bounded context. It provides help
     for cooks in planning and preparation of meals and dinners: cooks create help
@@ -716,6 +716,7 @@ components:
             type: string
             format: uri
             pattern: '^https://'
+            maxLength: 2048
         chef:
           type: string
           format: uuid
@@ -1125,6 +1126,7 @@ components:
             type: string
             format: uri
             pattern: '^https://'
+            maxLength: 2048
 
     CatastropheMitigation:
       type: object
@@ -1157,6 +1159,7 @@ components:
             type: string
             format: uri
             pattern: '^https://'
+            maxLength: 2048
 
     MenuProposal:
       type: object

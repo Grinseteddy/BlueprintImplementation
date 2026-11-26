@@ -1,5 +1,12 @@
 # Cook Assistance API — changelog
 
+## OpenAPI 1.0.19 and AsyncAPI 1.0.15 — 2026-11-26 (step 4 r27, from step 14 of increment 3)
+
+| Change | Why |
+|---|---|
+| `Pictures.items` (OpenAPI; the request's pictures and every answer's images) and the AsyncAPI link lists `HelpRequestCreatedPayload.pictures`, `PreparationStepExplanation.images`, `CatastropheMitigation.images` get `maxLength: 2048` | SEC-24 (INV-38 r26): an unbounded link let ten 100,000-character links make a 1 MB request, a 1 MB published event and multi-megabyte list pages. Narrower — breaking for a client sending longer links; released under ADR0014's security-fix exception with named, path-scoped lines in `tools/contract/oasdiff-err-ignore.txt` |
+| `version` header accepts 1.0.19 (OpenAPI) | |
+
 ## OpenAPI 1.0.18 and AsyncAPI 1.0.14 — 2026-11-17 (step 4 r26, from step 12 of increment 3)
 
 | Change | Why |

@@ -91,7 +91,7 @@ Kinds: *quantitative* and *cardinality* rules get a property test in step 6.
 
 #### INV-38 — added in step 3: At most 10 pictures
 - **Slice / command:** B3-S02 · Provide Help (answer pictures); B4-S01 · Request help Catastrophe (request photos) · **kind:** cardinality
-- **Guard / outcome:** TooManyPictures — 0..10 pictures; PictureLinkNotSecure (INVALID_PICTURE_LINK) — every picture is an https link *(step 3 r3, 2026-11-01, from the security review SEC-07)*; the domain compares the scheme case-insensitively (RFC 3986 §3.1), both specs are stricter at the edge (`^https://`) *(step 3 r4, 2026-11-02, reverse check of step 14)*
+- **Guard / outcome:** TooManyPictures — 0..10 pictures; PictureLinkNotSecure (INVALID_PICTURE_LINK) — every picture is an https link *(step 3 r3, 2026-11-01, from the security review SEC-07)*; the domain compares the scheme case-insensitively (RFC 3986 §3.1), both specs are stricter at the edge (`^https://`) *(step 3 r4, 2026-11-02, reverse check of step 14)*; *(step 3 r26, 2026-11-26, from the security review SEC-24, decided by the user:)* every picture link is at most 2048 characters → PictureLinkTooLong (INVALID_PICTURE_LINK); both specs bound the link at the edge with `maxLength: 2048`
 - **Sources:** glossary v2 'Help Request contains Picture 0..10' (chosen over model v2 0..*); example added by the user 2026-10-31
   - `US-CA-03 S3.E3` **Given/When** Grandma's answer carries 11 photos **Then** refused and set aside, max 10; the request is still open
 
